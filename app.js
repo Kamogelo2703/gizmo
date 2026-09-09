@@ -287,13 +287,40 @@ const strategyLabels = {
 const eaList = document.getElementById("ea-list");
 const eaCount = document.getElementById("ea-count");
 const robotList = document.querySelector(".robots");
+const eaPhotoInput = document.getElementById("ea-photo");
+const eaPhotoPreview = document.getElementById("ea-photo-preview");
+const eaPhotoBtn = document.getElementById("ea-photo-btn");
+let eaPhotoDataUrl = "";
 
-function addEaToHome(name) {
+eaPhotoBtn?.addEventListener("click", () => eaPhotoInput?.click());
+
+eaPhotoInput?.addEventListener("change", () => {
+  const file = eaPhotoInput.files && eaPhotoInput.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showToast("Please upload an image");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    eaPhotoDataUrl = String(reader.result || "");
+    if (eaPhotoPreview) eaPhotoPreview.src = eaPhotoDataUrl;
+    showToast("Picture ready");
+  };
+  reader.readAsDataURL(file);
+});
+
+function addEaToHome(name, photoUrl) {
   if (!robotList) return;
-  const existing = Array.from(robotList.querySelectorAll(".robot-row span")).some(
-    (span) => span.textContent.trim() === name
-  );
-  if (existing) return;
+  const existing = Array.from(robotList.querySelectorAll(".robot-row")).find((row) => {
+    const label = row.querySelector("span");
+    return label && label.textContent.trim() === name;
+  });
+  if (existing) {
+    const img = existing.querySelector("img");
+    if (img && photoUrl) img.src = photoUrl;
+    return;
+  }
 
   const addBtn = robotList.querySelector("[data-action='add-bot']");
   const row = document.createElement("button");
@@ -308,10 +335,18 @@ function addEaToHome(name) {
       </svg>
     </span>
   `;
+  const img = row.querySelector("img");
+  if (img && photoUrl) img.src = photoUrl;
   row.querySelector("span").textContent = name;
   row.addEventListener("click", () => {
     robotList.querySelectorAll(".robot-row").forEach((r) => r.classList.remove("is-active"));
-    if (!row.classList.contains("robot-add")) row.classList.add("is-active");
+    if (!row.classList.contains("robot-add")) {
+      row.classList.add("is-active");
+      const heroAvatar = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
+      const brand = document.querySelector(".hero .brand, .brand");
+      if (heroAvatar && img) heroAvatar.src = img.src;
+      if (brand) brand.textContent = name;
+    }
   });
   if (addBtn) {
     robotList.insertBefore(row, addBtn);
@@ -328,6 +363,7 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   const symbol = form.symbol.value;
   const risk = form.risk.value;
   const timeframe = form.timeframe.value;
+  const photoUrl = eaPhotoDataUrl || "./assets/avatar.png";
 
   if (!name) {
     showToast("Enter a robot name");
@@ -346,6 +382,8 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
     </div>
     <span class="admin-badge is-approved">Live</span>
   `;
+  const itemImg = item.querySelector("img");
+  if (itemImg) itemImg.src = photoUrl;
   item.querySelector("strong").textContent = name;
   item.querySelector(".ea-meta span").textContent = `${strategyLabels[strategy] || strategy} · ${symbol} · ${timeframe} · Risk ${risk}%`;
   eaList?.prepend(item);
@@ -354,9 +392,25 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
     eaCount.textContent = String(eaList.querySelectorAll(".ea-item").length);
   }
 
-  addEaToHome(name);
+  addEaToHome(name, photoUrl);
+
+  // Also update main app hero with the new robot
+  const heroAvatar = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
+  const brand = document.querySelector(".hero .brand, .brand");
+  if (heroAvatar) heroAvatar.src = photoUrl;
+  if (brand) brand.textContent = name;
+  document.querySelectorAll(".robot-row").forEach((r) => r.classList.remove("is-active"));
+  const homeRows = robotList?.querySelectorAll(".robot-row:not(.robot-add)");
+  const last = homeRows && homeRows[homeRows.length - 1];
+  last?.classList.add("is-active");
+
   form.reset();
   form.risk.value = "1";
   form.timeframe.value = "M5";
-  showToast(`${name} created`);
+  eaPhotoDataUrl = "";
+  if (eaPhotoPreview) eaPhotoPreview.src = "./assets/avatar.png";
+  if (eaPhotoInput) eaPhotoInput.value = "";
+  showToast(`${name} added to app`);
+  closeAdmin();
+  showView("home");
 });

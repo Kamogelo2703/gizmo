@@ -735,6 +735,13 @@
                 <h3>Create Robot EA</h3>
               </div>
               <form class="ea-form" id="ea-create-form">
+                <div class="ea-photo-field">
+                  <button class="ea-photo-btn" type="button" id="ea-photo-btn" aria-label="Upload robot picture">
+                    <img id="ea-photo-preview" src="./assets/avatar.png" alt="" />
+                    <span>Upload picture</span>
+                  </button>
+                  <input id="ea-photo" name="photo" type="file" accept="image/*" hidden />
+                </div>
                 <label class="ea-field">
                   <span>Robot name</span>
                   <input
