@@ -204,7 +204,7 @@ document.querySelectorAll(".glass-btn").forEach((button) => {
       return;
     }
     if (action === "remove") {
-      showToast("Bot removed");
+      removeActiveBot();
     }
   });
 });
@@ -212,6 +212,12 @@ document.querySelectorAll(".glass-btn").forEach((button) => {
 document.querySelectorAll("[data-action='add-bot']").forEach((button) => {
   button.addEventListener("click", () => {
     openAdmin("manage-ea");
+  });
+});
+
+document.querySelectorAll("[data-action='activate-license']").forEach((button) => {
+  button.addEventListener("click", () => {
+    openLicenseSheet();
   });
 });
 
@@ -543,3 +549,265 @@ document.querySelectorAll("[data-delete-ea]").forEach((btn) => {
 
 // Initialize default EA symbol chips with delete controls
 refreshEaItemSymbols("zeta-scalper");
+
+/* —— Bot license system —— */
+const botRegistry = new Map([
+  [
+    "zeta",
+    {
+      id: "zeta",
+      name: "ZETA SCALPER AI",
+      photo: "./assets/avatar.png",
+      active: true,
+    },
+  ],
+]);
+
+/** @type {Array<{key:string, botId:string, botName:string, used:boolean, createdAt:number}>} */
+const licenseKeys = [];
+
+const licenseSheet = document.getElementById("license-sheet");
+const licenseForm = document.getElementById("license-form");
+const licenseBotSelect = document.getElementById("license-bot");
+const licenseResult = document.getElementById("license-result");
+const licenseLatest = document.getElementById("license-latest");
+const licenseList = document.getElementById("license-list");
+const licenseEmpty = document.getElementById("license-empty");
+const licenseCount = document.getElementById("license-count");
+const licenseActivateForm = document.getElementById("license-activate-form");
+const licenseKeyInput = document.getElementById("license-key-input");
+const heroEl = document.querySelector(".hero");
+const heroAvatarEl = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
+const heroBrandEl = document.querySelector(".hero .brand, .brand");
+const heroKickerEl = document.querySelector(".hero .kicker, .kicker");
+
+function randomLicenseKey() {
+  const chunk = () =>
+    Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 6);
+  return `GIZMO-${chunk()}-${chunk()}`;
+}
+
+function refreshLicenseBotOptions() {
+  if (!licenseBotSelect) return;
+  const current = licenseBotSelect.value;
+  licenseBotSelect.innerHTML = "";
+  [...botRegistry.values()].forEach((bot) => {
+    const opt = document.createElement("option");
+    opt.value = bot.id;
+    opt.textContent = `${bot.name}${bot.active ? "" : " (removed)"}`;
+    licenseBotSelect.appendChild(opt);
+  });
+  if ([...botRegistry.keys()].includes(current)) {
+    licenseBotSelect.value = current;
+  }
+}
+
+function renderLicenseList() {
+  if (!licenseList) return;
+  licenseList.innerHTML = "";
+  if (licenseCount) licenseCount.textContent = String(licenseKeys.length);
+  if (licenseEmpty) licenseEmpty.hidden = licenseKeys.length > 0;
+
+  if (licenseKeys.length === 0) {
+    if (licenseEmpty) licenseList.appendChild(licenseEmpty);
+    return;
+  }
+
+  [...licenseKeys]
+    .reverse()
+    .forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = `license-row${entry.used ? " is-used" : ""}`;
+      row.innerHTML = `
+        <strong></strong>
+        <span></span>
+      `;
+      row.querySelector("strong").textContent = entry.key;
+      row.querySelector("span").textContent = `${entry.botName} · ${
+        entry.used ? "Used" : "Available"
+      }`;
+      licenseList.appendChild(row);
+    });
+}
+
+function openLicenseSheet() {
+  if (!licenseSheet) return;
+  licenseSheet.hidden = false;
+  if (licenseKeyInput) {
+    licenseKeyInput.value = "";
+    licenseKeyInput.focus();
+  }
+}
+
+function closeLicenseSheet() {
+  if (!licenseSheet) return;
+  licenseSheet.hidden = true;
+}
+
+function setHeroEmpty(empty) {
+  heroEl?.classList.toggle("is-empty", empty);
+  if (empty) {
+    if (heroBrandEl) heroBrandEl.textContent = "No active bot";
+    if (heroKickerEl) heroKickerEl.textContent = "Activate a bot with a license key";
+    if (heroAvatarEl) heroAvatarEl.src = "./assets/avatar.png";
+  }
+}
+
+function setActiveHero(bot) {
+  heroEl?.classList.remove("is-empty");
+  if (heroBrandEl) heroBrandEl.textContent = bot.name;
+  if (heroKickerEl) heroKickerEl.textContent = "You are trading with";
+  if (heroAvatarEl) heroAvatarEl.src = bot.photo || "./assets/avatar.png";
+}
+
+function getActiveBotId() {
+  const activeRow = robotList?.querySelector(".robot-row.is-active:not(.robot-add):not(.robot-activate)");
+  return activeRow?.dataset.bot || null;
+}
+
+function removeActiveBot() {
+  const botId = getActiveBotId();
+  if (!botId) {
+    showToast("No active bot to remove");
+    return;
+  }
+  const bot = botRegistry.get(botId);
+  if (!bot || !bot.active) {
+    showToast("Bot already removed");
+    return;
+  }
+
+  bot.active = false;
+  botRegistry.set(botId, bot);
+
+  robotList?.querySelectorAll(`.robot-row[data-bot="${botId}"]`).forEach((row) => row.remove());
+
+  const next = robotList?.querySelector(".robot-row:not(.robot-add):not(.robot-activate)");
+  if (next) {
+    next.classList.add("is-active");
+    const nextBot = botRegistry.get(next.dataset.bot);
+    if (nextBot) setActiveHero(nextBot);
+  } else {
+    setHeroEmpty(true);
+  }
+
+  refreshLicenseBotOptions();
+  showToast(`${bot.name} removed — license key required to restore`);
+  openLicenseSheet();
+}
+
+function restoreBotToApp(bot) {
+  bot.active = true;
+  botRegistry.set(bot.id, bot);
+  addEaToHome(bot.name, bot.photo);
+  // Ensure data-bot id is set on the row
+  const row = [...(robotList?.querySelectorAll(".robot-row") || [])].find((r) => {
+    const label = r.querySelector("span");
+    return label && label.textContent.trim() === bot.name;
+  });
+  if (row) {
+    row.dataset.bot = bot.id;
+    robotList.querySelectorAll(".robot-row").forEach((r) => r.classList.remove("is-active"));
+    row.classList.add("is-active");
+  }
+  setActiveHero(bot);
+  refreshLicenseBotOptions();
+}
+
+// Patch addEaToHome to register bots
+const _addEaToHome = addEaToHome;
+addEaToHome = function (name, photoUrl) {
+  let botId = [...botRegistry.values()].find((b) => b.name === name)?.id;
+  if (!botId) {
+    botId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `bot-${Date.now()}`;
+  }
+  botRegistry.set(botId, {
+    id: botId,
+    name,
+    photo: photoUrl || "./assets/avatar.png",
+    active: true,
+  });
+  _addEaToHome(name, photoUrl);
+  const row = [...(robotList?.querySelectorAll(".robot-row") || [])].find((r) => {
+    const label = r.querySelector("span");
+    return label && label.textContent.trim() === name;
+  });
+  if (row) row.dataset.bot = botId;
+  refreshLicenseBotOptions();
+};
+
+licenseForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const botId = licenseBotSelect?.value;
+  const bot = botRegistry.get(botId);
+  if (!bot) {
+    showToast("Select a bot");
+    return;
+  }
+  const key = randomLicenseKey();
+  licenseKeys.push({
+    key,
+    botId: bot.id,
+    botName: bot.name,
+    used: false,
+    createdAt: Date.now(),
+  });
+  if (licenseLatest) licenseLatest.textContent = key;
+  if (licenseResult) licenseResult.hidden = false;
+  renderLicenseList();
+  showToast("License key generated");
+});
+
+document.getElementById("license-copy")?.addEventListener("click", async () => {
+  const key = licenseLatest?.textContent?.trim();
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    showToast("License key copied");
+  } catch {
+    showToast(key);
+  }
+});
+
+licenseActivateForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const key = (licenseKeyInput?.value || "").trim().toUpperCase();
+  if (!key) {
+    showToast("Enter a license key");
+    return;
+  }
+  const entry = licenseKeys.find((item) => item.key === key);
+  if (!entry) {
+    showToast("Invalid license key");
+    return;
+  }
+  if (entry.used) {
+    showToast("License key already used");
+    return;
+  }
+  const bot = botRegistry.get(entry.botId);
+  if (!bot) {
+    showToast("Bot not found for this key");
+    return;
+  }
+  if (bot.active) {
+    showToast("Bot is already active");
+    entry.used = true;
+    renderLicenseList();
+    closeLicenseSheet();
+    return;
+  }
+
+  entry.used = true;
+  restoreBotToApp(bot);
+  renderLicenseList();
+  closeLicenseSheet();
+  showToast(`${bot.name} activated`);
+});
+
+document.querySelectorAll("[data-close-license]").forEach((el) => {
+  el.addEventListener("click", closeLicenseSheet);
+});
+
+refreshLicenseBotOptions();
+renderLicenseList();

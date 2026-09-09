@@ -115,6 +115,10 @@
               <span class="plus" aria-hidden="true">+</span>
               <span>Add New Trading Bot</span>
             </button>
+            <button class="robot-row robot-activate" type="button" data-action="activate-license">
+              <span class="plus" aria-hidden="true">🔑</span>
+              <span>Activate with License Key</span>
+            </button>
           </section>
         </section>
 
@@ -232,6 +236,38 @@
       </nav>
 
       <div class="toast" id="toast" hidden></div>
+
+      <div class="license-sheet" id="license-sheet" hidden>
+        <div class="license-backdrop" data-close-license></div>
+        <div class="license-panel" role="dialog" aria-modal="true" aria-labelledby="license-title">
+          <header class="license-header">
+            <h2 id="license-title">Activate Bot</h2>
+            <button class="license-close" type="button" data-close-license aria-label="Close">
+              ×
+            </button>
+          </header>
+          <p class="license-copy">
+            Enter a license key from Admin to bring a removed bot back.
+          </p>
+          <form class="license-activate-form" id="license-activate-form">
+            <label class="ea-field">
+              <span>License key</span>
+              <input
+                class="admin-input"
+                id="license-key-input"
+                name="key"
+                type="text"
+                placeholder="GIZMO-XXXX-XXXX"
+                autocomplete="off"
+                required
+              />
+            </label>
+            <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
+              Activate bot
+            </button>
+          </form>
+        </div>
+      </div>
 
       <div class="pairs-sheet" id="pairs-sheet" hidden>
         <div class="pairs-backdrop" data-close-pairs></div>
@@ -417,6 +453,23 @@
                 />
               </svg>
               <span>Manage EA</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="licenses">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M7 11V8.8A5 5 0 0 1 17 8.8V11m-11.5 0h13A1.5 1.5 0 0 1 20 12.5v7A1.5 1.5 0 0 1 18.5 21h-13A1.5 1.5 0 0 1 4 19.5v-7A1.5 1.5 0 0 1 5.5 11Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M12 15.2v2.2"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>License Keys</span>
             </button>
             <button class="admin-nav-item" type="button" data-admin-nav="settings">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -823,6 +876,47 @@
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="licenses" hidden>
+            <h2 class="admin-h1">Generate License Key</h2>
+            <p class="admin-sub">
+              Create a license key so a removed bot can be activated again on the app.
+            </p>
+
+            <div class="admin-card">
+              <div class="admin-card-title-row">
+                <h3>New license</h3>
+              </div>
+              <form class="license-form" id="license-form">
+                <label class="ea-field">
+                  <span>Bot</span>
+                  <select class="admin-input" id="license-bot" name="bot" required>
+                    <option value="zeta">ZETA SCALPER AI</option>
+                  </select>
+                </label>
+                <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
+                  Generate License Key
+                </button>
+              </form>
+              <div class="license-result" id="license-result" hidden>
+                <p>Latest key</p>
+                <code id="license-latest"></code>
+                <button class="admin-btn admin-btn-outline admin-btn-block" type="button" id="license-copy">
+                  Copy key
+                </button>
+              </div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-title-row">
+                <h3>Generated keys</h3>
+                <span class="admin-badge" id="license-count">0</span>
+              </div>
+              <div class="license-list" id="license-list">
+                <p class="admin-empty" id="license-empty">No license keys yet</p>
               </div>
             </div>
           </section>
