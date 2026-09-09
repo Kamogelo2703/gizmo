@@ -10,24 +10,25 @@ function showToast(message) {
   }, 1800);
 }
 
-document.querySelectorAll(".control").forEach((button) => {
+const stopBtn = document.querySelector(".stop-btn");
+if (stopBtn) {
+  stopBtn.addEventListener("click", () => {
+    const running = stopBtn.classList.toggle("is-running");
+    stopBtn.setAttribute("aria-pressed", running ? "true" : "false");
+    stopBtn.querySelector(".stop-label").textContent = running ? "STOP" : "START";
+    showToast(running ? "ZETA SCALPER AI started" : "Bot stopped");
+  });
+}
+
+document.querySelectorAll(".glass-btn").forEach((button) => {
   button.addEventListener("click", () => {
     const action = button.dataset.action;
-    if (action === "start") {
-      button.classList.toggle("is-running");
-      const running = button.classList.contains("is-running");
-      button.querySelector(".control-label").textContent = running
-        ? "STOP"
-        : "START";
-      showToast(running ? "ZETA SCALPER AI started" : "Bot stopped");
+    if (action === "pairs") {
+      showToast("Opening pairs");
       return;
     }
-    if (action === "remove") {
-      showToast("Bot removed from session");
-      return;
-    }
-    if (action === "quotes") {
-      showToast("Opening live quotes");
+    if (action === "logs") {
+      showToast("Opening logs");
     }
   });
 });

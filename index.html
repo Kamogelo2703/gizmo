@@ -41,44 +41,65 @@
           <p class="powered">POWERED BY GIZMO PRO</p>
         </div>
 
-        <div class="controls" role="group" aria-label="Trading controls">
-          <button class="control" type="button" data-action="remove">
-            <span class="control-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M9 4h6m-8 3h10m-1.5 0-.7 11.2a1.5 1.5 0 0 1-1.5 1.4H9.7a1.5 1.5 0 0 1-1.5-1.4L7.5 7m3 3v10m3-10v10"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <span class="control-label">REMOVE</span>
-          </button>
+        <div class="action-deck" role="group" aria-label="Trading controls">
+          <div class="action-row">
+            <button class="glass-btn" type="button" data-action="pairs">
+              <span class="glass-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M7 9h11m0 0-3-3m3 3-3 3M17 15H6m0 0 3-3m-3 3 3 3"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <span>Pairs</span>
+            </button>
 
-          <button class="control control-primary" type="button" data-action="start">
-            <span class="control-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M9 7.5v9l8-4.5-8-4.5Z" fill="currentColor" />
-              </svg>
-            </span>
-            <span class="control-label">START</span>
-          </button>
+            <button
+              class="stop-btn is-running"
+              type="button"
+              data-action="start"
+              aria-pressed="true"
+            >
+              <span class="stop-icon" aria-hidden="true">
+                <svg class="icon-stop" viewBox="0 0 24 24" fill="none">
+                  <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" />
+                </svg>
+                <svg class="icon-play" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 7.5v9l8-4.5-8-4.5Z" fill="currentColor" />
+                </svg>
+              </span>
+              <span class="stop-label">STOP</span>
+            </button>
 
-          <button class="control" type="button" data-action="quotes">
-            <span class="control-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M8 7h11M8 12h11M8 17h11M5 7h.01M5 12h.01M5 17h.01"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </span>
-            <span class="control-label">QUOTES</span>
-          </button>
+            <button class="glass-btn" type="button" data-action="logs">
+              <span class="glass-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M7.5 8.5A5.5 5.5 0 1 1 6 12.2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M6 7.2V9.8H8.6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="12.5" cy="12.5" r="1.4" fill="currentColor" />
+                </svg>
+              </span>
+              <span>Logs</span>
+            </button>
+          </div>
+          <p class="eaconnect">
+            Powered by <span>EAConnect</span>
+          </p>
         </div>
 
         <section class="robots" aria-label="Robot list">
