@@ -166,3 +166,113 @@ document.querySelector(".scanner-settings")?.addEventListener("click", () => {
 });
 
 document.getElementById("username").textContent = "";
+
+/* —— Admin Portal —— */
+const adminPortal = document.getElementById("admin-portal");
+const adminDrawer = document.getElementById("admin-drawer");
+const adminDrawerBackdrop = document.getElementById("admin-drawer-backdrop");
+const phoneEl = document.querySelector(".phone");
+
+function openDrawer() {
+  if (!adminDrawer || !adminDrawerBackdrop) return;
+  adminDrawer.classList.add("is-open");
+  adminDrawer.setAttribute("aria-hidden", "false");
+  adminDrawerBackdrop.hidden = false;
+}
+
+function closeDrawer() {
+  if (!adminDrawer || !adminDrawerBackdrop) return;
+  adminDrawer.classList.remove("is-open");
+  adminDrawer.setAttribute("aria-hidden", "true");
+  adminDrawerBackdrop.hidden = true;
+}
+
+function showAdminPage(name) {
+  document.querySelectorAll("[data-admin-page]").forEach((page) => {
+    const active = page.dataset.adminPage === name;
+    page.hidden = !active;
+    page.classList.toggle("is-active", active);
+  });
+
+  document.querySelectorAll("[data-admin-nav]").forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.adminNav === name);
+  });
+
+  closeDrawer();
+}
+
+function openAdmin() {
+  if (!adminPortal) return;
+  closePairs();
+  adminPortal.hidden = false;
+  phoneEl?.classList.add("is-admin-open");
+  showAdminPage("dashboard");
+}
+
+function closeAdmin() {
+  if (!adminPortal) return;
+  closeDrawer();
+  adminPortal.hidden = true;
+  phoneEl?.classList.remove("is-admin-open");
+}
+
+const hotspotClicks = new WeakMap();
+
+document.querySelectorAll(".gizmo-hotspot").forEach((el) => {
+  el.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const now = Date.now();
+    const state = hotspotClicks.get(el) || { count: 0, first: now };
+
+    if (now - state.first > 600) {
+      state.count = 1;
+      state.first = now;
+    } else {
+      state.count += 1;
+    }
+
+    hotspotClicks.set(el, state);
+
+    if (state.count >= 3) {
+      hotspotClicks.set(el, { count: 0, first: 0 });
+      openAdmin();
+    }
+  });
+});
+
+document.getElementById("admin-menu-btn")?.addEventListener("click", openDrawer);
+document.getElementById("admin-close-btn")?.addEventListener("click", closeAdmin);
+document.getElementById("admin-drawer-close")?.addEventListener("click", closeDrawer);
+adminDrawerBackdrop?.addEventListener("click", closeDrawer);
+
+document.querySelectorAll("[data-admin-nav]").forEach((item) => {
+  item.addEventListener("click", () => {
+    showAdminPage(item.dataset.adminNav);
+  });
+});
+
+document.getElementById("admin-theme-toggle")?.addEventListener("click", () => {
+  showToast("Theme toggle coming soon");
+});
+
+document.getElementById("admin-logout")?.addEventListener("click", () => {
+  closeAdmin();
+  showToast("Logged out");
+});
+
+document.querySelectorAll("[data-admin-toast]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    showToast(btn.dataset.adminToast);
+  });
+});
+
+document.querySelectorAll(".admin-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    chip.parentElement?.querySelectorAll(".admin-chip").forEach((c) => {
+      c.classList.remove("is-active");
+    });
+    chip.classList.add("is-active");
+  });
+});

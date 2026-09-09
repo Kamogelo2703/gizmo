@@ -39,7 +39,7 @@
             </div>
             <p class="kicker">You are trading with</p>
             <h1 class="brand">ZETA SCALPER AI</h1>
-            <p class="powered">POWERED BY GIZMO PRO</p>
+            <p class="powered">POWERED BY <span class="gizmo-hotspot">GIZMO PRO</span></p>
           </div>
 
           <div class="action-deck" role="group" aria-label="Trading controls">
@@ -91,7 +91,7 @@
                 <span>Remove bot</span>
               </button>
             </div>
-            <p class="powered-badge">Powered by <span>GIZMO PRO</span></p>
+            <p class="powered-badge">Powered by <span class="gizmo-hotspot">GIZMO PRO</span></p>
           </div>
 
           <section class="robots" aria-label="Robot list">
@@ -258,6 +258,473 @@
           <section class="pairs-section">
             <h3>Select Symbols</h3>
             <div class="symbol-list" id="available-symbols"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="admin-portal" class="admin-portal" hidden>
+        <header class="admin-topbar">
+          <button
+            class="admin-icon-btn"
+            type="button"
+            id="admin-menu-btn"
+            aria-label="Open menu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <h1 class="admin-topbar-title">Admin Portal</h1>
+          <button
+            class="admin-icon-btn"
+            type="button"
+            id="admin-close-btn"
+            aria-label="Close admin portal"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </header>
+
+        <div class="admin-drawer-backdrop" id="admin-drawer-backdrop" hidden></div>
+        <aside class="admin-drawer" id="admin-drawer" aria-hidden="true">
+          <div class="admin-drawer-header">
+            <div class="admin-drawer-user">
+              <img src="./assets/avatar.png" alt="" width="36" height="36" />
+              <span>Admin</span>
+            </div>
+            <button
+              class="admin-icon-btn"
+              type="button"
+              id="admin-drawer-close"
+              aria-label="Close menu"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6 6 18"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <nav class="admin-nav" aria-label="Admin">
+            <button class="admin-nav-item is-active" type="button" data-admin-nav="dashboard">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 19V10m5 9V5m5 14v-7m5 7V8"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>Dashboard</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="mentors">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M16 19v-1.2A3.8 3.8 0 0 0 12.2 14H7.8A3.8 3.8 0 0 0 4 17.8V19m12.5-10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm5.5 10.5v-.8A3.2 3.2 0 0 0 18 15.2h-.3m.8-6.2a2.5 2.5 0 0 1 0 4.8"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Mentors</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="clients">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M15 19v-1.1A3.4 3.4 0 0 0 11.6 14.5H7.4A3.4 3.4 0 0 0 4 17.9V19m11.5-10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM19 8v4m0 0v4m0-4h4m-4 0h-4"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Clients</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="top-mentors">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M8 20h8m-4-4v4m5-16H7v3.5A5 5 0 0 0 12 16a5 5 0 0 0 5-4.5V4Zm5 1h-2.2A3.8 3.8 0 0 1 20 8.2V9m-16 0v-.8A3.8 3.8 0 0 1 6.2 5H4"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Top Mentors</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="activate">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M15 19v-1.1A3.4 3.4 0 0 0 11.6 14.5H7.4A3.4 3.4 0 0 0 4 17.9V19m11.5-10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3.5 1.2 1.6 1.6L23 8"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Activate Accounts</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="emails">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                />
+                <path
+                  d="m5 7.5 7 5.5 7-5.5"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Send Emails</span>
+            </button>
+            <button class="admin-nav-item" type="button" data-admin-nav="settings">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7" />
+                <path
+                  d="M19.4 13a1.6 1.6 0 0 0 .05-2l1.7-1.35-1.7-2.95-2.05.75a7 7 0 0 0-1.5-.85L15.5 4h-3l-.4 2.05a7 7 0 0 0-1.5.85l-2.05-.75-1.7 2.95L8.55 11a1.6 1.6 0 0 0 0 2l-1.7 1.35 1.7 2.95 2.05-.75c.46.35.96.64 1.5.85L12.5 20h3l.4-2.05c.54-.21 1.04-.5 1.5-.85l2.05.75 1.7-2.95L19.4 13Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Settings</span>
+            </button>
+          </nav>
+
+          <div class="admin-drawer-footer">
+            <button class="admin-nav-item" type="button" id="admin-theme-toggle">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7" />
+                <path
+                  d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>Theme</span>
+            </button>
+            <button class="admin-nav-item admin-logout" type="button" id="admin-logout">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M10 12h10m0 0-3.5-3.5M20 12l-3.5 3.5M13 5.5H7.5A1.5 1.5 0 0 0 6 7v10a1.5 1.5 0 0 0 1.5 1.5H13"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Logout</span>
+            </button>
+          </div>
+        </aside>
+
+        <div class="admin-content">
+          <section class="admin-page is-active" data-admin-page="dashboard">
+            <h2 class="admin-h1">Admin Dashboard</h2>
+            <p class="admin-sub">Manage mentors and system settings</p>
+            <div class="admin-toolbar">
+              <select class="admin-select" aria-label="Filter">
+                <option>All</option>
+                <option>Pending</option>
+                <option>Approved</option>
+              </select>
+              <button class="admin-btn admin-btn-outline" type="button" data-admin-toast="Refreshed">
+                Refresh
+              </button>
+            </div>
+            <div class="admin-stat-stack">
+              <article class="admin-stat-card">
+                <p class="admin-stat-label">Total Mentors</p>
+                <p class="admin-stat-value">6117</p>
+              </article>
+              <article class="admin-stat-card">
+                <p class="admin-stat-label">Pending Approval</p>
+                <p class="admin-stat-value is-warn">62</p>
+              </article>
+              <article class="admin-stat-card">
+                <p class="admin-stat-label">Approved Mentors</p>
+                <p class="admin-stat-value is-ok">6026</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="mentors" hidden>
+            <h2 class="admin-h1">Mentor Management</h2>
+            <p class="admin-sub">View and manage all mentors in the system.</p>
+            <div class="admin-btn-row">
+              <button class="admin-btn admin-btn-solid" type="button" data-admin-toast="Bulk approve started">
+                Bulk Approve
+              </button>
+              <button class="admin-btn admin-btn-outline" type="button" data-admin-toast="Refreshed">
+                Refresh
+              </button>
+              <button class="admin-btn admin-btn-danger" type="button" data-admin-toast="Unpaid mentors deactivated">
+                Deactivate Unpaid
+              </button>
+              <button class="admin-btn admin-btn-muted" type="button" data-admin-toast="Reactivated">
+                Reactivate Auto-Deactivated
+              </button>
+            </div>
+            <div class="admin-filters">
+              <select class="admin-select" aria-label="Mentor filter">
+                <option>All Mentors</option>
+                <option>Pending</option>
+                <option>Approved</option>
+              </select>
+              <select class="admin-select" aria-label="Time filter">
+                <option>Any time</option>
+                <option>Last 7 days</option>
+                <option>Last 30 days</option>
+              </select>
+              <select class="admin-select" aria-label="Sort by">
+                <option>Registration Date</option>
+                <option>Name</option>
+                <option>Status</option>
+              </select>
+              <label class="admin-check">
+                <input type="checkbox" />
+                <span>Show inactive w/o clients</span>
+              </label>
+              <div class="admin-search-row">
+                <input class="admin-input" type="search" placeholder="Search mentors..." />
+                <button class="admin-btn admin-btn-solid" type="button" data-admin-toast="Search complete">
+                  Search
+                </button>
+              </div>
+            </div>
+            <div class="admin-card">
+              <p class="admin-card-meta">6117 mentors found · Showing page 1 of 612</p>
+              <div class="admin-table-head">
+                <span>Name</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">tar Gee</span>
+                <span class="admin-badge is-pending">Pending</span>
+                <button class="admin-link-btn" type="button" data-admin-toast="Opened tar Gee">
+                  View
+                </button>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">Blvckstar Gee</span>
+                <span class="admin-badge is-pending">Pending</span>
+                <button class="admin-link-btn" type="button" data-admin-toast="Opened Blvckstar Gee">
+                  View
+                </button>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">Nova Trade</span>
+                <span class="admin-badge is-approved">Approved</span>
+                <button class="admin-link-btn" type="button" data-admin-toast="Opened Nova Trade">
+                  View
+                </button>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">Alpha Mentor</span>
+                <span class="admin-badge is-pending">Pending</span>
+                <button class="admin-link-btn" type="button" data-admin-toast="Opened Alpha Mentor">
+                  View
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="clients" hidden>
+            <h2 class="admin-h1">Client Management</h2>
+            <button
+              class="admin-btn admin-btn-solid admin-btn-block"
+              type="button"
+              data-admin-toast="Payment bypass ready"
+            >
+              Bypass Payment
+            </button>
+            <p class="admin-sub">Manage client access and payment bypasses</p>
+            <div class="admin-card">
+              <input
+                class="admin-input"
+                type="search"
+                placeholder="Search by email or username..."
+              />
+            </div>
+            <div class="admin-card">
+              <p class="admin-card-meta">Total clients: 1787</p>
+              <div class="admin-table-head admin-table-head-2">
+                <span>Email</span>
+                <span>Username</span>
+              </div>
+              <div class="admin-table-row admin-table-row-2">
+                <span>buthelezithapelo9@gmail.com</span>
+                <span>thapelo_b</span>
+              </div>
+              <div class="admin-table-row admin-table-row-2">
+                <span>nomsa.trades@outlook.com</span>
+                <span>nomsafx</span>
+              </div>
+              <div class="admin-table-row admin-table-row-2">
+                <span>kabelo.mokoena@yahoo.com</span>
+                <span>kabelom</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="top-mentors" hidden>
+            <div class="admin-title-row">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M8 20h8m-4-4v4m5-16H7v3.5A5 5 0 0 0 12 16a5 5 0 0 0 5-4.5V4Zm5 1h-2.2A3.8 3.8 0 0 1 20 8.2V9m-16 0v-.8A3.8 3.8 0 0 1 6.2 5H4"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <h2 class="admin-h1">Top Mentors</h2>
+            </div>
+            <p class="admin-sub">Mentors ranked by paid client count</p>
+            <div class="admin-top-list">
+              <article class="admin-top-card">
+                <div class="admin-avatar-circle">ZK</div>
+                <div>
+                  <p class="admin-name">Zanele Khumalo</p>
+                  <p class="admin-muted">142 paid clients</p>
+                </div>
+              </article>
+              <article class="admin-top-card">
+                <div class="admin-avatar-circle">LM</div>
+                <div>
+                  <p class="admin-name">Lerato Molefe</p>
+                  <p class="admin-muted">118 paid clients</p>
+                </div>
+              </article>
+              <article class="admin-top-card">
+                <div class="admin-avatar-circle">SN</div>
+                <div>
+                  <p class="admin-name">Sipho Ndlovu</p>
+                  <p class="admin-muted">97 paid clients</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="emails" hidden>
+            <h2 class="admin-h1">Email Management</h2>
+            <p class="admin-sub">Send emails to mentors or review past communications.</p>
+            <div class="admin-btn-row">
+              <button class="admin-btn admin-btn-outline" type="button" data-admin-toast="Opening history">
+                View History
+              </button>
+              <button class="admin-btn admin-btn-outline" type="button" data-admin-toast="Refreshed">
+                Refresh
+              </button>
+            </div>
+            <div class="admin-card">
+              <div class="admin-card-title-row">
+                <h3>Mentors</h3>
+                <span class="admin-count-badge">10</span>
+              </div>
+              <div class="admin-search-row">
+                <input class="admin-input" type="search" placeholder="Search mentors..." />
+              </div>
+              <select class="admin-select admin-select-full" aria-label="Filter mentors">
+                <option>Filter by All Mentors</option>
+                <option>Approved</option>
+                <option>Pending</option>
+              </select>
+              <div class="admin-chips">
+                <button class="admin-chip is-active" type="button">All Mentors</button>
+                <button class="admin-chip" type="button">Approved</button>
+                <button class="admin-chip" type="button">Pending</button>
+                <button class="admin-chip" type="button">Unverified</button>
+                <button class="admin-chip" type="button">Verified</button>
+                <button class="admin-chip" type="button">Deactivated</button>
+                <button class="admin-chip" type="button">No Clients</button>
+              </div>
+              <div class="admin-select-meta">
+                <button class="admin-link-btn" type="button" data-admin-toast="Selected all">
+                  Select All
+                </button>
+                <span>0 / 10</span>
+              </div>
+              <label class="admin-email-row">
+                <input type="checkbox" />
+                <span class="admin-name">tar Gee</span>
+                <span class="admin-muted">tar.gee@email.com</span>
+                <span class="admin-badge is-pending">Pending</span>
+              </label>
+              <label class="admin-email-row">
+                <input type="checkbox" />
+                <span class="admin-name">Blvckstar Gee</span>
+                <span class="admin-muted">blvckstar@email.com</span>
+                <span class="admin-badge is-pending">Pending</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="activate" hidden>
+            <h2 class="admin-h1">Activate Accounts</h2>
+            <p class="admin-sub">Review and activate pending mentor accounts.</p>
+            <div class="admin-card admin-activate-list">
+              <div class="admin-table-row">
+                <span class="admin-name">Jordan Mokoena</span>
+                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Jordan">
+                  Activate
+                </button>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">Aisha Dlamini</span>
+                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Aisha">
+                  Activate
+                </button>
+              </div>
+              <div class="admin-table-row">
+                <span class="admin-name">Chris van Wyk</span>
+                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Chris">
+                  Activate
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-page" data-admin-page="settings" hidden>
+            <h2 class="admin-h1">Settings</h2>
+            <p class="admin-sub">Configure admin portal preferences.</p>
+            <div class="admin-settings-list">
+              <button class="admin-settings-row" type="button" data-admin-toast="Notifications">
+                <span>Notifications</span>
+                <span aria-hidden="true">›</span>
+              </button>
+              <button class="admin-settings-row" type="button" data-admin-toast="Security">
+                <span>Security</span>
+                <span aria-hidden="true">›</span>
+              </button>
+              <button class="admin-settings-row" type="button" data-admin-toast="API Keys">
+                <span>API Keys</span>
+                <span aria-hidden="true">›</span>
+              </button>
+            </div>
           </section>
         </div>
       </div>
