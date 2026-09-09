@@ -88,6 +88,18 @@ document.querySelectorAll("[data-close-pairs]").forEach((el) => {
   el.addEventListener("click", closePairs);
 });
 
+function showView(name) {
+  document.querySelectorAll(".view").forEach((view) => {
+    const active = view.dataset.view === name;
+    view.hidden = !active;
+    view.classList.toggle("is-active", active);
+  });
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.tab === name);
+  });
+}
+
 const stopBtn = document.querySelector(".stop-btn");
 if (stopBtn) {
   stopBtn.addEventListener("click", () => {
@@ -119,17 +131,38 @@ document.querySelectorAll("[data-action='add-bot']").forEach((button) => {
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    document
-      .querySelectorAll(".tab")
-      .forEach((item) => item.classList.remove("is-active"));
-    tab.classList.add("is-active");
-    const labels = {
-      home: "Home",
-      scanner: "Scanner",
-      metatrader: "MetaTrader",
-    };
-    showToast(labels[tab.dataset.tab] || "Opened");
+    const name = tab.dataset.tab;
+    showView(name);
+    if (name === "scanner") {
+      closePairs();
+    }
   });
+});
+
+const uploadBtn = document.getElementById("upload-chart");
+const chartFile = document.getElementById("chart-file");
+if (uploadBtn && chartFile) {
+  uploadBtn.addEventListener("click", () => chartFile.click());
+  chartFile.addEventListener("change", () => {
+    const file = chartFile.files && chartFile.files[0];
+    if (file) {
+      showToast(`Scanning ${file.name}`);
+    }
+  });
+}
+
+const recentToggle = document.getElementById("recent-toggle");
+const recentList = document.getElementById("recent-list");
+if (recentToggle && recentList) {
+  recentToggle.addEventListener("click", () => {
+    const open = recentList.hidden;
+    recentList.hidden = !open;
+    recentToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+}
+
+document.querySelector(".scanner-settings")?.addEventListener("click", () => {
+  showToast("Scanner settings");
 });
 
 document.getElementById("username").textContent = "";
