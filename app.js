@@ -125,7 +125,7 @@ document.querySelectorAll(".glass-btn").forEach((button) => {
 
 document.querySelectorAll("[data-action='add-bot']").forEach((button) => {
   button.addEventListener("click", () => {
-    showToast("Add New Trading Bot");
+    openAdmin("manage-ea");
   });
 });
 
@@ -201,12 +201,12 @@ function showAdminPage(name) {
   closeDrawer();
 }
 
-function openAdmin() {
+function openAdmin(page = "dashboard") {
   if (!adminPortal) return;
   closePairs();
   adminPortal.hidden = false;
   phoneEl?.classList.add("is-admin-open");
-  showAdminPage("dashboard");
+  showAdminPage(page);
 }
 
 function closeAdmin() {
@@ -275,4 +275,88 @@ document.querySelectorAll(".admin-chip").forEach((chip) => {
     });
     chip.classList.add("is-active");
   });
+});
+
+const strategyLabels = {
+  scalper: "Scalper",
+  trend: "Trend Follower",
+  grid: "Grid",
+  news: "News Trader",
+};
+
+const eaList = document.getElementById("ea-list");
+const eaCount = document.getElementById("ea-count");
+const robotList = document.querySelector(".robots");
+
+function addEaToHome(name) {
+  if (!robotList) return;
+  const existing = Array.from(robotList.querySelectorAll(".robot-row span")).some(
+    (span) => span.textContent.trim() === name
+  );
+  if (existing) return;
+
+  const addBtn = robotList.querySelector("[data-action='add-bot']");
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "robot-row";
+  row.innerHTML = `
+    <img src="./assets/avatar.png" alt="" width="36" height="36" />
+    <span></span>
+    <span class="check" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="m6.5 12.5 3.5 3.5 7.5-8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+  `;
+  row.querySelector("span").textContent = name;
+  row.addEventListener("click", () => {
+    robotList.querySelectorAll(".robot-row").forEach((r) => r.classList.remove("is-active"));
+    if (!row.classList.contains("robot-add")) row.classList.add("is-active");
+  });
+  if (addBtn) {
+    robotList.insertBefore(row, addBtn);
+  } else {
+    robotList.appendChild(row);
+  }
+}
+
+document.getElementById("ea-create-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const name = form.name.value.trim();
+  const strategy = form.strategy.value;
+  const symbol = form.symbol.value;
+  const risk = form.risk.value;
+  const timeframe = form.timeframe.value;
+
+  if (!name) {
+    showToast("Enter a robot name");
+    return;
+  }
+
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const item = document.createElement("div");
+  item.className = "ea-item";
+  item.dataset.eaId = id;
+  item.innerHTML = `
+    <img src="./assets/avatar.png" alt="" width="40" height="40" />
+    <div class="ea-meta">
+      <strong></strong>
+      <span></span>
+    </div>
+    <span class="admin-badge is-approved">Live</span>
+  `;
+  item.querySelector("strong").textContent = name;
+  item.querySelector(".ea-meta span").textContent = `${strategyLabels[strategy] || strategy} · ${symbol} · ${timeframe} · Risk ${risk}%`;
+  eaList?.prepend(item);
+
+  if (eaCount) {
+    eaCount.textContent = String(eaList.querySelectorAll(".ea-item").length);
+  }
+
+  addEaToHome(name);
+  form.reset();
+  form.risk.value = "1";
+  form.timeframe.value = "M5";
+  showToast(`${name} created`);
 });

@@ -1579,3 +1579,63 @@ button {
   font-weight: 500;
   font-size: 1.2rem;
 }
+
+/* —— Manage EA —— */
+.ea-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ea-field {
+  display: grid;
+  gap: 6px;
+}
+
+.ea-field > span {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: #4b5563;
+}
+
+.ea-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ea-item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.ea-item img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ea-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ea-meta strong {
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.ea-meta span {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
