@@ -29,22 +29,42 @@ const ALL_SYMBOLS = [
   "US30",
 ];
 
-const selected = new Set(["EURUSD", "XAUUSD"]);
+/** @type {Map<string, Set<string>>} */
+const eaSymbols = new Map([["zeta-scalper", new Set(["XAUUSD", "EURUSD"])]]);
+const draftEaSymbols = new Set();
+
 const pairsSheet = document.getElementById("pairs-sheet");
 const selectedList = document.getElementById("selected-symbols");
 const availableList = document.getElementById("available-symbols");
 const selectedEmpty = document.getElementById("selected-empty");
 const pairsCount = document.getElementById("pairs-count");
+const eaSymbolPicker = document.getElementById("ea-symbol-picker");
+const eaSymbolSelected = document.getElementById("ea-symbol-selected");
+
+function getAppSymbols() {
+  const union = new Set();
+  eaSymbols.forEach((set) => {
+    set.forEach((symbol) => union.add(symbol));
+  });
+  return union;
+}
+
+function syncPairsFromEas() {
+  renderPairs();
+}
 
 function renderPairs() {
+  if (!selectedList || !availableList) return;
   selectedList.innerHTML = "";
   availableList.innerHTML = "";
 
-  const selectedItems = ALL_SYMBOLS.filter((s) => selected.has(s));
-  const availableItems = ALL_SYMBOLS.filter((s) => !selected.has(s));
+  const appSymbols = getAppSymbols();
+  const selectedItems = ALL_SYMBOLS.filter((s) => appSymbols.has(s));
+  const availableItems = ALL_SYMBOLS.filter((s) => !appSymbols.has(s));
 
-  pairsCount.textContent = `${selectedItems.length} selected`;
+  pairsCount.textContent = `${selectedItems.length} on app`;
   selectedEmpty.hidden = selectedItems.length > 0;
+  selectedEmpty.textContent = "No symbols yet — choose them in Manage EA";
 
   selectedItems.forEach((symbol) => {
     const btn = document.createElement("button");
@@ -52,26 +72,89 @@ function renderPairs() {
     btn.className = "symbol-chip is-selected";
     btn.dataset.symbol = symbol;
     btn.innerHTML = `<span>${symbol}</span><span class="chip-x" aria-hidden="true">×</span>`;
+    btn.title = "Remove from EA and app";
     btn.addEventListener("click", () => {
-      selected.delete(symbol);
-      renderPairs();
-      showToast(`${symbol} removed`);
+      removeSymbolFromAllEas(symbol);
+      showToast(`${symbol} removed from app`);
     });
     selectedList.appendChild(btn);
   });
 
   availableItems.forEach((symbol) => {
+    const chip = document.createElement("span");
+    chip.className = "symbol-chip is-available";
+    chip.innerHTML = `<span>${symbol}</span>`;
+    chip.title = "Add this symbol from Manage EA";
+    availableList.appendChild(chip);
+  });
+}
+
+function removeSymbolFromAllEas(symbol) {
+  eaSymbols.forEach((set, eaId) => {
+    if (!set.has(symbol)) return;
+    set.delete(symbol);
+    refreshEaItemSymbols(eaId);
+  });
+  syncPairsFromEas();
+}
+
+function refreshEaItemSymbols(eaId) {
+  const item = document.querySelector(`.ea-item[data-ea-id="${eaId}"]`);
+  if (!item) return;
+  const wrap = item.querySelector(".ea-item-symbols");
+  if (!wrap) return;
+  const set = eaSymbols.get(eaId) || new Set();
+  wrap.dataset.eaSymbols = [...set].join(",");
+  wrap.innerHTML = "";
+  [...set].forEach((symbol) => {
+    const chip = document.createElement("span");
+    chip.className = "ea-sym-chip";
+    chip.innerHTML = `<span>${symbol}</span>`;
+    const del = document.createElement("button");
+    del.type = "button";
+    del.setAttribute("aria-label", `Remove ${symbol}`);
+    del.textContent = "×";
+    del.addEventListener("click", (event) => {
+      event.stopPropagation();
+      set.delete(symbol);
+      eaSymbols.set(eaId, set);
+      refreshEaItemSymbols(eaId);
+      syncPairsFromEas();
+      showToast(`${symbol} removed from app`);
+    });
+    chip.appendChild(del);
+    wrap.appendChild(chip);
+  });
+}
+
+function renderDraftSymbolPicker() {
+  if (!eaSymbolPicker || !eaSymbolSelected) return;
+  eaSymbolPicker.innerHTML = "";
+  eaSymbolSelected.innerHTML = "";
+
+  ALL_SYMBOLS.forEach((symbol) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "symbol-chip is-available";
-    btn.dataset.symbol = symbol;
-    btn.innerHTML = `<span>${symbol}</span><span aria-hidden="true">+</span>`;
+    btn.className = `ea-pick-chip${draftEaSymbols.has(symbol) ? " is-on" : ""}`;
+    btn.textContent = symbol;
     btn.addEventListener("click", () => {
-      selected.add(symbol);
-      renderPairs();
-      showToast(`${symbol} selected`);
+      if (draftEaSymbols.has(symbol)) draftEaSymbols.delete(symbol);
+      else draftEaSymbols.add(symbol);
+      renderDraftSymbolPicker();
     });
-    availableList.appendChild(btn);
+    eaSymbolPicker.appendChild(btn);
+  });
+
+  if (draftEaSymbols.size === 0) {
+    eaSymbolSelected.innerHTML = `<span class="ea-hint">No symbols chosen yet</span>`;
+    return;
+  }
+
+  [...draftEaSymbols].forEach((symbol) => {
+    const chip = document.createElement("span");
+    chip.className = "ea-sym-chip";
+    chip.innerHTML = `<span>${symbol}</span>`;
+    eaSymbolSelected.appendChild(chip);
   });
 }
 
@@ -87,6 +170,9 @@ function closePairs() {
 document.querySelectorAll("[data-close-pairs]").forEach((el) => {
   el.addEventListener("click", closePairs);
 });
+
+renderDraftSymbolPicker();
+syncPairsFromEas();
 
 function showView(name) {
   document.querySelectorAll(".view").forEach((view) => {
@@ -360,17 +446,23 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   const form = event.currentTarget;
   const name = form.name.value.trim();
   const strategy = form.strategy.value;
-  const symbol = form.symbol.value;
   const risk = form.risk.value;
   const timeframe = form.timeframe.value;
   const photoUrl = eaPhotoDataUrl || "./assets/avatar.png";
+  const symbols = [...draftEaSymbols];
 
   if (!name) {
     showToast("Enter a robot name");
     return;
   }
+  if (symbols.length === 0) {
+    showToast("Choose at least one symbol");
+    return;
+  }
 
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+  eaSymbols.set(id, new Set(symbols));
+
   const item = document.createElement("div");
   item.className = "ea-item";
   item.dataset.eaId = id;
@@ -379,22 +471,28 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
     <div class="ea-meta">
       <strong></strong>
       <span></span>
+      <div class="ea-item-symbols" data-ea-symbols=""></div>
     </div>
-    <span class="admin-badge is-approved">Live</span>
+    <div class="ea-item-actions">
+      <span class="admin-badge is-approved">Live</span>
+      <button class="ea-delete-btn" type="button" data-delete-ea aria-label="Delete EA">Delete</button>
+    </div>
   `;
   const itemImg = item.querySelector("img");
   if (itemImg) itemImg.src = photoUrl;
   item.querySelector("strong").textContent = name;
-  item.querySelector(".ea-meta span").textContent = `${strategyLabels[strategy] || strategy} · ${symbol} · ${timeframe} · Risk ${risk}%`;
+  item.querySelector(".ea-meta > span").textContent = `${strategyLabels[strategy] || strategy} · ${timeframe} · Risk ${risk}%`;
+  item.querySelector("[data-delete-ea]").addEventListener("click", () => deleteEa(id, name));
   eaList?.prepend(item);
+  refreshEaItemSymbols(id);
 
   if (eaCount) {
     eaCount.textContent = String(eaList.querySelectorAll(".ea-item").length);
   }
 
   addEaToHome(name, photoUrl);
+  syncPairsFromEas();
 
-  // Also update main app hero with the new robot
   const heroAvatar = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
   const brand = document.querySelector(".hero .brand, .brand");
   if (heroAvatar) heroAvatar.src = photoUrl;
@@ -408,9 +506,40 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   form.risk.value = "1";
   form.timeframe.value = "M5";
   eaPhotoDataUrl = "";
+  draftEaSymbols.clear();
+  renderDraftSymbolPicker();
   if (eaPhotoPreview) eaPhotoPreview.src = "./assets/avatar.png";
   if (eaPhotoInput) eaPhotoInput.value = "";
-  showToast(`${name} added to app`);
+  showToast(`${name} symbols added to app`);
   closeAdmin();
   showView("home");
 });
+
+function deleteEa(eaId, name) {
+  eaSymbols.delete(eaId);
+  document.querySelector(`.ea-item[data-ea-id="${eaId}"]`)?.remove();
+  if (eaCount && eaList) {
+    eaCount.textContent = String(eaList.querySelectorAll(".ea-item").length);
+  }
+  // Remove robot from home list if present
+  robotList?.querySelectorAll(".robot-row").forEach((row) => {
+    const label = row.querySelector("span");
+    if (label && label.textContent.trim() === name && !row.classList.contains("robot-add")) {
+      row.remove();
+    }
+  });
+  syncPairsFromEas();
+  showToast(`${name || "EA"} deleted from app`);
+}
+
+document.querySelectorAll("[data-delete-ea]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const eaId = btn.getAttribute("data-delete-ea");
+    const item = btn.closest(".ea-item");
+    const name = item?.querySelector("strong")?.textContent?.trim() || "EA";
+    if (eaId) deleteEa(eaId, name);
+  });
+});
+
+// Initialize default EA symbol chips with delete controls
+refreshEaItemSymbols("zeta-scalper");

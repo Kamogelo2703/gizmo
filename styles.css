@@ -1672,3 +1672,88 @@ button {
 .ea-photo-btn:active {
   transform: scale(0.98);
 }
+
+.ea-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ea-symbol-picker,
+.ea-symbol-selected,
+.ea-item-symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ea-symbol-picker {
+  margin-top: 4px;
+}
+
+.ea-pick-chip,
+.ea-sym-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111827;
+}
+
+.ea-pick-chip.is-on {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.ea-sym-chip {
+  background: #fff1f6;
+  border-color: #ffb1d0;
+  color: #be123c;
+}
+
+.ea-sym-chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ea-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ea-delete-btn {
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ea-meta {
+  gap: 6px;
+}
+
+.pairs-note {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}

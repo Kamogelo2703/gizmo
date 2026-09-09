@@ -251,12 +251,14 @@
 
           <section class="pairs-section">
             <h3>Selected Symbols</h3>
+            <p class="pairs-note">Synced from Manage EA — remove here or on the EA.</p>
             <div class="symbol-list" id="selected-symbols"></div>
-            <p class="pairs-empty" id="selected-empty">No symbols selected yet</p>
+            <p class="pairs-empty" id="selected-empty">No symbols yet — choose them in Manage EA</p>
           </section>
 
           <section class="pairs-section">
-            <h3>Select Symbols</h3>
+            <h3>Catalog</h3>
+            <p class="pairs-note">Add symbols from Manage EA to put them on the app.</p>
             <div class="symbol-list" id="available-symbols"></div>
           </section>
         </div>
@@ -762,17 +764,12 @@
                     <option value="news">News Trader</option>
                   </select>
                 </label>
-                <label class="ea-field">
-                  <span>Primary symbol</span>
-                  <select class="admin-input" id="ea-symbol" name="symbol" required>
-                    <option value="EURUSD">EURUSD</option>
-                    <option value="GBPUSD">GBPUSD</option>
-                    <option value="XAUUSD">XAUUSD</option>
-                    <option value="USDJPY">USDJPY</option>
-                    <option value="BTCUSD">BTCUSD</option>
-                    <option value="NAS100">NAS100</option>
-                  </select>
-                </label>
+                <div class="ea-field">
+                  <span>Symbols</span>
+                  <p class="ea-hint">Chosen symbols appear on the app automatically.</p>
+                  <div class="ea-symbol-picker" id="ea-symbol-picker"></div>
+                  <div class="ea-symbol-selected" id="ea-symbol-selected"></div>
+                </div>
                 <label class="ea-field">
                   <span>Risk %</span>
                   <input
@@ -813,9 +810,18 @@
                   <img src="./assets/avatar.png" alt="" width="40" height="40" />
                   <div class="ea-meta">
                     <strong>ZETA SCALPER AI</strong>
-                    <span>Scalper · XAUUSD · M5 · Risk 1%</span>
+                    <span>Scalper · M5 · Risk 1%</span>
+                    <div class="ea-item-symbols" data-ea-symbols="XAUUSD,EURUSD">
+                      <span class="ea-sym-chip">XAUUSD</span>
+                      <span class="ea-sym-chip">EURUSD</span>
+                    </div>
                   </div>
-                  <span class="admin-badge is-approved">Live</span>
+                  <div class="ea-item-actions">
+                    <span class="admin-badge is-approved">Live</span>
+                    <button class="ea-delete-btn" type="button" data-delete-ea="zeta-scalper" aria-label="Delete EA">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
