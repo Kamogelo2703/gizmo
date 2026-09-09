@@ -157,6 +157,35 @@
       </nav>
 
       <div class="toast" id="toast" hidden></div>
+
+      <div class="pairs-sheet" id="pairs-sheet" hidden>
+        <div class="pairs-backdrop" data-close-pairs></div>
+        <div
+          class="pairs-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pairs-title"
+        >
+          <header class="pairs-header">
+            <button class="pairs-back" type="button" data-close-pairs aria-label="Close pairs">
+              ←
+            </button>
+            <h2 id="pairs-title">Pairs</h2>
+            <span class="pairs-count" id="pairs-count">0 selected</span>
+          </header>
+
+          <section class="pairs-section">
+            <h3>Selected Symbols</h3>
+            <div class="symbol-list" id="selected-symbols"></div>
+            <p class="pairs-empty" id="selected-empty">No symbols selected yet</p>
+          </section>
+
+          <section class="pairs-section">
+            <h3>Select Symbols</h3>
+            <div class="symbol-list" id="available-symbols"></div>
+          </section>
+        </div>
+      </div>
     </div>
 
     <script src="./app.js"></script>
