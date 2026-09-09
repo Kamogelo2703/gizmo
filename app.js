@@ -27,8 +27,8 @@ document.querySelectorAll(".glass-btn").forEach((button) => {
       showToast("Opening pairs");
       return;
     }
-    if (action === "logs") {
-      showToast("Opening logs");
+    if (action === "remove") {
+      showToast("Bot removed");
     }
   });
 });
