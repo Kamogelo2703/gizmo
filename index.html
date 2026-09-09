@@ -235,21 +235,18 @@
         </button>
       </nav>
 
-      <div class="toast" id="toast" hidden></div>
-
-      <div class="license-sheet" id="license-sheet" hidden>
-        <div class="license-backdrop" data-close-license></div>
-        <div class="license-panel" role="dialog" aria-modal="true" aria-labelledby="license-title">
-          <header class="license-header">
-            <h2 id="license-title">Activate Bot</h2>
-            <button class="license-close" type="button" data-close-license aria-label="Close">
-              ×
-            </button>
-          </header>
-          <p class="license-copy">
-            Enter a license key from Admin to bring a removed bot back.
+      <div class="app-lock" id="app-lock" hidden>
+        <div class="app-lock-glow" aria-hidden="true"></div>
+        <div class="app-lock-content">
+          <div class="app-lock-orb">
+            <img src="./assets/avatar.png" alt="" width="96" height="96" />
+          </div>
+          <p class="app-lock-eyebrow">GIZMO PRO</p>
+          <h2 class="app-lock-title">No active bot</h2>
+          <p class="app-lock-sub">
+            This app is locked. Enter a license key to activate a bot.
           </p>
-          <form class="license-activate-form" id="license-activate-form">
+          <form class="app-lock-form" id="license-activate-form">
             <label class="ea-field">
               <span>License key</span>
               <input
@@ -266,8 +263,13 @@
               Activate bot
             </button>
           </form>
+          <p class="app-lock-admin">
+            Powered by <span class="gizmo-hotspot">GIZMO PRO</span>
+          </p>
         </div>
       </div>
+
+      <div class="toast" id="toast" hidden></div>
 
       <div class="pairs-sheet" id="pairs-sheet" hidden>
         <div class="pairs-backdrop" data-close-pairs></div>

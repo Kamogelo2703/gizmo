@@ -306,6 +306,7 @@ function closeAdmin() {
   closeDrawer();
   adminPortal.hidden = true;
   phoneEl?.classList.remove("is-admin-open");
+  if (!hasActiveBot()) showAppLock();
 }
 
 const hotspotClicks = new WeakMap();
@@ -566,7 +567,7 @@ const botRegistry = new Map([
 /** @type {Array<{key:string, botId:string, botName:string, used:boolean, createdAt:number}>} */
 const licenseKeys = [];
 
-const licenseSheet = document.getElementById("license-sheet");
+const appLock = document.getElementById("app-lock");
 const licenseForm = document.getElementById("license-form");
 const licenseBotSelect = document.getElementById("license-bot");
 const licenseResult = document.getElementById("license-result");
@@ -630,18 +631,36 @@ function renderLicenseList() {
     });
 }
 
-function openLicenseSheet() {
-  if (!licenseSheet) return;
-  licenseSheet.hidden = false;
+function hasActiveBot() {
+  return [...botRegistry.values()].some((bot) => bot.active);
+}
+
+function showAppLock() {
+  if (appLock) appLock.hidden = false;
+  phoneEl?.classList.add("is-locked");
+  closePairs?.();
   if (licenseKeyInput) {
     licenseKeyInput.value = "";
-    licenseKeyInput.focus();
+    setTimeout(() => licenseKeyInput.focus(), 50);
   }
 }
 
+function hideAppLock() {
+  if (appLock) appLock.hidden = true;
+  phoneEl?.classList.remove("is-locked");
+}
+
+function openLicenseSheet() {
+  showAppLock();
+}
+
 function closeLicenseSheet() {
-  if (!licenseSheet) return;
-  licenseSheet.hidden = true;
+  // Keep the full-app lock visible while no bot is active.
+  if (!hasActiveBot()) {
+    showAppLock();
+    return;
+  }
+  hideAppLock();
 }
 
 function setHeroEmpty(empty) {
@@ -650,6 +669,9 @@ function setHeroEmpty(empty) {
     if (heroBrandEl) heroBrandEl.textContent = "No active bot";
     if (heroKickerEl) heroKickerEl.textContent = "Activate a bot with a license key";
     if (heroAvatarEl) heroAvatarEl.src = "./assets/avatar.png";
+    showAppLock();
+  } else {
+    hideAppLock();
   }
 }
 
@@ -658,6 +680,7 @@ function setActiveHero(bot) {
   if (heroBrandEl) heroBrandEl.textContent = bot.name;
   if (heroKickerEl) heroKickerEl.textContent = "You are trading with";
   if (heroAvatarEl) heroAvatarEl.src = bot.photo || "./assets/avatar.png";
+  hideAppLock();
 }
 
 function getActiveBotId() {
@@ -693,7 +716,6 @@ function removeActiveBot() {
 
   refreshLicenseBotOptions();
   showToast(`${bot.name} removed — license key required to restore`);
-  openLicenseSheet();
 }
 
 function restoreBotToApp(bot) {
