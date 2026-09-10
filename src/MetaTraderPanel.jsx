@@ -323,7 +323,98 @@ const BROKER_NAMES = [
   "XTB Africa",
   "YesTrader",
   "Z.com Forex",
+
+  // South Africa & Africa-focused brokers
+  "Razor Markets",
+  "Razor Markets SA",
+  "GT247",
+  "GT247.com",
+  "EasyTrader",
+  "EasyEquities",
+  "RocketX",
+  "CapX Markets",
+  "CMC Markets South Africa",
+  "IG South Africa",
+  "Saxo Capital Markets South Africa",
+  "Swissquote South Africa",
+  "OANDA South Africa",
+  "Interactive Brokers South Africa",
+  "Plus500 South Africa",
+  "eToro South Africa",
+  "Trading 212 South Africa",
+  "XTB South Africa",
+  "Markets.com South Africa",
+  "City Index South Africa",
+  "Admirals South Africa",
+  "Admiral Markets South Africa",
+  "ThinkMarkets South Africa",
+  "Pepperstone South Africa",
+  "IC Markets South Africa",
+  "Exness South Africa",
+  "XM South Africa",
+  "HFM South Africa",
+  "HF Markets South Africa",
+  "AvaTrade South Africa",
+  "Tickmill South Africa",
+  "Vantage South Africa",
+  "FP Markets South Africa",
+  "Blueberry Markets South Africa",
+  "Fusion Markets South Africa",
+  "GO Markets South Africa",
+  "Global Prime South Africa",
+  "Axi South Africa",
+  "BlackBull Markets South Africa",
+  "OctaFX",
+  "JustMarkets",
+  "JustForex",
+  "FXPesa",
+  "Accuindex",
+  "SafeTrade",
+  "Safe Markets",
+  "AfrAsia Securities",
+  "Standard Bank Online Trading",
+  "Investec Share Trading",
+  "PSG Wealth",
+  "SatrixNOW",
+  "Purple Group",
+  "Velocity Trade South Africa",
+  "FundedNext",
+  "The Funded Trader",
+  "FTMO",
+  "Fidelcrest",
+  "SurgeTrader",
+  "E8 Funding",
+  "Topstep",
+  "My Forex Funds",
+  "DNA Funded",
+  "FundingPips",
+  "Instant Funding",
+  "Maven Trading",
+  "Prop Firm Match",
 ];
+
+const BROKER_ALIASES = {
+  "razor-markets": ["razor", "razormarkets", "razor markets sa", "razor mt5"],
+  "razor-markets-sa": ["razor", "razormarkets"],
+  gt247: ["gt 247", "gt247.com", "easytrader", "purple group"],
+  "gt247-com": ["gt247", "gt 247"],
+  easytrader: ["gt247", "easy trader"],
+  rocketx: ["rocket x", "rocketx sa"],
+  "octafx": ["octa", "octa fx"],
+  justmarkets: ["just markets", "justforex", "just forex"],
+  justforex: ["justmarkets", "just markets"],
+  fxpesa: ["fx pesa", "fxpesa kenya"],
+  "hfm-south-africa": ["hfm", "hotforex", "hf markets"],
+  "hf-markets-south-africa": ["hfm", "hotforex"],
+  "exness-south-africa": ["exness sa", "exness africa"],
+  "xm-south-africa": ["xm sa", "xm africa"],
+  "pepperstone-south-africa": ["pepperstone sa"],
+  "ic-markets-south-africa": ["ic markets sa", "icmarkets"],
+  "xtb-south-africa": ["xtb sa", "xtb africa"],
+  "ig-south-africa": ["ig sa", "ig markets sa"],
+  "cmc-markets-south-africa": ["cmc sa", "cmc markets sa"],
+  "velocity-trade-south-africa": ["velocity", "velocitytrade"],
+};
 
 function slugify(name) {
   return name
@@ -337,10 +428,23 @@ const BROKERS = Array.from(
   new Map(
     BROKER_NAMES.map((name) => {
       const id = slugify(name);
-      return [id, { id, name, platforms: BOTH }];
+      return [
+        id,
+        {
+          id,
+          name,
+          platforms: BOTH,
+          aliases: BROKER_ALIASES[id] || [],
+        },
+      ];
     })
   ).values()
 ).sort((a, b) => a.name.localeCompare(b.name));
+
+function matchesBroker(broker, q) {
+  if (broker.name.toLowerCase().includes(q)) return true;
+  return (broker.aliases || []).some((alias) => alias.toLowerCase().includes(q) || q.includes(alias.toLowerCase()));
+}
 
 const emptyLogin = { login: "", password: "", server: "" };
 
@@ -357,11 +461,24 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     if (!q) return [];
     return BROKERS.filter((broker) => {
       if (!broker.platforms.includes(platform)) return false;
-      return broker.name.toLowerCase().includes(q);
+      return matchesBroker(broker, q);
     });
   }, [platform, query]);
 
   const hasQuery = query.trim().length > 0;
+  const exactMatch = filtered.some(
+    (broker) => broker.name.toLowerCase() === query.trim().toLowerCase()
+  );
+  const customBroker =
+    hasQuery && !exactMatch
+      ? {
+          id: `custom-${slugify(query.trim())}`,
+          name: query.trim(),
+          platforms: BOTH,
+          aliases: [],
+          custom: true,
+        }
+      : null;
 
   function pickBroker(broker) {
     setSelectedBroker(broker);
@@ -501,21 +618,36 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         <ul className="mt-broker-list">
           {!hasQuery ? (
             <li className="mt-broker-empty">Search for your broker</li>
-          ) : filtered.length === 0 ? (
-            <li className="mt-broker-empty">No brokers match that search.</li>
           ) : (
-            filtered.map((broker) => (
-              <li key={broker.id}>
-                <button
-                  type="button"
-                  className="mt-broker-item"
-                  onClick={() => pickBroker(broker)}
-                >
-                  <span className="mt-broker-name">{broker.name}</span>
-                  <span className="mt-broker-meta">{platform}</span>
-                </button>
-              </li>
-            ))
+            <>
+              {filtered.map((broker) => (
+                <li key={broker.id}>
+                  <button
+                    type="button"
+                    className="mt-broker-item"
+                    onClick={() => pickBroker(broker)}
+                  >
+                    <span className="mt-broker-name">{broker.name}</span>
+                    <span className="mt-broker-meta">{platform}</span>
+                  </button>
+                </li>
+              ))}
+              {customBroker ? (
+                <li key={customBroker.id}>
+                  <button
+                    type="button"
+                    className="mt-broker-item"
+                    onClick={() => pickBroker(customBroker)}
+                  >
+                    <span className="mt-broker-name">Use “{customBroker.name}”</span>
+                    <span className="mt-broker-meta">{platform}</span>
+                  </button>
+                </li>
+              ) : null}
+              {filtered.length === 0 && !customBroker ? (
+                <li className="mt-broker-empty">No brokers match that search.</li>
+              ) : null}
+            </>
           )}
         </ul>
       </section>
