@@ -973,7 +973,7 @@ button {
 }
 
 /* —— Admin Portal (light mode) —— */
-.gizmo-hotspot {
+.apexea-hotspot {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -2030,7 +2030,7 @@ button {
   font-size: 0.88rem;
 }
 
-.app-lock-admin .gizmo-hotspot {
+.app-lock-admin .apexea-hotspot {
   color: #fff;
   font-weight: 700;
 }

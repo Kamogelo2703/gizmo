@@ -1,4 +1,4 @@
-# Gizmo Pro — ZETA SCALPER AI
+# ApexEA — ZETA SCALPER AI
 
 Mobile trading bot interface recreation (Home screen).
 

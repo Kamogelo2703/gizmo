@@ -311,7 +311,7 @@ function closeAdmin() {
 
 const hotspotClicks = new WeakMap();
 
-document.querySelectorAll(".gizmo-hotspot").forEach((el) => {
+document.querySelectorAll(".apexea-hotspot").forEach((el) => {
   el.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -585,7 +585,7 @@ const heroKickerEl = document.querySelector(".hero .kicker, .kicker");
 function randomLicenseKey() {
   const chunk = () =>
     Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 6);
-  return `GIZMO-${chunk()}-${chunk()}`;
+  return `APEX-${chunk()}-${chunk()}`;
 }
 
 function refreshLicenseBotOptions() {
