@@ -97,8 +97,33 @@ export default function AdminPortal() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPhoto(String(reader.result || "/logo.png"));
-      showToast("Picture ready");
+      const dataUrl = String(reader.result || "");
+      const img = new Image();
+      img.onload = () => {
+        const max = 256;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setPhoto(dataUrl || "/logo.png");
+          showToast("Picture ready");
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.72));
+        showToast("Picture ready");
+      };
+      img.onerror = () => {
+        setPhoto("/logo.png");
+        showToast("Could not read image");
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   }
@@ -464,7 +489,10 @@ export default function AdminPortal() {
                 {eas.length === 0 ? (
                   <p className="admin-empty">No EAs yet — create one above</p>
                 ) : (
-                  eas.map((ea) => (
+                  eas.map((ea) => {
+                    const bot = bots.find((b) => b.id === ea.id);
+                    const isLive = Boolean(bot?.active);
+                    return (
                     <div className="ea-item" key={ea.id}>
                       <img src={ea.photo || "/logo.png"} alt="" width="40" height="40" />
                       <div className="ea-meta">
@@ -482,7 +510,9 @@ export default function AdminPortal() {
                         </div>
                       </div>
                       <div className="ea-item-actions">
-                        <span className="admin-badge is-approved">Live</span>
+                        <span className={`admin-badge${isLive ? " is-approved" : ""}`}>
+                          {isLive ? "Live" : "Inactive"}
+                        </span>
                         <button className="ea-edit-btn" type="button" onClick={() => startEdit(ea)}>
                           Edit profile
                         </button>
@@ -495,7 +525,8 @@ export default function AdminPortal() {
                         </button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

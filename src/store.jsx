@@ -4,10 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 const STORAGE_KEY = "apexea-app-v1";
+const BACKUP_KEY = "apexea-app-v1-backup";
 
 export const DEFAULT_SYMBOLS = [
   "EURUSD",
@@ -54,13 +56,80 @@ function randomLicenseKey() {
   return `APEX-${chunk()}-${chunk()}`;
 }
 
-function loadState() {
+function parseState(raw) {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+    return data;
   } catch {
     return null;
+  }
+}
+
+function eaCount(state) {
+  return Array.isArray(state?.eas) ? state.eas.length : 0;
+}
+
+function loadState() {
+  try {
+    const primary = parseState(localStorage.getItem(STORAGE_KEY));
+    const backup = parseState(localStorage.getItem(BACKUP_KEY));
+    if (eaCount(primary) === 0 && eaCount(backup) > 0) {
+      return {
+        ...(primary || {}),
+        eas: backup.eas,
+        bots: Array.isArray(backup.bots) ? backup.bots : primary?.bots || [],
+        licenseKeys: Array.isArray(backup.licenseKeys)
+          ? backup.licenseKeys
+          : primary?.licenseKeys || [],
+        catalog: backup.catalog?.length ? backup.catalog : primary?.catalog,
+        symbolMeta: backup.symbolMeta || primary?.symbolMeta || {},
+        coverEmail: primary?.coverEmail || backup.coverEmail || "",
+        signups: primary?.signups?.length ? primary.signups : backup.signups || [],
+        activeInterface: primary?.activeInterface || backup.activeInterface || "zeta",
+      };
+    }
+    return primary || backup;
+  } catch {
+    return null;
+  }
+}
+
+function stripHeavyPhotos(payload) {
+  return {
+    ...payload,
+    eas: (payload.eas || []).map((ea) => ({
+      ...ea,
+      photo:
+        typeof ea.photo === "string" && ea.photo.startsWith("data:")
+          ? "/logo.png"
+          : ea.photo || "/logo.png",
+    })),
+    bots: (payload.bots || []).map((bot) => ({
+      ...bot,
+      photo:
+        typeof bot.photo === "string" && bot.photo.startsWith("data:")
+          ? "/logo.png"
+          : bot.photo || "/logo.png",
+    })),
+  };
+}
+
+function saveState(payload) {
+  const raw = JSON.stringify(payload);
+  localStorage.setItem(STORAGE_KEY, raw);
+  // Keep the last non-empty EA snapshot so an empty overwrite can be recovered.
+  if (eaCount(payload) > 0) {
+    localStorage.setItem(BACKUP_KEY, raw);
+  }
+}
+
+function clearEaBackup() {
+  try {
+    localStorage.removeItem(BACKUP_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -103,8 +172,24 @@ export function AppProvider({ children }) {
   const [v2SymTab, setV2SymTab] = useState("allowed");
   const [editingSymbol, setEditingSymbol] = useState(null);
   const [editingEaId, setEditingEaId] = useState(null);
+  const persistReady = useRef(false);
 
   useEffect(() => {
+    if (!toast) return undefined;
+    const t = setTimeout(() => setToast(""), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showToast = useCallback((message) => setToast(message), []);
+
+  useEffect(() => {
+    // Skip the first run so Strict Mode remounts cannot blank a prior save
+    // before React state finishes hydrating from localStorage.
+    if (!persistReady.current) {
+      persistReady.current = true;
+      return;
+    }
+
     const payload = {
       activeInterface,
       coverEmail,
@@ -115,10 +200,16 @@ export function AppProvider({ children }) {
       catalog,
       symbolMeta,
     };
+
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      saveState(payload);
     } catch {
-      // ignore quota
+      try {
+        saveState(stripHeavyPhotos(payload));
+        showToast("Storage full — EA photos reset to logo so data can save");
+      } catch {
+        showToast("Could not save — storage is full. Remove old site data.");
+      }
     }
   }, [
     activeInterface,
@@ -129,15 +220,8 @@ export function AppProvider({ children }) {
     licenseKeys,
     catalog,
     symbolMeta,
+    showToast,
   ]);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(""), 1800);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const showToast = useCallback((message) => setToast(message), []);
 
   const hasActiveBot = useMemo(
     () => bots.some((b) => b.active),
@@ -292,10 +376,48 @@ export function AppProvider({ children }) {
     [ensureCatalog, showToast]
   );
 
+  const selectBot = useCallback((botId) => {
+    setBots((prev) =>
+      prev.map((b) => ({ ...b, selected: b.id === botId }))
+    );
+  }, []);
+
+  const removeActiveBot = useCallback(() => {
+    const current =
+      bots.find((b) => b.active && b.selected) || bots.find((b) => b.active);
+    if (!current) {
+      showToast("No active bot to remove");
+      return;
+    }
+    const ok = window.confirm(
+      `Remove ${current.name} from the app home?\n\nYour EA stays in Manage EA. Use a license key to activate it again.`
+    );
+    if (!ok) return;
+    setBots((prev) => {
+      const updated = prev.map((b) =>
+        b.id === current.id ? { ...b, active: false, selected: false } : b
+      );
+      const next = updated.find((b) => b.active);
+      if (next) {
+        return updated.map((b) => ({ ...b, selected: b.id === next.id }));
+      }
+      return updated;
+    });
+    showToast(`${current.name} removed — restore with a license key`);
+  }, [bots, showToast]);
+
   const deleteEa = useCallback(
     (eaId) => {
       const ea = eas.find((e) => e.id === eaId);
-      setEas((prev) => prev.filter((e) => e.id !== eaId));
+      const ok = window.confirm(
+        `Delete ${ea?.name || "this EA"} permanently?\n\nThis cannot be undone.`
+      );
+      if (!ok) return;
+      setEas((prev) => {
+        const next = prev.filter((e) => e.id !== eaId);
+        if (next.length === 0) clearEaBackup();
+        return next;
+      });
       setBots((prev) => {
         const next = prev.filter((b) => b.id !== eaId);
         if (!next.some((b) => b.selected) && next.some((b) => b.active)) {
@@ -309,31 +431,6 @@ export function AppProvider({ children }) {
     },
     [eas, editingEaId, showToast]
   );
-
-  const selectBot = useCallback((botId) => {
-    setBots((prev) =>
-      prev.map((b) => ({ ...b, selected: b.id === botId }))
-    );
-  }, []);
-
-  const removeActiveBot = useCallback(() => {
-    const current = bots.find((b) => b.active && b.selected) || bots.find((b) => b.active);
-    if (!current) {
-      showToast("No active bot to remove");
-      return;
-    }
-    setBots((prev) => {
-      const updated = prev.map((b) =>
-        b.id === current.id ? { ...b, active: false, selected: false } : b
-      );
-      const next = updated.find((b) => b.active);
-      if (next) {
-        return updated.map((b) => ({ ...b, selected: b.id === next.id }));
-      }
-      return updated;
-    });
-    showToast(`${current.name} removed — license key required to restore`);
-  }, [bots, showToast]);
 
   const generateLicense = useCallback(
     (botId) => {
