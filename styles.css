@@ -2129,6 +2129,41 @@ button {
   font-weight: 700;
 }
 
+.cover-step {
+  width: 100%;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: v2-fade 0.28s ease both;
+}
+
+.cover-step.is-active {
+  display: flex;
+}
+
+.cover-step[hidden] {
+  display: none !important;
+}
+
+.cover-title {
+  margin-top: 4px;
+  font-size: clamp(1.55rem, 6.5vw, 1.9rem);
+  letter-spacing: -0.02em;
+}
+
+.cover-back {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.cover-back:hover {
+  color: #fff;
+}
+
 .phone.is-locked .stage,
 .phone.is-locked .tabbar,
 .phone.is-locked .top,

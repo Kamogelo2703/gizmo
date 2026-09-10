@@ -471,28 +471,60 @@
           <div class="app-lock-orb">
             <img src="./assets/avatar.png" alt="" width="96" height="96" />
           </div>
-          <p class="app-lock-eyebrow">ApexEA</p>
-          <h2 class="app-lock-title">No active bot</h2>
-          <p class="app-lock-sub">
-            This app is locked. Enter a license key to activate a bot.
-          </p>
-          <form class="app-lock-form" id="license-activate-form">
-            <label class="ea-field">
-              <span>License key</span>
-              <input
-                class="admin-input"
-                id="license-key-input"
-                name="key"
-                type="text"
-                placeholder="APEX-XXXX-XXXX"
-                autocomplete="off"
-                required
-              />
-            </label>
-            <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
-              Activate bot
+
+          <section class="cover-step is-active" id="cover-step" data-lock-step="cover">
+            <h2 class="app-lock-title cover-title">Unlock ApexEA</h2>
+            <p class="app-lock-sub">
+              Enter your email to continue, then activate with your license key.
+            </p>
+            <form class="app-lock-form" id="cover-email-form">
+              <label class="ea-field">
+                <span>Email</span>
+                <input
+                  class="admin-input"
+                  id="cover-email-input"
+                  name="email"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  placeholder="you@email.com"
+                  required
+                />
+              </label>
+              <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
+                Get Lifetime Access
+              </button>
+            </form>
+          </section>
+
+          <section class="cover-step" id="license-step" data-lock-step="license" hidden>
+            <p class="app-lock-eyebrow">ApexEA</p>
+            <h2 class="app-lock-title">Activate license key</h2>
+            <p class="app-lock-sub" id="license-step-sub">
+              Enter your license key to unlock the app.
+            </p>
+            <form class="app-lock-form" id="license-activate-form">
+              <label class="ea-field">
+                <span>License key</span>
+                <input
+                  class="admin-input"
+                  id="license-key-input"
+                  name="key"
+                  type="text"
+                  placeholder="APEX-XXXX-XXXX"
+                  autocomplete="off"
+                  required
+                />
+              </label>
+              <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
+                Activate bot
+              </button>
+            </form>
+            <button class="cover-back" type="button" id="cover-back-btn">
+              ← Back
             </button>
-          </form>
+          </section>
+
           <p class="app-lock-admin">
             Powered by <span class="apexea-hotspot">ApexEA</span>
           </p>

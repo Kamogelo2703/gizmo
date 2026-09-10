@@ -577,16 +577,96 @@ const licenseEmpty = document.getElementById("license-empty");
 const licenseCount = document.getElementById("license-count");
 const licenseActivateForm = document.getElementById("license-activate-form");
 const licenseKeyInput = document.getElementById("license-key-input");
+const coverEmailForm = document.getElementById("cover-email-form");
+const coverEmailInput = document.getElementById("cover-email-input");
+const coverStep = document.getElementById("cover-step");
+const licenseStep = document.getElementById("license-step");
+const coverBackBtn = document.getElementById("cover-back-btn");
+const licenseStepSub = document.getElementById("license-step-sub");
 const heroEl = document.querySelector(".hero");
 const heroAvatarEl = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
 const heroBrandEl = document.querySelector(".hero .brand, .brand");
 const heroKickerEl = document.querySelector(".hero .kicker, .kicker");
 
-function randomLicenseKey() {
-  const chunk = () =>
-    Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 6);
-  return `APEX-${chunk()}-${chunk()}`;
+/** @type {string} */
+let coverEmail = "";
+
+function showLockStep(step) {
+  const isCover = step === "cover";
+  if (coverStep) {
+    coverStep.hidden = !isCover;
+    coverStep.classList.toggle("is-active", isCover);
+  }
+  if (licenseStep) {
+    licenseStep.hidden = isCover;
+    licenseStep.classList.toggle("is-active", !isCover);
+  }
+  if (isCover) {
+    setTimeout(() => coverEmailInput?.focus(), 40);
+  } else {
+    setTimeout(() => licenseKeyInput?.focus(), 40);
+  }
 }
+
+function openLicenseActivateStep(email) {
+  if (email) coverEmail = email;
+  if (licenseStepSub) {
+    licenseStepSub.textContent = coverEmail
+      ? `License for ${coverEmail}. Enter your key to unlock the app.`
+      : "Enter your license key to unlock the app.";
+  }
+  showLockStep("license");
+}
+
+function showAppLock(options = {}) {
+  const startOnLicense = Boolean(options.license);
+  if (appLock) appLock.hidden = false;
+  phoneEl?.classList.add("is-locked");
+  closePairs?.();
+  if (licenseKeyInput) licenseKeyInput.value = "";
+  if (startOnLicense) {
+    openLicenseActivateStep(coverEmail);
+  } else {
+    showLockStep("cover");
+    if (coverEmailInput && coverEmail) coverEmailInput.value = coverEmail;
+  }
+}
+
+function hideAppLock() {
+  if (appLock) appLock.hidden = true;
+  phoneEl?.classList.remove("is-locked");
+}
+
+function openLicenseSheet() {
+  // Skip cover and go straight to license entry (e.g. from Activate with License Key)
+  showAppLock({ license: true });
+}
+
+function closeLicenseSheet() {
+  // Keep the full-app lock visible while no bot is active.
+  if (!hasActiveBot()) {
+    showAppLock();
+    return;
+  }
+  hideAppLock();
+}
+
+coverEmailForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const email = (coverEmailInput?.value || "").trim();
+  if (!email || !coverEmailInput?.checkValidity()) {
+    coverEmailInput?.reportValidity();
+    showToast("Enter a valid email");
+    return;
+  }
+  coverEmail = email;
+  openLicenseActivateStep(email);
+  showToast("Continue with your license key");
+});
+
+coverBackBtn?.addEventListener("click", () => {
+  showLockStep("cover");
+});
 
 function refreshLicenseBotOptions() {
   if (!licenseBotSelect) return;
@@ -645,32 +725,10 @@ function hasActiveBot() {
   return [...botRegistry.values()].some((bot) => bot.active);
 }
 
-function showAppLock() {
-  if (appLock) appLock.hidden = false;
-  phoneEl?.classList.add("is-locked");
-  closePairs?.();
-  if (licenseKeyInput) {
-    licenseKeyInput.value = "";
-    setTimeout(() => licenseKeyInput.focus(), 50);
-  }
-}
-
-function hideAppLock() {
-  if (appLock) appLock.hidden = true;
-  phoneEl?.classList.remove("is-locked");
-}
-
-function openLicenseSheet() {
-  showAppLock();
-}
-
-function closeLicenseSheet() {
-  // Keep the full-app lock visible while no bot is active.
-  if (!hasActiveBot()) {
-    showAppLock();
-    return;
-  }
-  hideAppLock();
+function randomLicenseKey() {
+  const chunk = () =>
+    Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 6);
+  return `APEX-${chunk()}-${chunk()}`;
 }
 
 function setHeroEmpty(empty) {
