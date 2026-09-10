@@ -1066,10 +1066,9 @@ function applyInterface(name, { animate = true } = {}) {
   window.setTimeout(finish, 280);
 }
 
-document.getElementById("iface-toggle")?.addEventListener("click", () => {
+window.__switchIface = function () {
   applyInterface(activeInterface === "zeta" ? "v2" : "zeta");
-});
-
+};
 document.querySelectorAll("[data-v2-action]").forEach((btn) => {
   btn.addEventListener("click", () => {
     const action = btn.dataset.v2Action;
