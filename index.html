@@ -498,13 +498,13 @@
           </section>
 
           <section class="cover-step" id="pending-step" data-lock-step="pending" hidden>
-            <p class="app-lock-eyebrow">Pending approval</p>
-            <h2 class="app-lock-title">Waiting for super admin</h2>
+            <p class="app-lock-eyebrow" id="pending-eyebrow">Pending approval</p>
+            <h2 class="app-lock-title" id="pending-title">Waiting for super admin</h2>
             <p class="app-lock-sub" id="pending-step-sub">
               Your signup is pending. You can enter a license key only after approval.
             </p>
             <div class="pending-status-card">
-              <span class="admin-badge is-pending">Pending</span>
+              <span class="admin-badge is-pending" id="pending-status-badge">Pending</span>
               <strong id="pending-email-label"></strong>
             </div>
             <button class="admin-btn admin-btn-solid admin-btn-block" type="button" id="check-approval-btn">
@@ -978,7 +978,7 @@
           <section class="admin-page" data-admin-page="activate" hidden>
             <h2 class="admin-h1">Activate Accounts</h2>
             <p class="admin-sub">
-              Review pending signups. Approve a client before they can use a license key.
+              Approve or decline pending signups. Only approved clients can use a license key.
             </p>
             <div class="admin-card">
               <div class="admin-card-title-row">
@@ -996,6 +996,15 @@
               </div>
               <div class="admin-activate-list" id="approved-list">
                 <p class="admin-empty" id="approved-empty">No approved accounts yet</p>
+              </div>
+            </div>
+            <div class="admin-card" style="margin-top: 14px">
+              <div class="admin-card-title-row">
+                <h3>Declined accounts</h3>
+                <span class="admin-badge" id="activate-declined-count">0</span>
+              </div>
+              <div class="admin-activate-list" id="declined-list">
+                <p class="admin-empty" id="declined-empty">No declined accounts</p>
               </div>
             </div>
           </section>

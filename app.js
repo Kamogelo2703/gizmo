@@ -644,8 +644,13 @@ const pendingStepSub = document.getElementById("pending-step-sub");
 const pendingEmailLabel = document.getElementById("pending-email-label");
 const activateList = document.getElementById("activate-list");
 const approvedList = document.getElementById("approved-list");
+const declinedList = document.getElementById("declined-list");
 const activatePendingCount = document.getElementById("activate-pending-count");
 const activateApprovedCount = document.getElementById("activate-approved-count");
+const activateDeclinedCount = document.getElementById("activate-declined-count");
+const pendingEyebrow = document.getElementById("pending-eyebrow");
+const pendingTitle = document.getElementById("pending-title");
+const pendingStatusBadge = document.getElementById("pending-status-badge");
 const heroEl = document.querySelector(".hero");
 const heroAvatarEl = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
 const heroBrandEl = document.querySelector(".hero .brand, .brand");
@@ -654,7 +659,7 @@ const heroKickerEl = document.querySelector(".hero .kicker, .kicker");
 /** @type {string} */
 let coverEmail = "";
 
-/** @type {Map<string, {email:string, status:'pending'|'approved', createdAt:number}>} */
+/** @type {Map<string, {email:string, status:'pending'|'approved'|'declined', createdAt:number}>} */
 const signups = new Map();
 
 const SIGNUPS_STORAGE_KEY = "apexea-signups";
@@ -668,9 +673,15 @@ function loadSignupsFromStorage() {
     parsed.forEach((item) => {
       if (!item?.email) return;
       const email = normalizeEmail(item.email);
+      const status =
+        item.status === "approved"
+          ? "approved"
+          : item.status === "declined"
+            ? "declined"
+            : "pending";
       signups.set(email, {
         email,
-        status: item.status === "approved" ? "approved" : "pending",
+        status,
         createdAt: Number(item.createdAt) || Date.now(),
       });
     });
@@ -707,6 +718,7 @@ function syncAdminSignupStats() {
   const all = [...signups.values()];
   const pending = all.filter((s) => s.status === "pending").length;
   const approved = all.filter((s) => s.status === "approved").length;
+  const declined = all.filter((s) => s.status === "declined").length;
   const total = all.length;
   const totalEl = document.getElementById("stat-total-mentors");
   const pendingEl = document.getElementById("stat-pending-mentors");
@@ -716,8 +728,23 @@ function syncAdminSignupStats() {
   if (approvedEl) approvedEl.textContent = String(approved);
   if (activatePendingCount) activatePendingCount.textContent = String(pending);
   if (activateApprovedCount) activateApprovedCount.textContent = String(approved);
+  if (activateDeclinedCount) activateDeclinedCount.textContent = String(declined);
   const clientsMeta = document.getElementById("clients-meta");
   if (clientsMeta) clientsMeta.textContent = `Total clients: ${total}`;
+}
+
+function applyStatusBadge(badge, status) {
+  badge.classList.remove("is-pending", "is-approved", "is-declined");
+  if (status === "approved") {
+    badge.classList.add("is-approved");
+    badge.textContent = "Approved";
+  } else if (status === "declined") {
+    badge.classList.add("is-declined");
+    badge.textContent = "Declined";
+  } else {
+    badge.classList.add("is-pending");
+    badge.textContent = "Pending";
+  }
 }
 
 function renderClientsList() {
@@ -741,21 +768,34 @@ function renderClientsList() {
       <span class="admin-badge"></span>
     `;
     row.querySelector(".admin-name").textContent = signup.email;
-    const badge = row.querySelector(".admin-badge");
-    if (signup.status === "approved") {
-      badge.classList.add("is-approved");
-      badge.textContent = "Approved";
-    } else {
-      badge.classList.add("is-pending");
-      badge.textContent = "Pending";
-    }
+    applyStatusBadge(row.querySelector(".admin-badge"), signup.status);
     list.appendChild(row);
   });
   syncAdminSignupStats();
 }
 
+function renderStatusOnlyList(listEl, items, emptyText, emptyId) {
+  if (!listEl) return;
+  listEl.innerHTML = "";
+  if (items.length === 0) {
+    listEl.innerHTML = `<p class="admin-empty" id="${emptyId}">${emptyText}</p>`;
+    return;
+  }
+  items.forEach((signup) => {
+    const row = document.createElement("div");
+    row.className = "admin-table-row is-status-only";
+    row.innerHTML = `
+      <span class="admin-name"></span>
+      <span class="admin-badge"></span>
+    `;
+    row.querySelector(".admin-name").textContent = signup.email;
+    applyStatusBadge(row.querySelector(".admin-badge"), signup.status);
+    listEl.appendChild(row);
+  });
+}
+
 function renderActivateAccounts() {
-  if (!activateList || !approvedList) {
+  if (!activateList) {
     syncAdminSignupStats();
     return;
   }
@@ -766,6 +806,9 @@ function renderActivateAccounts() {
   const approved = [...signups.values()]
     .filter((s) => s.status === "approved")
     .sort((a, b) => b.createdAt - a.createdAt);
+  const declined = [...signups.values()]
+    .filter((s) => s.status === "declined")
+    .sort((a, b) => b.createdAt - a.createdAt);
 
   activateList.innerHTML = "";
   if (pending.length === 0) {
@@ -773,56 +816,64 @@ function renderActivateAccounts() {
   } else {
     pending.forEach((signup) => {
       const row = document.createElement("div");
-      row.className = "admin-table-row";
+      row.className = "admin-table-row has-actions";
       row.innerHTML = `
         <span class="admin-name"></span>
         <span class="admin-badge is-pending">Pending</span>
-        <button class="admin-btn admin-btn-solid admin-btn-sm" type="button">Approve</button>
+        <div class="admin-row-actions">
+          <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-approve>Approve</button>
+          <button class="admin-btn admin-btn-danger admin-btn-sm" type="button" data-decline>Decline</button>
+        </div>
       `;
       row.querySelector(".admin-name").textContent = signup.email;
-      row.querySelector("button").addEventListener("click", () => {
-        approveSignup(signup.email);
+      row.querySelector("[data-approve]").addEventListener("click", () => {
+        setSignupStatus(signup.email, "approved");
+      });
+      row.querySelector("[data-decline]").addEventListener("click", () => {
+        setSignupStatus(signup.email, "declined");
       });
       activateList.appendChild(row);
     });
   }
 
-  approvedList.innerHTML = "";
-  if (approved.length === 0) {
-    approvedList.innerHTML = `<p class="admin-empty" id="approved-empty">No approved accounts yet</p>`;
-  } else {
-    approved.forEach((signup) => {
-      const row = document.createElement("div");
-      row.className = "admin-table-row is-approved-only";
-      row.innerHTML = `
-        <span class="admin-name"></span>
-        <span class="admin-badge is-approved">Approved</span>
-      `;
-      row.querySelector(".admin-name").textContent = signup.email;
-      approvedList.appendChild(row);
-    });
-  }
-
+  renderStatusOnlyList(approvedList, approved, "No approved accounts yet", "approved-empty");
+  renderStatusOnlyList(declinedList, declined, "No declined accounts", "declined-empty");
   renderClientsList();
 }
 
-function approveSignup(email) {
+function setSignupStatus(email, status) {
   const key = normalizeEmail(email);
   const signup = signups.get(key);
   if (!signup) {
     showToast("Signup not found");
     return;
   }
-  signup.status = "approved";
+  signup.status = status;
   signups.set(key, signup);
   saveSignupsToStorage();
   renderActivateAccounts();
-  showToast(`${signup.email} approved`);
 
-  if (normalizeEmail(coverEmail) === key && appLock && !appLock.hidden) {
-    openLicenseActivateStep(signup.email);
-    showToast("Approved — enter your license key");
+  if (status === "approved") {
+    showToast(`${signup.email} approved`);
+    if (normalizeEmail(coverEmail) === key && appLock && !appLock.hidden) {
+      openLicenseActivateStep(signup.email);
+      showToast("Approved — enter your license key");
+    }
+    return;
   }
+
+  showToast(`${signup.email} declined`);
+  if (normalizeEmail(coverEmail) === key && appLock && !appLock.hidden) {
+    openPendingStep(signup.email);
+  }
+}
+
+function approveSignup(email) {
+  setSignupStatus(email, "approved");
+}
+
+function declineSignup(email) {
+  setSignupStatus(email, "declined");
 }
 
 function requestSignup(email) {
@@ -830,6 +881,13 @@ function requestSignup(email) {
   const existing = signups.get(key);
   if (existing) {
     coverEmail = existing.email;
+    // Allow a declined user to re-request access
+    if (existing.status === "declined") {
+      existing.status = "pending";
+      existing.createdAt = Date.now();
+      signups.set(key, existing);
+      saveSignupsToStorage();
+    }
     renderActivateAccounts();
     return existing;
   }
@@ -863,11 +921,23 @@ function showLockStep(step) {
   if (step === "cover") {
     setTimeout(() => coverEmailInput?.focus(), 40);
   } else if (step === "pending") {
+    const signup = getSignup(coverEmail);
+    const declined = signup?.status === "declined";
     if (pendingEmailLabel) pendingEmailLabel.textContent = coverEmail || "—";
+    if (pendingEyebrow) pendingEyebrow.textContent = declined ? "Access declined" : "Pending approval";
+    if (pendingTitle) {
+      pendingTitle.textContent = declined ? "Request declined" : "Waiting for super admin";
+    }
+    if (pendingStatusBadge) applyStatusBadge(pendingStatusBadge, declined ? "declined" : "pending");
     if (pendingStepSub) {
-      pendingStepSub.textContent = coverEmail
-        ? `${coverEmail} is pending approval. A super admin must approve you in Activate Accounts.`
-        : "Your signup is pending. You can enter a license key only after approval.";
+      pendingStepSub.textContent = declined
+        ? `${coverEmail || "Your account"} was declined. You can change email or resubmit to request again.`
+        : coverEmail
+          ? `${coverEmail} is pending approval. A super admin must approve or decline you in Activate Accounts.`
+          : "Your signup is pending. You can enter a license key only after approval.";
+    }
+    if (checkApprovalBtn) {
+      checkApprovalBtn.textContent = declined ? "Resubmit for approval" : "Check approval status";
     }
   } else if (step === "license") {
     setTimeout(() => licenseKeyInput?.focus(), 40);
@@ -881,9 +951,14 @@ function openPendingStep(email) {
 
 function openLicenseActivateStep(email) {
   if (email) coverEmail = normalizeEmail(email);
-  if (!isSignupApproved(coverEmail)) {
+  const signup = getSignup(coverEmail);
+  if (!signup || signup.status !== "approved") {
     openPendingStep(coverEmail);
-    showToast("Waiting for super admin approval");
+    showToast(
+      signup?.status === "declined"
+        ? "Access was declined"
+        : "Waiting for super admin approval"
+    );
     return;
   }
   if (licenseStepSub) {
@@ -916,11 +991,16 @@ function showAppLock(options = {}) {
   if (licenseKeyInput) licenseKeyInput.value = "";
 
   if (forceLicense) {
-    if (isSignupApproved(coverEmail)) {
+    const signup = getSignup(coverEmail);
+    if (signup?.status === "approved") {
       openLicenseActivateStep(coverEmail);
-    } else if (getSignup(coverEmail)?.status === "pending") {
+    } else if (signup?.status === "pending" || signup?.status === "declined") {
       openPendingStep(coverEmail);
-      showToast("Account still pending approval");
+      showToast(
+        signup.status === "declined"
+          ? "Access was declined"
+          : "Account still pending approval"
+      );
     } else {
       showLockStep("cover");
       showToast("Request access with your email first");
@@ -988,6 +1068,13 @@ checkApprovalBtn?.addEventListener("click", () => {
   if (signup.status === "approved") {
     openLicenseActivateStep(signup.email);
     showToast("Approved — enter your license key");
+    return;
+  }
+  if (signup.status === "declined") {
+    // Resubmit declined account back to pending
+    const refreshed = requestSignup(signup.email);
+    openPendingStep(refreshed.email);
+    showToast("Resubmitted — waiting for approval");
     return;
   }
   showToast("Still pending — wait for super admin");
