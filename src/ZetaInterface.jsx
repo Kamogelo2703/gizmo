@@ -49,7 +49,7 @@ export default function ZetaInterface() {
               <div className="avatar-wrap">
                 <img
                   className="avatar"
-                  src={activeBot?.photo || "/avatar.png"}
+                  src={activeBot?.photo || "/logo.png"}
                   alt=""
                   width="160"
                   height="160"
@@ -94,7 +94,7 @@ export default function ZetaInterface() {
                     type="button"
                     onClick={() => selectBot(bot.id)}
                   >
-                    <img src={bot.photo || "/avatar.png"} alt="" width="36" height="36" />
+                    <img src={bot.photo || "/logo.png"} alt="" width="36" height="36" />
                     <span>{bot.name}</span>
                   </button>
                 ))}
@@ -127,7 +127,7 @@ export default function ZetaInterface() {
             </header>
             <div className="scanner-hero">
               <div className="scanner-orb">
-                <img src="/avatar.png" alt="" width="120" height="120" />
+                <img src="/logo.png" alt="" width="120" height="120" />
               </div>
               <p className="scanner-brand">{activeBot?.name || "ApexEA"}</p>
               <h3 className="scanner-heading">Chart Scanner</h3>

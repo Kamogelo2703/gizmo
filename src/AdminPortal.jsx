@@ -24,7 +24,7 @@ export default function AdminPortal() {
   } = useApp();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [photo, setPhoto] = useState("/avatar.png");
+  const [photo, setPhoto] = useState("/logo.png");
   const [name, setName] = useState("");
   const [strategy, setStrategy] = useState("scalper");
   const [draftSymbols, setDraftSymbols] = useState([]);
@@ -51,7 +51,7 @@ export default function AdminPortal() {
     if (!ea) return;
     setName(ea.name);
     setStrategy(ea.strategy);
-    setPhoto(ea.photo || "/avatar.png");
+    setPhoto(ea.photo || "/logo.png");
     setDraftSymbols([...ea.symbols]);
   }, [editingEaId, eas]);
 
@@ -65,7 +65,7 @@ export default function AdminPortal() {
     setEditingEaId(null);
     setName("");
     setStrategy("scalper");
-    setPhoto("/avatar.png");
+    setPhoto("/logo.png");
     setDraftSymbols([]);
     setCustomSymbol("");
   }
@@ -97,7 +97,7 @@ export default function AdminPortal() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPhoto(String(reader.result || "/avatar.png"));
+      setPhoto(String(reader.result || "/logo.png"));
       showToast("Picture ready");
     };
     reader.readAsDataURL(file);
@@ -178,7 +178,7 @@ export default function AdminPortal() {
       <aside className={`admin-drawer${drawerOpen ? " is-open" : ""}`} aria-hidden={!drawerOpen}>
         <div className="admin-drawer-header">
           <div className="admin-drawer-user">
-            <img src="/avatar.png" alt="" width="36" height="36" />
+            <img src="/logo.png" alt="" width="36" height="36" />
             <span>Admin</span>
           </div>
           <button className="admin-icon-btn" type="button" onClick={() => setDrawerOpen(false)}>
@@ -466,7 +466,7 @@ export default function AdminPortal() {
                 ) : (
                   eas.map((ea) => (
                     <div className="ea-item" key={ea.id}>
-                      <img src={ea.photo || "/avatar.png"} alt="" width="40" height="40" />
+                      <img src={ea.photo || "/logo.png"} alt="" width="40" height="40" />
                       <div className="ea-meta">
                         <strong>{ea.name}</strong>
                         <span>

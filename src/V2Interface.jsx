@@ -55,7 +55,7 @@ export default function V2Interface() {
               <div className="v2-avatar-wrap">
                 <img
                   className="v2-avatar"
-                  src={activeBot?.photo || "/avatar.png"}
+                  src={activeBot?.photo || "/logo.png"}
                   alt=""
                 />
               </div>
@@ -107,7 +107,7 @@ export default function V2Interface() {
                         type="button"
                         onClick={() => selectBot(bot.id)}
                       >
-                        <img src={bot.photo || "/avatar.png"} alt="" width="42" height="42" />
+                        <img src={bot.photo || "/logo.png"} alt="" width="42" height="42" />
                         <span>{bot.name}</span>
                       </button>
                     ))

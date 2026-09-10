@@ -94,7 +94,7 @@ export default function CoverLock() {
       <div className="app-lock-glow" aria-hidden="true" />
       <div className="app-lock-content">
         <div className="app-lock-orb">
-          <img src="/avatar.png" alt="" width="96" height="96" />
+          <img src="/logo.png" alt="ApexEA" width="96" height="96" />
         </div>
 
         {lockStep === "cover" && (
