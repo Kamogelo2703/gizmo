@@ -1038,34 +1038,23 @@
                 </label>
                 <div class="ea-field">
                   <span>Symbols</span>
-                  <p class="ea-hint">Chosen symbols appear on the app automatically.</p>
+                  <p class="ea-hint">Pick from the list or type your own symbol below.</p>
                   <div class="ea-symbol-picker" id="ea-symbol-picker"></div>
+                  <div class="ea-manual-symbol">
+                    <input
+                      class="admin-input"
+                      id="ea-custom-symbol"
+                      type="text"
+                      inputmode="text"
+                      autocomplete="off"
+                      placeholder="Write your own symbol (e.g. US500)"
+                    />
+                    <button class="admin-btn admin-btn-outline" type="button" id="ea-add-symbol-btn">
+                      Add
+                    </button>
+                  </div>
                   <div class="ea-symbol-selected" id="ea-symbol-selected"></div>
                 </div>
-                <label class="ea-field">
-                  <span>Risk %</span>
-                  <input
-                    class="admin-input"
-                    id="ea-risk"
-                    name="risk"
-                    type="number"
-                    min="0.1"
-                    max="10"
-                    step="0.1"
-                    value="1"
-                    required
-                  />
-                </label>
-                <label class="ea-field">
-                  <span>Timeframe</span>
-                  <select class="admin-input" id="ea-timeframe" name="timeframe" required>
-                    <option value="M1">M1</option>
-                    <option value="M5" selected>M5</option>
-                    <option value="M15">M15</option>
-                    <option value="H1">H1</option>
-                    <option value="H4">H4</option>
-                  </select>
-                </label>
                 <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
                   Create EA
                 </button>

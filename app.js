@@ -127,6 +127,32 @@ function refreshEaItemSymbols(eaId) {
   });
 }
 
+function normalizeSymbol(raw) {
+  return String(raw || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9._/-]/g, "");
+}
+
+function ensureCatalogSymbol(symbol) {
+  if (!symbol) return;
+  if (!ALL_SYMBOLS.includes(symbol)) {
+    ALL_SYMBOLS.push(symbol);
+  }
+}
+
+function addDraftSymbol(raw) {
+  const symbol = normalizeSymbol(raw);
+  if (!symbol) {
+    showToast("Enter a symbol");
+    return false;
+  }
+  ensureCatalogSymbol(symbol);
+  draftEaSymbols.add(symbol);
+  renderDraftSymbolPicker();
+  return true;
+}
+
 function renderDraftSymbolPicker() {
   if (!eaSymbolPicker || !eaSymbolSelected) return;
   eaSymbolPicker.innerHTML = "";
@@ -153,10 +179,34 @@ function renderDraftSymbolPicker() {
   [...draftEaSymbols].forEach((symbol) => {
     const chip = document.createElement("span");
     chip.className = "ea-sym-chip";
-    chip.innerHTML = `<span>${symbol}</span>`;
+    chip.innerHTML = `<span></span><button type="button" aria-label="Remove ${symbol}">×</button>`;
+    chip.querySelector("span").textContent = symbol;
+    chip.querySelector("button").addEventListener("click", () => {
+      draftEaSymbols.delete(symbol);
+      renderDraftSymbolPicker();
+    });
     eaSymbolSelected.appendChild(chip);
   });
 }
+
+const eaCustomSymbolInput = document.getElementById("ea-custom-symbol");
+const eaAddSymbolBtn = document.getElementById("ea-add-symbol-btn");
+
+eaAddSymbolBtn?.addEventListener("click", () => {
+  if (addDraftSymbol(eaCustomSymbolInput?.value)) {
+    if (eaCustomSymbolInput) eaCustomSymbolInput.value = "";
+    showToast("Symbol added");
+  }
+});
+
+eaCustomSymbolInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  if (addDraftSymbol(eaCustomSymbolInput.value)) {
+    eaCustomSymbolInput.value = "";
+    showToast("Symbol added");
+  }
+});
 
 function openPairs() {
   renderPairs();
@@ -457,9 +507,12 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   const form = event.currentTarget;
   const name = form.name.value.trim();
   const strategy = form.strategy.value;
-  const risk = form.risk.value;
-  const timeframe = form.timeframe.value;
   const photoUrl = eaPhotoDataUrl || "./assets/avatar.png";
+  // Include any text still sitting in the custom symbol field
+  if (eaCustomSymbolInput?.value.trim()) {
+    addDraftSymbol(eaCustomSymbolInput.value);
+    eaCustomSymbolInput.value = "";
+  }
   const symbols = [...draftEaSymbols];
 
   if (!name) {
@@ -467,9 +520,11 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
     return;
   }
   if (symbols.length === 0) {
-    showToast("Choose at least one symbol");
+    showToast("Add at least one symbol");
     return;
   }
+
+  symbols.forEach(ensureCatalogSymbol);
 
   const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
   eaSymbols.set(id, new Set(symbols));
@@ -492,7 +547,7 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   const itemImg = item.querySelector("img");
   if (itemImg) itemImg.src = photoUrl;
   item.querySelector("strong").textContent = name;
-  item.querySelector(".ea-meta > span").textContent = `${strategyLabels[strategy] || strategy} · ${timeframe} · Risk ${risk}%`;
+  item.querySelector(".ea-meta > span").textContent = `${strategyLabels[strategy] || strategy} · ${symbols.length} symbols`;
   item.querySelector("[data-delete-ea]").addEventListener("click", () => deleteEa(id, name));
   eaList?.prepend(item);
   document.getElementById("ea-empty")?.remove();
@@ -515,13 +570,12 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   last?.classList.add("is-active");
 
   form.reset();
-  form.risk.value = "1";
-  form.timeframe.value = "M5";
   eaPhotoDataUrl = "";
   draftEaSymbols.clear();
   renderDraftSymbolPicker();
   if (eaPhotoPreview) eaPhotoPreview.src = "./assets/avatar.png";
   if (eaPhotoInput) eaPhotoInput.value = "";
+  if (eaCustomSymbolInput) eaCustomSymbolInput.value = "";
   showToast(`${name} symbols added to app`);
   closeAdmin();
   showView("home");

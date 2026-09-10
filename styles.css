@@ -1790,6 +1790,17 @@ button {
   margin-top: 4px;
 }
 
+.ea-manual-symbol {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ea-manual-symbol .admin-input {
+  margin: 0;
+}
+
 .ea-pick-chip,
 .ea-sym-chip {
   display: inline-flex;
