@@ -1231,6 +1231,54 @@ button {
   font-size: 0.9rem;
 }
 
+.mt-back-btn {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.mt-back-btn:active {
+  color: #fff;
+}
+
+.mt-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+}
+
+.mt-field > span {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.mt-connect-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 15px 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff4b93 0%, #ff1177 100%);
+  color: #fff;
+  font-weight: 750;
+  font-size: 0.98rem;
+  box-shadow: 0 10px 24px rgba(255, 17, 119, 0.35);
+}
+
+.mt-connect-btn:active {
+  transform: scale(0.98);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

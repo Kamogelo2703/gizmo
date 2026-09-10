@@ -20,11 +20,15 @@ const BROKERS = [
   { id: "avatrade", name: "AvaTrade", platforms: ["MT4", "MT5"] },
 ];
 
+const emptyLogin = { login: "", password: "", server: "" };
+
 export default function MetaTraderPanel({ variant = "zeta" }) {
   const { showToast } = useApp();
   const [platform, setPlatform] = useState("MT5");
   const [query, setQuery] = useState("");
   const [selectedBroker, setSelectedBroker] = useState(null);
+  const [step, setStep] = useState("browse");
+  const [creds, setCreds] = useState(emptyLogin);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -36,11 +40,99 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
   }, [platform, query]);
 
   function pickBroker(broker) {
-    setSelectedBroker(broker.id);
-    showToast(`${broker.name} · ${platform} selected`);
+    setSelectedBroker(broker);
+    setCreds(emptyLogin);
+    setStep("login");
+  }
+
+  function backToBrokers() {
+    setStep("browse");
+    setCreds(emptyLogin);
+  }
+
+  function updateCred(field, value) {
+    setCreds((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function connectAccount(event) {
+    event.preventDefault();
+    const login = creds.login.trim();
+    const password = creds.password;
+    const server = creds.server.trim();
+
+    if (!login || !password || !server) {
+      showToast("Enter login, password, and server");
+      return;
+    }
+
+    showToast(`Connecting ${selectedBroker.name} · ${platform}`);
+    setStep("browse");
+    setQuery("");
+    setCreds(emptyLogin);
   }
 
   const rootClass = variant === "v2" ? "mt-panel mt-panel--v2" : "mt-panel";
+
+  if (step === "login" && selectedBroker) {
+    return (
+      <div className={rootClass}>
+        <header className="mt-panel-head">
+          <button className="mt-back-btn" type="button" onClick={backToBrokers}>
+            ← Brokers
+          </button>
+          <p className="mt-panel-kicker">{platform}</p>
+          <h2 className="mt-panel-title">{selectedBroker.name}</h2>
+          <p className="mt-panel-sub">Enter your MetaTrader account details to connect.</p>
+        </header>
+
+        <form className="mt-login-form" onSubmit={connectAccount}>
+          <label className="mt-field">
+            <span>Login</span>
+            <input
+              className="mt-search-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="username"
+              placeholder="Enter login"
+              value={creds.login}
+              onChange={(e) => updateCred("login", e.target.value)}
+              required
+            />
+          </label>
+
+          <label className="mt-field">
+            <span>Password</span>
+            <input
+              className="mt-search-input"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter password"
+              value={creds.password}
+              onChange={(e) => updateCred("password", e.target.value)}
+              required
+            />
+          </label>
+
+          <label className="mt-field">
+            <span>Server</span>
+            <input
+              className="mt-search-input"
+              type="text"
+              autoComplete="off"
+              placeholder="Enter server"
+              value={creds.server}
+              onChange={(e) => updateCred("server", e.target.value)}
+              required
+            />
+          </label>
+
+          <button className="mt-connect-btn" type="submit">
+            Connect
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className={rootClass}>
@@ -90,7 +182,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
               <li key={broker.id}>
                 <button
                   type="button"
-                  className={`mt-broker-item${selectedBroker === broker.id ? " is-selected" : ""}`}
+                  className="mt-broker-item"
                   onClick={() => pickBroker(broker)}
                 >
                   <span className="mt-broker-name">{broker.name}</span>
