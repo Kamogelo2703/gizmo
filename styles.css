@@ -1648,6 +1648,10 @@ button {
 }
 
 .admin-activate-list .admin-table-row {
+  grid-template-columns: 1fr auto auto;
+}
+
+.admin-activate-list .admin-table-row.is-approved-only {
   grid-template-columns: 1fr auto;
 }
 

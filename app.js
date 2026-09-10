@@ -353,6 +353,7 @@ function openAdmin(page = "dashboard") {
   adminPortal.hidden = false;
   phoneEl?.classList.add("is-admin-open");
   showAdminPage(page);
+  renderActivateAccounts();
 }
 
 function closeAdmin() {
@@ -576,9 +577,8 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   if (eaPhotoPreview) eaPhotoPreview.src = "./assets/avatar.png";
   if (eaPhotoInput) eaPhotoInput.value = "";
   if (eaCustomSymbolInput) eaCustomSymbolInput.value = "";
-  showToast(`${name} symbols added to app`);
-  closeAdmin();
-  showView("home");
+  showToast(`${name} created`);
+  showAdminPage("manage-ea");
 });
 
 function deleteEa(eaId, name) {
@@ -657,6 +657,39 @@ let coverEmail = "";
 /** @type {Map<string, {email:string, status:'pending'|'approved', createdAt:number}>} */
 const signups = new Map();
 
+const SIGNUPS_STORAGE_KEY = "apexea-signups";
+
+function loadSignupsFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(SIGNUPS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    parsed.forEach((item) => {
+      if (!item?.email) return;
+      const email = normalizeEmail(item.email);
+      signups.set(email, {
+        email,
+        status: item.status === "approved" ? "approved" : "pending",
+        createdAt: Number(item.createdAt) || Date.now(),
+      });
+    });
+  } catch {
+    // ignore bad storage
+  }
+}
+
+function saveSignupsToStorage() {
+  try {
+    sessionStorage.setItem(
+      SIGNUPS_STORAGE_KEY,
+      JSON.stringify([...signups.values()])
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -683,6 +716,42 @@ function syncAdminSignupStats() {
   if (approvedEl) approvedEl.textContent = String(approved);
   if (activatePendingCount) activatePendingCount.textContent = String(pending);
   if (activateApprovedCount) activateApprovedCount.textContent = String(approved);
+  const clientsMeta = document.getElementById("clients-meta");
+  if (clientsMeta) clientsMeta.textContent = `Total clients: ${total}`;
+}
+
+function renderClientsList() {
+  const list = document.getElementById("clients-list");
+  if (!list) {
+    syncAdminSignupStats();
+    return;
+  }
+  const all = [...signups.values()].sort((a, b) => b.createdAt - a.createdAt);
+  list.innerHTML = "";
+  if (all.length === 0) {
+    list.innerHTML = `<p class="admin-empty">No clients yet</p>`;
+    syncAdminSignupStats();
+    return;
+  }
+  all.forEach((signup) => {
+    const row = document.createElement("div");
+    row.className = "admin-table-row admin-table-row-2";
+    row.innerHTML = `
+      <span class="admin-name"></span>
+      <span class="admin-badge"></span>
+    `;
+    row.querySelector(".admin-name").textContent = signup.email;
+    const badge = row.querySelector(".admin-badge");
+    if (signup.status === "approved") {
+      badge.classList.add("is-approved");
+      badge.textContent = "Approved";
+    } else {
+      badge.classList.add("is-pending");
+      badge.textContent = "Pending";
+    }
+    list.appendChild(row);
+  });
+  syncAdminSignupStats();
 }
 
 function renderActivateAccounts() {
@@ -724,7 +793,7 @@ function renderActivateAccounts() {
   } else {
     approved.forEach((signup) => {
       const row = document.createElement("div");
-      row.className = "admin-table-row";
+      row.className = "admin-table-row is-approved-only";
       row.innerHTML = `
         <span class="admin-name"></span>
         <span class="admin-badge is-approved">Approved</span>
@@ -734,7 +803,7 @@ function renderActivateAccounts() {
     });
   }
 
-  syncAdminSignupStats();
+  renderClientsList();
 }
 
 function approveSignup(email) {
@@ -746,10 +815,10 @@ function approveSignup(email) {
   }
   signup.status = "approved";
   signups.set(key, signup);
+  saveSignupsToStorage();
   renderActivateAccounts();
   showToast(`${signup.email} approved`);
 
-  // If this client is currently waiting on the lock screen, move them forward
   if (normalizeEmail(coverEmail) === key && appLock && !appLock.hidden) {
     openLicenseActivateStep(signup.email);
     showToast("Approved — enter your license key");
@@ -761,6 +830,7 @@ function requestSignup(email) {
   const existing = signups.get(key);
   if (existing) {
     coverEmail = existing.email;
+    renderActivateAccounts();
     return existing;
   }
   const signup = {
@@ -770,9 +840,12 @@ function requestSignup(email) {
   };
   signups.set(key, signup);
   coverEmail = key;
+  saveSignupsToStorage();
   renderActivateAccounts();
   return signup;
 }
+
+loadSignupsFromStorage();
 
 function showLockStep(step) {
   const steps = {
@@ -924,7 +997,7 @@ checkApprovalBtn?.addEventListener("click", () => {
 const _showAdminPage = showAdminPage;
 showAdminPage = function (name) {
   _showAdminPage(name);
-  if (name === "activate" || name === "dashboard") {
+  if (name === "activate" || name === "dashboard" || name === "clients") {
     renderActivateAccounts();
   }
 };
