@@ -1,15 +1,21 @@
-# ApexEA — ZETA SCALPER AI
+# ApexEA — ZETA SCALPER AI (React)
 
-Mobile trading bot interface recreation (Home screen).
+Mobile trading bot interface built with React + Vite.
 
 ## Run locally
 
-Open `index.html` in a browser, or:
+```bash
+npm install
+npm run dev
+```
+
+## Build
 
 ```bash
-npx --yes serve .
+npm run build
 ```
 
 ## Notes
 
-Username field is intentionally left blank.
+- App state (signups, EAs, bots, licenses) persists in `localStorage`
+- Username field is intentionally left blank on the trading UI

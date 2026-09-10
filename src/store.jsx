@@ -1,0 +1,502 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const STORAGE_KEY = "apexea-app-v1";
+
+export const DEFAULT_SYMBOLS = [
+  "EURUSD",
+  "GBPUSD",
+  "USDJPY",
+  "USDCHF",
+  "AUDUSD",
+  "USDCAD",
+  "NZDUSD",
+  "EURGBP",
+  "EURJPY",
+  "GBPJPY",
+  "XAUUSD",
+  "XAGUSD",
+  "BTCUSD",
+  "ETHUSD",
+  "NAS100",
+  "US30",
+];
+
+export const STRATEGY_LABELS = {
+  scalper: "Scalper",
+  trend: "Trend Follower",
+  grid: "Grid",
+  news: "News Trader",
+};
+
+function normalizeEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeSymbol(raw) {
+  return String(raw || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9._/-]/g, "");
+}
+
+function randomLicenseKey() {
+  const chunk = () =>
+    Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(2, 6);
+  return `APEX-${chunk()}-${chunk()}`;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+const defaultState = {
+  activeInterface: "zeta",
+  coverEmail: "",
+  signups: [],
+  eas: [],
+  bots: [],
+  licenseKeys: [],
+  catalog: [...DEFAULT_SYMBOLS],
+  symbolMeta: {},
+  toast: "",
+};
+
+const AppContext = createContext(null);
+
+export function AppProvider({ children }) {
+  const saved = loadState();
+  const [activeInterface, setActiveInterface] = useState(
+    saved?.activeInterface === "v2" ? "v2" : "zeta"
+  );
+  const [coverEmail, setCoverEmail] = useState(saved?.coverEmail || "");
+  const [signups, setSignups] = useState(saved?.signups || []);
+  const [eas, setEas] = useState(saved?.eas || []);
+  const [bots, setBots] = useState(saved?.bots || []);
+  const [licenseKeys, setLicenseKeys] = useState(saved?.licenseKeys || []);
+  const [catalog, setCatalog] = useState(
+    saved?.catalog?.length ? saved.catalog : [...DEFAULT_SYMBOLS]
+  );
+  const [symbolMeta, setSymbolMeta] = useState(saved?.symbolMeta || {});
+  const [toast, setToast] = useState("");
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminPage, setAdminPage] = useState("dashboard");
+  const [lockStep, setLockStep] = useState("cover");
+  const [pairsOpen, setPairsOpen] = useState(false);
+  const [zetaView, setZetaView] = useState("home");
+  const [v2View, setV2View] = useState("home");
+  const [v2Running, setV2Running] = useState(true);
+  const [v2SymTab, setV2SymTab] = useState("allowed");
+  const [editingSymbol, setEditingSymbol] = useState(null);
+  const [editingEaId, setEditingEaId] = useState(null);
+
+  useEffect(() => {
+    const payload = {
+      activeInterface,
+      coverEmail,
+      signups,
+      eas,
+      bots,
+      licenseKeys,
+      catalog,
+      symbolMeta,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore quota
+    }
+  }, [
+    activeInterface,
+    coverEmail,
+    signups,
+    eas,
+    bots,
+    licenseKeys,
+    catalog,
+    symbolMeta,
+  ]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const t = setTimeout(() => setToast(""), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showToast = useCallback((message) => setToast(message), []);
+
+  const hasActiveBot = useMemo(
+    () => bots.some((b) => b.active),
+    [bots]
+  );
+
+  const activeBot = useMemo(() => {
+    const active = bots.find((b) => b.active && b.selected) || bots.find((b) => b.active);
+    return active || null;
+  }, [bots]);
+
+  const appSymbols = useMemo(() => {
+    const set = new Set();
+    eas.forEach((ea) => ea.symbols.forEach((s) => set.add(s)));
+    return set;
+  }, [eas]);
+
+  const ensureCatalog = useCallback((symbol) => {
+    setCatalog((prev) => (prev.includes(symbol) ? prev : [...prev, symbol]));
+  }, []);
+
+  const getSymbolMeta = useCallback(
+    (symbol) =>
+      symbolMeta[symbol] || {
+        lotSize: 0.01,
+        action: "BOTH",
+        platform: "MT5",
+        trades: 1,
+      },
+    [symbolMeta]
+  );
+
+  const requestSignup = useCallback(
+    (email) => {
+      const key = normalizeEmail(email);
+      setCoverEmail(key);
+      setSignups((prev) => {
+        const existing = prev.find((s) => s.email === key);
+        if (existing) {
+          if (existing.status === "declined") {
+            return prev.map((s) =>
+              s.email === key
+                ? { ...s, status: "pending", createdAt: Date.now() }
+                : s
+            );
+          }
+          return prev;
+        }
+        return [
+          ...prev,
+          { email: key, status: "pending", createdAt: Date.now() },
+        ];
+      });
+      return key;
+    },
+    []
+  );
+
+  const setSignupStatus = useCallback(
+    (email, status) => {
+      const key = normalizeEmail(email);
+      setSignups((prev) =>
+        prev.map((s) => (s.email === key ? { ...s, status } : s))
+      );
+      showToast(
+        status === "approved"
+          ? `${key} approved`
+          : status === "declined"
+            ? `${key} declined`
+            : `${key} updated`
+      );
+      if (status === "approved" && normalizeEmail(coverEmail) === key) {
+        setLockStep("license");
+        showToast("Approved — enter your license key");
+      }
+      if (status === "declined" && normalizeEmail(coverEmail) === key) {
+        setLockStep("pending");
+      }
+    },
+    [coverEmail, showToast]
+  );
+
+  const getSignup = useCallback(
+    (email = coverEmail) => {
+      const key = normalizeEmail(email);
+      return signups.find((s) => s.email === key) || null;
+    },
+    [coverEmail, signups]
+  );
+
+  const resolveLockStep = useCallback(() => {
+    const signup = getSignup(coverEmail);
+    if (!signup) {
+      setLockStep("cover");
+      return;
+    }
+    if (signup.status === "approved") {
+      setLockStep("license");
+      return;
+    }
+    setLockStep("pending");
+  }, [coverEmail, getSignup]);
+
+  useEffect(() => {
+    if (!hasActiveBot) resolveLockStep();
+  }, [hasActiveBot, resolveLockStep]);
+
+  const upsertEa = useCallback(
+    ({ id, name, strategy, photo, symbols }) => {
+      const cleanSymbols = symbols.map(normalizeSymbol).filter(Boolean);
+      cleanSymbols.forEach(ensureCatalog);
+      if (id) {
+        setEas((prev) =>
+          prev.map((ea) =>
+            ea.id === id
+              ? { ...ea, name, strategy, photo, symbols: cleanSymbols }
+              : ea
+          )
+        );
+        setBots((prev) =>
+          prev.map((bot) =>
+            bot.id === id ? { ...bot, name, photo, active: true } : bot
+          )
+        );
+        showToast(`${name} profile updated`);
+      } else {
+        const newId = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+        setEas((prev) => [
+          {
+            id: newId,
+            name,
+            strategy,
+            photo,
+            symbols: cleanSymbols,
+          },
+          ...prev,
+        ]);
+        setBots((prev) => [
+          ...prev.map((b) => ({ ...b, selected: false })),
+          {
+            id: newId,
+            name,
+            photo,
+            active: true,
+            selected: true,
+          },
+        ]);
+        showToast(`${name} created`);
+      }
+      setEditingEaId(null);
+    },
+    [ensureCatalog, showToast]
+  );
+
+  const deleteEa = useCallback(
+    (eaId) => {
+      const ea = eas.find((e) => e.id === eaId);
+      setEas((prev) => prev.filter((e) => e.id !== eaId));
+      setBots((prev) => {
+        const next = prev.filter((b) => b.id !== eaId);
+        if (!next.some((b) => b.selected) && next.some((b) => b.active)) {
+          const first = next.find((b) => b.active);
+          return next.map((b) => ({ ...b, selected: b.id === first.id }));
+        }
+        return next;
+      });
+      showToast(`${ea?.name || "EA"} deleted`);
+      if (editingEaId === eaId) setEditingEaId(null);
+    },
+    [eas, editingEaId, showToast]
+  );
+
+  const selectBot = useCallback((botId) => {
+    setBots((prev) =>
+      prev.map((b) => ({ ...b, selected: b.id === botId }))
+    );
+  }, []);
+
+  const removeActiveBot = useCallback(() => {
+    const current = bots.find((b) => b.active && b.selected) || bots.find((b) => b.active);
+    if (!current) {
+      showToast("No active bot to remove");
+      return;
+    }
+    setBots((prev) => {
+      const updated = prev.map((b) =>
+        b.id === current.id ? { ...b, active: false, selected: false } : b
+      );
+      const next = updated.find((b) => b.active);
+      if (next) {
+        return updated.map((b) => ({ ...b, selected: b.id === next.id }));
+      }
+      return updated;
+    });
+    showToast(`${current.name} removed — license key required to restore`);
+  }, [bots, showToast]);
+
+  const generateLicense = useCallback(
+    (botId) => {
+      const bot = bots.find((b) => b.id === botId);
+      if (!bot) {
+        showToast("Select a bot");
+        return null;
+      }
+      const key = randomLicenseKey();
+      setLicenseKeys((prev) => [
+        ...prev,
+        {
+          key,
+          botId: bot.id,
+          botName: bot.name,
+          used: false,
+          createdAt: Date.now(),
+        },
+      ]);
+      showToast("License key generated");
+      return key;
+    },
+    [bots, showToast]
+  );
+
+  const activateLicense = useCallback(
+    (rawKey) => {
+      const signup = getSignup(coverEmail);
+      if (!signup || signup.status !== "approved") {
+        setLockStep(signup?.status === "declined" ? "pending" : "pending");
+        showToast(
+          signup?.status === "declined"
+            ? "Access was declined"
+            : "Account must be approved first"
+        );
+        return false;
+      }
+      const key = String(rawKey || "").trim().toUpperCase();
+      const entry = licenseKeys.find((item) => item.key === key);
+      if (!entry) {
+        showToast("Invalid license key");
+        return false;
+      }
+      if (entry.used) {
+        showToast("License key already used");
+        return false;
+      }
+      const bot = bots.find((b) => b.id === entry.botId);
+      if (!bot) {
+        showToast("Bot not found for this key");
+        return false;
+      }
+      setLicenseKeys((prev) =>
+        prev.map((item) =>
+          item.key === key ? { ...item, used: true } : item
+        )
+      );
+      setBots((prev) =>
+        prev.map((b) =>
+          b.id === bot.id
+            ? { ...b, active: true, selected: true }
+            : { ...b, selected: false }
+        )
+      );
+      showToast(`${bot.name} activated`);
+      return true;
+    },
+    [bots, coverEmail, getSignup, licenseKeys, showToast]
+  );
+
+  const saveSymbolMeta = useCallback((symbol, meta) => {
+    setSymbolMeta((prev) => ({ ...prev, [symbol]: meta }));
+    ensureCatalog(symbol);
+    // If not on any EA yet, attach to first EA
+    setEas((prev) => {
+      if (prev.some((ea) => ea.symbols.includes(symbol))) return prev;
+      if (prev.length === 0) return prev;
+      const [first, ...rest] = prev;
+      return [{ ...first, symbols: [...first.symbols, symbol] }, ...rest];
+    });
+    showToast(`${symbol} saved`);
+  }, [ensureCatalog, showToast]);
+
+  const removeSymbolEverywhere = useCallback((symbol) => {
+    setEas((prev) =>
+      prev.map((ea) => ({
+        ...ea,
+        symbols: ea.symbols.filter((s) => s !== symbol),
+      }))
+    );
+    setSymbolMeta((prev) => {
+      const next = { ...prev };
+      delete next[symbol];
+      return next;
+    });
+    showToast(`${symbol} removed`);
+  }, [showToast]);
+
+  const toggleInterface = useCallback(() => {
+    setActiveInterface((prev) => (prev === "zeta" ? "v2" : "zeta"));
+    setZetaView("home");
+    setV2View("home");
+  }, []);
+
+  const value = {
+    activeInterface,
+    toggleInterface,
+    coverEmail,
+    setCoverEmail,
+    signups,
+    requestSignup,
+    setSignupStatus,
+    getSignup,
+    eas,
+    upsertEa,
+    deleteEa,
+    editingEaId,
+    setEditingEaId,
+    bots,
+    activeBot,
+    hasActiveBot,
+    selectBot,
+    removeActiveBot,
+    licenseKeys,
+    generateLicense,
+    activateLicense,
+    catalog,
+    ensureCatalog,
+    appSymbols,
+    getSymbolMeta,
+    saveSymbolMeta,
+    removeSymbolEverywhere,
+    normalizeSymbol,
+    normalizeEmail,
+    toast,
+    showToast,
+    adminOpen,
+    setAdminOpen,
+    adminPage,
+    setAdminPage,
+    lockStep,
+    setLockStep,
+    resolveLockStep,
+    pairsOpen,
+    setPairsOpen,
+    zetaView,
+    setZetaView,
+    v2View,
+    setV2View,
+    v2Running,
+    setV2Running,
+    v2SymTab,
+    setV2SymTab,
+    editingSymbol,
+    setEditingSymbol,
+    STRATEGY_LABELS,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useApp must be used within AppProvider");
+  return ctx;
+}
