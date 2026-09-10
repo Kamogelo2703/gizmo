@@ -192,6 +192,10 @@ if (stopBtn) {
     const running = stopBtn.classList.toggle("is-running");
     stopBtn.setAttribute("aria-pressed", running ? "true" : "false");
     stopBtn.querySelector(".stop-label").textContent = running ? "STOP" : "START";
+    if (typeof v2Running !== "undefined") v2Running = running;
+    if (typeof activeInterface !== "undefined" && activeInterface === "v2" && typeof renderV2Home === "function") {
+      renderV2Home();
+    }
     showToast(running ? "ZETA SCALPER AI started" : "Bot stopped");
   });
 }
@@ -833,3 +837,359 @@ document.querySelectorAll("[data-close-license]").forEach((el) => {
 
 refreshLicenseBotOptions();
 renderLicenseList();
+
+/* —— Dual interface (zeta / v2) —— */
+let activeInterface = localStorage.getItem("activeInterface") === "v2" ? "v2" : "zeta";
+let v2Running = true;
+let v2SymTab = "allowed";
+let editingSymbol = null;
+
+/** @type {Map<string, {lotSize:number, action:string, platform:string, trades:number}>} */
+const symbolMeta = new Map();
+
+function getSymbolMeta(symbol) {
+  if (!symbolMeta.has(symbol)) {
+    symbolMeta.set(symbol, {
+      lotSize: 0.01,
+      action: "BOTH",
+      platform: "MT5",
+      trades: 1,
+    });
+  }
+  return symbolMeta.get(symbol);
+}
+
+function getActiveBot() {
+  const botId = getActiveBotId();
+  if (botId && botRegistry.get(botId)?.active) return botRegistry.get(botId);
+  return [...botRegistry.values()].find((bot) => bot.active) || null;
+}
+
+function getAccountName() {
+  return (document.getElementById("username")?.textContent || "").trim();
+}
+
+function showV2View(name) {
+  document.querySelectorAll(".v2-view").forEach((view) => {
+    const active = view.dataset.v2View === name;
+    view.hidden = !active;
+    view.classList.toggle("is-active", active);
+  });
+
+  const tabTarget = name === "metatrader" ? "metatrader" : "home";
+  document.querySelectorAll(".v2-tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.v2Tab === tabTarget);
+  });
+}
+
+function renderV2Home() {
+  const bot = getActiveBot();
+  const topName = document.getElementById("v2-top-bot-name");
+  const botName = document.getElementById("v2-bot-name");
+  const avatar = document.getElementById("v2-hero-avatar");
+  const account = document.getElementById("v2-account");
+  const list = document.getElementById("v2-robot-list");
+  const tradeBtn = document.getElementById("v2-trade-btn");
+  const tradeLabel = document.getElementById("v2-trade-label");
+
+  const name = bot?.name || "No active bot";
+  const photo = bot?.photo || "./assets/avatar.png";
+  if (topName) topName.textContent = name;
+  if (botName) botName.textContent = name;
+  if (avatar) {
+    avatar.src = photo;
+    avatar.alt = name;
+  }
+
+  const accountName = getAccountName();
+  if (account) {
+    if (accountName) {
+      account.hidden = false;
+      account.textContent = accountName;
+    } else {
+      account.hidden = true;
+      account.textContent = "";
+    }
+  }
+
+  if (tradeBtn && tradeLabel) {
+    tradeBtn.classList.toggle("is-running", v2Running);
+    tradeLabel.textContent = v2Running ? "STOP" : "START";
+    const icon = tradeBtn.querySelector(".v2-pill-icon");
+    if (icon) {
+      icon.innerHTML = v2Running
+        ? `<svg viewBox="0 0 24 24" fill="none"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" /></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none"><path d="M9 7.2v9.6l8.2-4.8L9 7.2Z" fill="currentColor" /></svg>`;
+    }
+  }
+
+  if (!list) return;
+  list.innerHTML = "";
+  const activeBots = [...botRegistry.values()].filter((b) => b.active);
+  if (activeBots.length === 0) {
+    list.innerHTML = `<p class="v2-robot-empty">No connected robots</p>`;
+    return;
+  }
+
+  activeBots.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `v2-robot-row${bot && bot.id === item.id ? " is-active" : ""}`;
+    btn.dataset.bot = item.id;
+    btn.innerHTML = `<img alt="" width="42" height="42" /><span></span>`;
+    btn.querySelector("img").src = item.photo || "./assets/avatar.png";
+    btn.querySelector("span").textContent = item.name;
+    btn.addEventListener("click", () => {
+      robotList?.querySelectorAll(".robot-row").forEach((r) => r.classList.remove("is-active"));
+      const zetaRow = robotList?.querySelector(`.robot-row[data-bot="${item.id}"]`);
+      zetaRow?.classList.add("is-active");
+      setActiveHero(item);
+      renderV2Home();
+      showToast(`${item.name} selected`);
+    });
+    list.appendChild(btn);
+  });
+}
+
+function renderV2Symbols() {
+  const list = document.getElementById("v2-sym-list");
+  const help = document.getElementById("v2-sym-help");
+  const title = document.getElementById("v2-quotes-title");
+  const bot = getActiveBot();
+  if (title) title.textContent = bot?.name || "Quotes";
+
+  document.querySelectorAll("[data-v2-sym-tab]").forEach((tab) => {
+    const on = tab.dataset.v2SymTab === v2SymTab;
+    tab.classList.toggle("is-active", on);
+    tab.setAttribute("aria-selected", on ? "true" : "false");
+  });
+
+  if (help) {
+    help.textContent =
+      v2SymTab === "allowed"
+        ? "These are Symbols you have selected for your EA to trade."
+        : "All available symbols. Tap one to configure it for your EA.";
+  }
+
+  if (!list) return;
+  list.innerHTML = "";
+
+  const allowed = getAppSymbols();
+  const symbols =
+    v2SymTab === "allowed"
+      ? ALL_SYMBOLS.filter((s) => allowed.has(s))
+      : ALL_SYMBOLS;
+
+  if (symbols.length === 0) {
+    list.innerHTML = `<p class="v2-sym-empty">No symbols yet — choose them in Manage EA</p>`;
+    return;
+  }
+
+  symbols.forEach((symbol) => {
+    const meta = getSymbolMeta(symbol);
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "v2-sym-row";
+    row.innerHTML = `
+      <strong></strong>
+      <span class="v2-sym-chevron" aria-hidden="true">›</span>
+      <div class="v2-sym-meta">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    `;
+    row.querySelector("strong").textContent = symbol;
+    const metas = row.querySelectorAll(".v2-sym-meta span");
+    metas[0].textContent = `Lot Size ${meta.lotSize}`;
+    metas[1].textContent = `Action ${meta.action}`;
+    metas[2].textContent = meta.platform;
+    row.addEventListener("click", () => openV2SymbolEdit(symbol));
+    list.appendChild(row);
+  });
+}
+
+function openV2SymbolEdit(symbol) {
+  editingSymbol = symbol;
+  const meta = getSymbolMeta(symbol);
+  const title = document.getElementById("v2-edit-symbol-title");
+  if (title) title.textContent = symbol;
+  const lot = document.getElementById("v2-lot-size");
+  const action = document.getElementById("v2-action");
+  const platform = document.getElementById("v2-platform");
+  const trades = document.getElementById("v2-trades");
+  if (lot) lot.value = String(meta.lotSize);
+  if (action) action.value = meta.action;
+  if (platform) platform.value = meta.platform;
+  if (trades) trades.value = String(meta.trades);
+  showV2View("symbol-edit");
+}
+
+function applyInterface(name, { animate = true } = {}) {
+  const next = name === "v2" ? "v2" : "zeta";
+  const current = phoneEl?.dataset.interface || "zeta";
+  const fromEl = document.getElementById(`iface-${current}`);
+  const toEl = document.getElementById(`iface-${next}`);
+  if (!toEl) return;
+
+  activeInterface = next;
+  localStorage.setItem("activeInterface", next);
+  phoneEl?.setAttribute("data-interface", next);
+
+  const finish = () => {
+    document.querySelectorAll(".iface-layer").forEach((layer) => {
+      const on = layer.dataset.iface === next;
+      layer.hidden = !on;
+      layer.classList.toggle("is-active", on);
+      layer.classList.remove("is-leaving", "is-entering");
+    });
+    if (next === "v2") {
+      renderV2Home();
+      showV2View("home");
+    } else {
+      showView("home");
+    }
+  };
+
+  if (!animate || current === next || !fromEl) {
+    finish();
+    return;
+  }
+
+  fromEl.classList.add("is-leaving");
+  toEl.hidden = false;
+  toEl.classList.add("is-entering");
+  requestAnimationFrame(() => {
+    toEl.classList.remove("is-entering");
+    toEl.classList.add("is-active");
+  });
+  window.setTimeout(finish, 280);
+}
+
+document.getElementById("iface-toggle")?.addEventListener("click", () => {
+  applyInterface(activeInterface === "zeta" ? "v2" : "zeta");
+});
+
+document.querySelectorAll("[data-v2-action]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const action = btn.dataset.v2Action;
+    if (action === "trade") {
+      v2Running = !v2Running;
+      // Keep zeta start/stop roughly in sync when present
+      if (stopBtn) {
+        stopBtn.classList.toggle("is-running", v2Running);
+        stopBtn.setAttribute("aria-pressed", v2Running ? "true" : "false");
+        const label = stopBtn.querySelector(".stop-label");
+        if (label) label.textContent = v2Running ? "STOP" : "START";
+      }
+      renderV2Home();
+      const bot = getActiveBot();
+      showToast(v2Running ? `${bot?.name || "Bot"} started` : "Bot stopped");
+      return;
+    }
+    if (action === "quotes") {
+      v2SymTab = "allowed";
+      renderV2Symbols();
+      showV2View("quotes");
+      return;
+    }
+    if (action === "remove") {
+      removeActiveBot();
+      renderV2Home();
+    }
+  });
+});
+
+document.querySelectorAll("[data-v2-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const name = tab.dataset.v2Tab;
+    showV2View(name);
+  });
+});
+
+document.querySelectorAll("[data-v2-back]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.v2Back || "home";
+    if (target === "quotes") renderV2Symbols();
+    if (target === "home") renderV2Home();
+    showV2View(target);
+  });
+});
+
+document.querySelectorAll("[data-v2-sym-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    v2SymTab = tab.dataset.v2SymTab === "all" ? "all" : "allowed";
+    renderV2Symbols();
+  });
+});
+
+document.getElementById("v2-symbol-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!editingSymbol) return;
+  const lotSize = Number(document.getElementById("v2-lot-size")?.value || 0.01);
+  const action = document.getElementById("v2-action")?.value || "BOTH";
+  const platform = document.getElementById("v2-platform")?.value || "MT5";
+  const trades = Number(document.getElementById("v2-trades")?.value || 1);
+  symbolMeta.set(editingSymbol, {
+    lotSize: Number.isFinite(lotSize) && lotSize > 0 ? lotSize : 0.01,
+    action,
+    platform,
+    trades: Number.isFinite(trades) && trades > 0 ? Math.floor(trades) : 1,
+  });
+
+  // Ensure symbol is allowed on at least one EA / app when editing from All Symbols
+  if (![...getAppSymbols()].includes(editingSymbol)) {
+    const firstEa = eaSymbols.keys().next().value;
+    if (firstEa) {
+      const set = eaSymbols.get(firstEa) || new Set();
+      set.add(editingSymbol);
+      eaSymbols.set(firstEa, set);
+      refreshEaItemSymbols(firstEa);
+      syncPairsFromEas();
+    }
+  }
+
+  showToast(`${editingSymbol} saved`);
+  renderV2Symbols();
+  showV2View("quotes");
+});
+
+document.getElementById("v2-delete-symbol")?.addEventListener("click", () => {
+  if (!editingSymbol) return;
+  const symbol = editingSymbol;
+  removeSymbolFromAllEas(symbol);
+  symbolMeta.delete(symbol);
+  editingSymbol = null;
+  showToast(`${symbol} removed`);
+  renderV2Symbols();
+  showV2View("quotes");
+});
+
+const _setActiveHero = setActiveHero;
+setActiveHero = function (bot) {
+  _setActiveHero(bot);
+  if (activeInterface === "v2") renderV2Home();
+};
+
+const _setHeroEmpty = setHeroEmpty;
+setHeroEmpty = function (empty) {
+  _setHeroEmpty(empty);
+  if (activeInterface === "v2") renderV2Home();
+};
+
+const _syncPairsFromEas = syncPairsFromEas;
+syncPairsFromEas = function () {
+  _syncPairsFromEas();
+  if (activeInterface === "v2") {
+    const quotesOpen = document.getElementById("v2-view-quotes")?.classList.contains("is-active");
+    if (quotesOpen) renderV2Symbols();
+  }
+};
+
+const _addEaToHomeV2 = addEaToHome;
+addEaToHome = function (name, photoUrl) {
+  _addEaToHomeV2(name, photoUrl);
+  if (activeInterface === "v2") renderV2Home();
+};
+
+applyInterface(activeInterface, { animate: false });

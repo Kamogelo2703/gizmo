@@ -10,21 +10,57 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Audiowide&family=Great+Vibes&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" href="./assets/avatar.png" type="image/png" />
   </head>
   <body>
-    <div class="phone">
+    <div class="phone" data-interface="zeta">
       <div class="glow" aria-hidden="true"></div>
       <div class="glow glow-soft" aria-hidden="true"></div>
 
       <header class="top">
         <p class="username" id="username"></p>
+        <button
+          class="iface-toggle"
+          type="button"
+          id="iface-toggle"
+          aria-label="Switch interface"
+          title="Switch interface"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M4 7.5h11.5M15.5 7.5 13 5m2.5 2.5L13 10M20 16.5H8.5M8.5 16.5 11 14M8.5 16.5 11 19"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <rect
+              x="3.5"
+              y="14"
+              width="5"
+              height="5"
+              rx="1.2"
+              stroke="currentColor"
+              stroke-width="1.6"
+            />
+            <rect
+              x="15.5"
+              y="5"
+              width="5"
+              height="5"
+              rx="1.2"
+              stroke="currentColor"
+              stroke-width="1.6"
+            />
+          </svg>
+        </button>
       </header>
 
+      <div class="iface-layer is-active" data-iface="zeta" id="iface-zeta">
       <main class="stage">
         <section class="view is-active" data-view="home" id="view-home">
           <div class="hero">
@@ -234,6 +270,214 @@
           <span>MetaTrader</span>
         </button>
       </nav>
+      </div>
+
+      <div class="iface-layer" data-iface="v2" id="iface-v2" hidden>
+        <main class="v2-stage">
+          <section class="v2-view is-active" data-v2-view="home" id="v2-view-home">
+            <p class="v2-top-title">
+              <span class="v2-top-icon" aria-hidden="true">✦</span>
+              <span id="v2-top-bot-name">—</span>
+            </p>
+
+            <div class="v2-hero">
+              <div class="v2-avatar-wrap">
+                <img
+                  id="v2-hero-avatar"
+                  class="v2-avatar"
+                  src="./assets/avatar.png"
+                  alt=""
+                  width="220"
+                  height="220"
+                />
+              </div>
+              <h1 class="v2-bot-name" id="v2-bot-name">—</h1>
+              <p class="v2-account" id="v2-account" hidden></p>
+            </div>
+
+            <div class="v2-pill-bar" role="group" aria-label="Trading controls">
+              <button class="v2-pill-btn" type="button" data-v2-action="trade" id="v2-trade-btn">
+                <span class="v2-pill-icon is-trade" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M9 7.2v9.6l8.2-4.8L9 7.2Z" fill="currentColor" />
+                  </svg>
+                </span>
+                <span class="v2-pill-label" id="v2-trade-label">START</span>
+              </button>
+              <button class="v2-pill-btn" type="button" data-v2-action="quotes">
+                <span class="v2-pill-icon is-quotes" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 3.5 13.2 8H18l-3.8 2.8L15.5 16 12 13.4 8.5 16l1.3-5.2L6 8h4.8L12 3.5Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </span>
+                <span class="v2-pill-label">QUOTES</span>
+              </button>
+              <button class="v2-pill-btn" type="button" data-v2-action="remove">
+                <span class="v2-pill-icon is-remove" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M9 4h6m-8 3h10m-1.5 0-.7 11.2a1.5 1.5 0 0 1-1.5 1.4H9.7a1.5 1.5 0 0 1-1.5-1.4L7.5 7m3 3v10m3-10v10"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span class="v2-pill-label">REMOVE</span>
+              </button>
+            </div>
+
+            <section class="v2-robots" aria-label="Connected robots">
+              <h2 class="v2-robots-title">CONNECTED ROBOTS:</h2>
+              <div class="v2-robot-list" id="v2-robot-list"></div>
+            </section>
+          </section>
+
+          <section class="v2-view" data-v2-view="quotes" id="v2-view-quotes" hidden>
+            <header class="v2-screen-top">
+              <button class="v2-back" type="button" data-v2-back="home" aria-label="Back">
+                ←
+              </button>
+              <h2 class="v2-screen-title" id="v2-quotes-title">—</h2>
+              <span class="v2-screen-spacer" aria-hidden="true"></span>
+            </header>
+
+            <div class="v2-sym-tabs" role="tablist">
+              <button
+                class="v2-sym-tab is-active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                data-v2-sym-tab="allowed"
+              >
+                Allowed Symbols
+              </button>
+              <button
+                class="v2-sym-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-v2-sym-tab="all"
+              >
+                All Symbols
+              </button>
+            </div>
+            <p class="v2-sym-help" id="v2-sym-help">
+              These are Symbols you have selected for your EA to trade.
+            </p>
+            <div class="v2-sym-card" id="v2-sym-list"></div>
+          </section>
+
+          <section class="v2-view" data-v2-view="symbol-edit" id="v2-view-symbol-edit" hidden>
+            <header class="v2-screen-top">
+              <button class="v2-back" type="button" data-v2-back="quotes" aria-label="Back">
+                ←
+              </button>
+              <h2 class="v2-screen-title" id="v2-edit-symbol-title">—</h2>
+              <button
+                class="v2-trash"
+                type="button"
+                id="v2-delete-symbol"
+                aria-label="Delete symbol"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M9 4h6m-8 3h10m-1.5 0-.7 11.2a1.5 1.5 0 0 1-1.5 1.4H9.7a1.5 1.5 0 0 1-1.5-1.4L7.5 7m3 3v10m3-10v10"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </header>
+
+            <form class="v2-edit-form" id="v2-symbol-form">
+              <label class="v2-field">
+                <span>Lot Size</span>
+                <input
+                  class="v2-input"
+                  id="v2-lot-size"
+                  name="lotSize"
+                  type="number"
+                  inputmode="decimal"
+                  step="0.01"
+                  min="0.01"
+                  value="0.01"
+                  required
+                />
+              </label>
+              <label class="v2-field">
+                <span>Action</span>
+                <select class="v2-input" id="v2-action" name="action">
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                  <option value="BOTH" selected>BOTH</option>
+                </select>
+              </label>
+              <label class="v2-field">
+                <span>Platform</span>
+                <select class="v2-input" id="v2-platform" name="platform">
+                  <option value="MT4">MT4</option>
+                  <option value="MT5" selected>MT5</option>
+                </select>
+              </label>
+              <label class="v2-field">
+                <span>Number of Trades</span>
+                <input
+                  class="v2-input"
+                  id="v2-trades"
+                  name="trades"
+                  type="number"
+                  inputmode="numeric"
+                  step="1"
+                  min="1"
+                  value="1"
+                  required
+                />
+              </label>
+              <button class="v2-save-btn" type="submit">Save Symbol</button>
+            </form>
+          </section>
+
+          <section class="v2-view" data-v2-view="metatrader" id="v2-view-metatrader" hidden>
+            <div class="v2-mt-empty">
+              <h2>MetaTrader</h2>
+              <p>Connect your MetaTrader account to sync trades.</p>
+            </div>
+          </section>
+        </main>
+
+        <nav class="v2-tabbar" aria-label="V2 primary">
+          <button class="v2-tab is-active" type="button" data-v2-tab="home">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4.5 10.5 12 4l7.5 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-4v6H5.5a1 1 0 0 1-1-1v-9.5Z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>HOME</span>
+          </button>
+          <button class="v2-tab" type="button" data-v2-tab="metatrader">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="9" r="3.2" stroke="currentColor" stroke-width="1.8" />
+              <path
+                d="M5.5 19.5c1.4-3.2 3.6-4.8 6.5-4.8s5.1 1.6 6.5 4.8"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>METATRADER</span>
+          </button>
+        </nav>
+      </div>
 
       <div class="app-lock" id="app-lock" hidden>
         <div class="app-lock-glow" aria-hidden="true"></div>
