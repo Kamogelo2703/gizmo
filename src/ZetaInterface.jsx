@@ -1,4 +1,5 @@
 import { useApp } from "./store.jsx";
+import MetaTraderPanel from "./MetaTraderPanel.jsx";
 
 export default function ZetaInterface() {
   const {
@@ -144,11 +145,8 @@ export default function ZetaInterface() {
         )}
 
         {zetaView === "metatrader" && (
-          <section className="view is-active">
-            <div className="mt-empty">
-              <h2>MetaTrader</h2>
-              <p>Connect your MetaTrader account to sync trades.</p>
-            </div>
+          <section className="view is-active view-metatrader">
+            <MetaTraderPanel variant="zeta" />
           </section>
         )}
       </main>

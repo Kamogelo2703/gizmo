@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from "./store.jsx";
+import MetaTraderPanel from "./MetaTraderPanel.jsx";
 
 export default function V2Interface() {
   const {
@@ -254,11 +255,8 @@ export default function V2Interface() {
         )}
 
         {v2View === "metatrader" && (
-          <section className="v2-view is-active">
-            <div className="v2-mt-empty">
-              <h2>MetaTrader</h2>
-              <p>Connect your MetaTrader account to sync trades.</p>
-            </div>
+          <section className="v2-view is-active v2-view-metatrader">
+            <MetaTraderPanel variant="v2" />
           </section>
         )}
       </main>
