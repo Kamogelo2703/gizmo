@@ -663,10 +663,19 @@ let coverEmail = "";
 const signups = new Map();
 
 const SIGNUPS_STORAGE_KEY = "apexea-signups";
+const COVER_EMAIL_STORAGE_KEY = "apexea-cover-email";
 
 function loadSignupsFromStorage() {
   try {
-    const raw = sessionStorage.getItem(SIGNUPS_STORAGE_KEY);
+    // Prefer localStorage (persists). Migrate any older sessionStorage copy once.
+    let raw = localStorage.getItem(SIGNUPS_STORAGE_KEY);
+    if (!raw) {
+      raw = sessionStorage.getItem(SIGNUPS_STORAGE_KEY);
+      if (raw) {
+        localStorage.setItem(SIGNUPS_STORAGE_KEY, raw);
+        sessionStorage.removeItem(SIGNUPS_STORAGE_KEY);
+      }
+    }
     if (!raw) return;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return;
@@ -688,16 +697,31 @@ function loadSignupsFromStorage() {
   } catch {
     // ignore bad storage
   }
+
+  try {
+    const savedEmail = localStorage.getItem(COVER_EMAIL_STORAGE_KEY);
+    if (savedEmail) coverEmail = normalizeEmail(savedEmail);
+  } catch {
+    // ignore
+  }
 }
 
 function saveSignupsToStorage() {
   try {
-    sessionStorage.setItem(
+    localStorage.setItem(
       SIGNUPS_STORAGE_KEY,
       JSON.stringify([...signups.values()])
     );
   } catch {
     // ignore quota / private mode
+  }
+
+  try {
+    if (coverEmail) {
+      localStorage.setItem(COVER_EMAIL_STORAGE_KEY, normalizeEmail(coverEmail));
+    }
+  } catch {
+    // ignore
   }
 }
 
