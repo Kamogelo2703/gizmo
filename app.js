@@ -580,9 +580,18 @@ const licenseKeyInput = document.getElementById("license-key-input");
 const coverEmailForm = document.getElementById("cover-email-form");
 const coverEmailInput = document.getElementById("cover-email-input");
 const coverStep = document.getElementById("cover-step");
+const pendingStep = document.getElementById("pending-step");
 const licenseStep = document.getElementById("license-step");
 const coverBackBtn = document.getElementById("cover-back-btn");
+const pendingBackBtn = document.getElementById("pending-back-btn");
+const checkApprovalBtn = document.getElementById("check-approval-btn");
 const licenseStepSub = document.getElementById("license-step-sub");
+const pendingStepSub = document.getElementById("pending-step-sub");
+const pendingEmailLabel = document.getElementById("pending-email-label");
+const activateList = document.getElementById("activate-list");
+const approvedList = document.getElementById("approved-list");
+const activatePendingCount = document.getElementById("activate-pending-count");
+const activateApprovedCount = document.getElementById("activate-approved-count");
 const heroEl = document.querySelector(".hero");
 const heroAvatarEl = document.querySelector(".hero .avatar, .avatar-wrap .avatar");
 const heroBrandEl = document.querySelector(".hero .brand, .brand");
@@ -591,45 +600,208 @@ const heroKickerEl = document.querySelector(".hero .kicker, .kicker");
 /** @type {string} */
 let coverEmail = "";
 
-function showLockStep(step) {
-  const isCover = step === "cover";
-  if (coverStep) {
-    coverStep.hidden = !isCover;
-    coverStep.classList.toggle("is-active", isCover);
+/** @type {Map<string, {email:string, status:'pending'|'approved', createdAt:number}>} */
+const signups = new Map();
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function getSignup(email = coverEmail) {
+  const key = normalizeEmail(email);
+  return key ? signups.get(key) || null : null;
+}
+
+function isSignupApproved(email = coverEmail) {
+  return getSignup(email)?.status === "approved";
+}
+
+function syncAdminSignupStats() {
+  const all = [...signups.values()];
+  const pending = all.filter((s) => s.status === "pending").length;
+  const approved = all.filter((s) => s.status === "approved").length;
+  const total = all.length;
+  const totalEl = document.getElementById("stat-total-mentors");
+  const pendingEl = document.getElementById("stat-pending-mentors");
+  const approvedEl = document.getElementById("stat-approved-mentors");
+  if (totalEl) totalEl.textContent = String(total);
+  if (pendingEl) pendingEl.textContent = String(pending);
+  if (approvedEl) approvedEl.textContent = String(approved);
+  if (activatePendingCount) activatePendingCount.textContent = String(pending);
+  if (activateApprovedCount) activateApprovedCount.textContent = String(approved);
+}
+
+function renderActivateAccounts() {
+  if (!activateList || !approvedList) {
+    syncAdminSignupStats();
+    return;
   }
-  if (licenseStep) {
-    licenseStep.hidden = isCover;
-    licenseStep.classList.toggle("is-active", !isCover);
-  }
-  if (isCover) {
-    setTimeout(() => coverEmailInput?.focus(), 40);
+
+  const pending = [...signups.values()]
+    .filter((s) => s.status === "pending")
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const approved = [...signups.values()]
+    .filter((s) => s.status === "approved")
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  activateList.innerHTML = "";
+  if (pending.length === 0) {
+    activateList.innerHTML = `<p class="admin-empty" id="activate-empty">No pending accounts</p>`;
   } else {
+    pending.forEach((signup) => {
+      const row = document.createElement("div");
+      row.className = "admin-table-row";
+      row.innerHTML = `
+        <span class="admin-name"></span>
+        <span class="admin-badge is-pending">Pending</span>
+        <button class="admin-btn admin-btn-solid admin-btn-sm" type="button">Approve</button>
+      `;
+      row.querySelector(".admin-name").textContent = signup.email;
+      row.querySelector("button").addEventListener("click", () => {
+        approveSignup(signup.email);
+      });
+      activateList.appendChild(row);
+    });
+  }
+
+  approvedList.innerHTML = "";
+  if (approved.length === 0) {
+    approvedList.innerHTML = `<p class="admin-empty" id="approved-empty">No approved accounts yet</p>`;
+  } else {
+    approved.forEach((signup) => {
+      const row = document.createElement("div");
+      row.className = "admin-table-row";
+      row.innerHTML = `
+        <span class="admin-name"></span>
+        <span class="admin-badge is-approved">Approved</span>
+      `;
+      row.querySelector(".admin-name").textContent = signup.email;
+      approvedList.appendChild(row);
+    });
+  }
+
+  syncAdminSignupStats();
+}
+
+function approveSignup(email) {
+  const key = normalizeEmail(email);
+  const signup = signups.get(key);
+  if (!signup) {
+    showToast("Signup not found");
+    return;
+  }
+  signup.status = "approved";
+  signups.set(key, signup);
+  renderActivateAccounts();
+  showToast(`${signup.email} approved`);
+
+  // If this client is currently waiting on the lock screen, move them forward
+  if (normalizeEmail(coverEmail) === key && appLock && !appLock.hidden) {
+    openLicenseActivateStep(signup.email);
+    showToast("Approved — enter your license key");
+  }
+}
+
+function requestSignup(email) {
+  const key = normalizeEmail(email);
+  const existing = signups.get(key);
+  if (existing) {
+    coverEmail = existing.email;
+    return existing;
+  }
+  const signup = {
+    email: key,
+    status: "pending",
+    createdAt: Date.now(),
+  };
+  signups.set(key, signup);
+  coverEmail = key;
+  renderActivateAccounts();
+  return signup;
+}
+
+function showLockStep(step) {
+  const steps = {
+    cover: coverStep,
+    pending: pendingStep,
+    license: licenseStep,
+  };
+  Object.entries(steps).forEach(([name, el]) => {
+    if (!el) return;
+    const on = name === step;
+    el.hidden = !on;
+    el.classList.toggle("is-active", on);
+  });
+
+  if (step === "cover") {
+    setTimeout(() => coverEmailInput?.focus(), 40);
+  } else if (step === "pending") {
+    if (pendingEmailLabel) pendingEmailLabel.textContent = coverEmail || "—";
+    if (pendingStepSub) {
+      pendingStepSub.textContent = coverEmail
+        ? `${coverEmail} is pending approval. A super admin must approve you in Activate Accounts.`
+        : "Your signup is pending. You can enter a license key only after approval.";
+    }
+  } else if (step === "license") {
     setTimeout(() => licenseKeyInput?.focus(), 40);
   }
 }
 
+function openPendingStep(email) {
+  if (email) coverEmail = normalizeEmail(email);
+  showLockStep("pending");
+}
+
 function openLicenseActivateStep(email) {
-  if (email) coverEmail = email;
+  if (email) coverEmail = normalizeEmail(email);
+  if (!isSignupApproved(coverEmail)) {
+    openPendingStep(coverEmail);
+    showToast("Waiting for super admin approval");
+    return;
+  }
   if (licenseStepSub) {
     licenseStepSub.textContent = coverEmail
-      ? `License for ${coverEmail}. Enter your key to unlock the app.`
+      ? `Approved · ${coverEmail}. Enter your license key to unlock the app.`
       : "Enter your license key to unlock the app.";
   }
   showLockStep("license");
 }
 
+function resolveLockStep() {
+  const signup = getSignup(coverEmail);
+  if (!signup) {
+    showLockStep("cover");
+    if (coverEmailInput && coverEmail) coverEmailInput.value = coverEmail;
+    return;
+  }
+  if (signup.status === "approved") {
+    openLicenseActivateStep(signup.email);
+    return;
+  }
+  openPendingStep(signup.email);
+}
+
 function showAppLock(options = {}) {
-  const startOnLicense = Boolean(options.license);
+  const forceLicense = Boolean(options.license);
   if (appLock) appLock.hidden = false;
   phoneEl?.classList.add("is-locked");
   closePairs?.();
   if (licenseKeyInput) licenseKeyInput.value = "";
-  if (startOnLicense) {
-    openLicenseActivateStep(coverEmail);
-  } else {
-    showLockStep("cover");
-    if (coverEmailInput && coverEmail) coverEmailInput.value = coverEmail;
+
+  if (forceLicense) {
+    if (isSignupApproved(coverEmail)) {
+      openLicenseActivateStep(coverEmail);
+    } else if (getSignup(coverEmail)?.status === "pending") {
+      openPendingStep(coverEmail);
+      showToast("Account still pending approval");
+    } else {
+      showLockStep("cover");
+      showToast("Request access with your email first");
+    }
+    return;
   }
+
+  resolveLockStep();
 }
 
 function hideAppLock() {
@@ -638,12 +810,10 @@ function hideAppLock() {
 }
 
 function openLicenseSheet() {
-  // Skip cover and go straight to license entry (e.g. from Activate with License Key)
   showAppLock({ license: true });
 }
 
 function closeLicenseSheet() {
-  // Keep the full-app lock visible while no bot is active.
   if (!hasActiveBot()) {
     showAppLock();
     return;
@@ -659,14 +829,53 @@ coverEmailForm?.addEventListener("submit", (event) => {
     showToast("Enter a valid email");
     return;
   }
-  coverEmail = email;
-  openLicenseActivateStep(email);
-  showToast("Continue with your license key");
+  const signup = requestSignup(email);
+  if (signup.status === "approved") {
+    openLicenseActivateStep(signup.email);
+    showToast("Already approved — enter your license key");
+    return;
+  }
+  openPendingStep(signup.email);
+  showToast("Signup submitted — waiting for approval");
 });
 
 coverBackBtn?.addEventListener("click", () => {
+  if (getSignup(coverEmail)) {
+    openPendingStep(coverEmail);
+  } else {
+    showLockStep("cover");
+  }
+});
+
+pendingBackBtn?.addEventListener("click", () => {
   showLockStep("cover");
 });
+
+checkApprovalBtn?.addEventListener("click", () => {
+  const signup = getSignup(coverEmail);
+  if (!signup) {
+    showLockStep("cover");
+    showToast("Submit your email first");
+    return;
+  }
+  if (signup.status === "approved") {
+    openLicenseActivateStep(signup.email);
+    showToast("Approved — enter your license key");
+    return;
+  }
+  showToast("Still pending — wait for super admin");
+});
+
+// Keep activate accounts list in sync when opening that admin page
+const _showAdminPage = showAdminPage;
+showAdminPage = function (name) {
+  _showAdminPage(name);
+  if (name === "activate" || name === "dashboard") {
+    renderActivateAccounts();
+  }
+};
+
+renderActivateAccounts();
 
 function refreshLicenseBotOptions() {
   if (!licenseBotSelect) return;
@@ -861,6 +1070,11 @@ document.getElementById("license-copy")?.addEventListener("click", async () => {
 
 licenseActivateForm?.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!isSignupApproved(coverEmail)) {
+    openPendingStep(coverEmail);
+    showToast("Account must be approved first");
+    return;
+  }
   const key = (licenseKeyInput?.value || "").trim().toUpperCase();
   if (!key) {
     showToast("Enter a license key");

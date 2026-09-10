@@ -475,7 +475,7 @@
           <section class="cover-step is-active" id="cover-step" data-lock-step="cover">
             <h2 class="app-lock-title cover-title">Unlock ApexEA</h2>
             <p class="app-lock-sub">
-              Enter your email to continue, then activate with your license key.
+              Enter your email to request access. A super admin must approve you before you can use a license key.
             </p>
             <form class="app-lock-form" id="cover-email-form">
               <label class="ea-field">
@@ -495,6 +495,24 @@
                 Get Lifetime Access
               </button>
             </form>
+          </section>
+
+          <section class="cover-step" id="pending-step" data-lock-step="pending" hidden>
+            <p class="app-lock-eyebrow">Pending approval</p>
+            <h2 class="app-lock-title">Waiting for super admin</h2>
+            <p class="app-lock-sub" id="pending-step-sub">
+              Your signup is pending. You can enter a license key only after approval.
+            </p>
+            <div class="pending-status-card">
+              <span class="admin-badge is-pending">Pending</span>
+              <strong id="pending-email-label"></strong>
+            </div>
+            <button class="admin-btn admin-btn-solid admin-btn-block" type="button" id="check-approval-btn">
+              Check approval status
+            </button>
+            <button class="cover-back" type="button" id="pending-back-btn">
+              ← Change email
+            </button>
           </section>
 
           <section class="cover-step" id="license-step" data-lock-step="license" hidden>
@@ -959,9 +977,26 @@
 
           <section class="admin-page" data-admin-page="activate" hidden>
             <h2 class="admin-h1">Activate Accounts</h2>
-            <p class="admin-sub">Review and activate pending mentor accounts.</p>
-            <div class="admin-card admin-activate-list" id="activate-list">
-              <p class="admin-empty">No pending accounts</p>
+            <p class="admin-sub">
+              Review pending signups. Approve a client before they can use a license key.
+            </p>
+            <div class="admin-card">
+              <div class="admin-card-title-row">
+                <h3>Pending signups</h3>
+                <span class="admin-badge" id="activate-pending-count">0</span>
+              </div>
+              <div class="admin-activate-list" id="activate-list">
+                <p class="admin-empty" id="activate-empty">No pending accounts</p>
+              </div>
+            </div>
+            <div class="admin-card" style="margin-top: 14px">
+              <div class="admin-card-title-row">
+                <h3>Approved accounts</h3>
+                <span class="admin-badge" id="activate-approved-count">0</span>
+              </div>
+              <div class="admin-activate-list" id="approved-list">
+                <p class="admin-empty" id="approved-empty">No approved accounts yet</p>
+              </div>
             </div>
           </section>
 
