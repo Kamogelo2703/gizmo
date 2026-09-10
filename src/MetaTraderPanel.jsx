@@ -1,501 +1,125 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  connectByHost,
+  connectByServer,
+  parseAccessPoint,
+  searchBrokers,
+} from "./mt5Api.js";
 import { useApp } from "./store.jsx";
 
-const BOTH = ["MT4", "MT5"];
-
-const BROKER_NAMES = [
-  "IC Markets",
-  "Pepperstone",
-  "Exness",
-  "XM",
-  "FP Markets",
-  "Tickmill",
-  "BlackBull Markets",
-  "Vantage",
-  "FxPro",
-  "HFM",
-  "Octa",
-  "Eightcap",
-  "OANDA",
-  "FOREX.com",
-  "IG",
-  "AvaTrade",
-  "Admiral Markets",
-  "Axi",
-  "Axiory",
-  "ActivTrades",
-  "Alpari",
-  "ATC Brokers",
-  "BDSwiss",
-  "Blueberry Markets",
-  "Capital.com",
-  "CMC Markets",
-  "Darwinex",
-  "Dukascopy",
-  "EasyMarkets",
-  "Ebury",
-  "eToro",
-  "FBS",
-  "FXTM",
-  "FXCM",
-  "FXOpen",
-  "FXPrimus",
-  "GBE brokers",
-  "Global Prime",
-  "GO Markets",
-  "Hantec Markets",
-  "HotForex",
-  "HYCM",
-  "ICM Trader",
-  "InstaForex",
-  "Interactive Brokers",
-  "IronFX",
-  "Just2Trade",
-  "Libertex",
-  "LiteFinance",
-  "LMAX",
-  "Markets.com",
-  "MEX Atlantic",
-  "Moneta Markets",
-  "MultiBank Group",
-  "NordFX",
-  "NPBFX",
-  "Optimus Futures",
-  "Orbex",
-  "Plus500",
-  "PuPrime",
-  "RoboForex",
-  "Saxo Bank",
-  "Spreadex",
-  "Swissquote",
-  "ThinkMarkets",
-  "TMGM",
-  "Trade Nation",
-  "Tradeview Markets",
-  "Trading 212",
-  "Trireme Capital",
-  "Union Markets",
-  "Velocity Trade",
-  "VT Markets",
-  "Windsor Brokers",
-  "XTB",
-  "ZuluTrade",
-  "Fusion Markets",
-  "Raw Trading Ltd",
-  "Skilling",
-  "StarTrader",
-  "AcerTrade",
-  "AMarkets",
-  "AETOS",
-  "AFX Group",
-  "Anzo Capital",
-  "Aron Groups",
-  "Aspire Forex",
-  "Ava Options",
-  "Baxia Markets",
-  "Big Markets",
-  "Bonds.com",
-  "Broker Direct",
-  "Bullwaves",
-  "CFI Financial",
-  "City Index",
-  "ClickTrades",
-  "Core Spreads",
-  "Deriv",
-  "DoTrading",
-  "Earn Markets",
-  "EC Markets",
-  "Equiti",
-  "Errante",
-  "Eurotrader",
-  "eXcentral",
-  "Finam",
-  "Fincorp",
-  "FXTM Invest",
-  "Gala Markets",
-  "GC Money",
-  "Golden Brokers",
-  "Grand Capital",
-  "GTCM",
-  "HF Markets",
-  "iCFD",
-  "ICM Capital",
-  "IFC Markets",
-  "iFOREX",
-  "Invast Global",
-  "InvestAZ",
-  "JustMarkets",
-  "Key to Markets",
-  "Land-FX",
-  "LegacyFX",
-  "Leverate",
-  "LiquidityX",
-  "Lirunex",
-  "LQD Markets",
-  "M4Markets",
-  "MaxiMarkets",
-  "MetaQuotes Demo",
-  "MFX Broker",
-  "MTrading",
-  "NAGA",
-  "NAGA Markets",
-  "NestTrade",
-  "NSBroker",
-  "One Financial Markets",
-  "Pacific Union",
-  "PaxForex",
-  "PHAT Markets",
-  "Pocket Option",
-  "PrimeXBT",
-  "Profit Trading",
-  "Purple Trading",
-  "Quotex",
-  "RannForex",
-  "Refresh Markets",
-  "Rivkin Securities",
-  "Royal Financial Trading",
-  "Safi Markets",
-  "Sapa Markets",
-  "Scope Markets",
-  "SimpleFX",
-  "Smart Markets",
-  "ST Market",
-  "Storm Markets",
-  "Svenska Handelsbanken",
-  "Switch Markets",
-  "Taurex",
-  "T4Trade",
-  "The Forex Market",
-  "TickTrader",
-  "Titans Forex",
-  "Trade Capital Markets",
-  "Tradeo",
-  "Tradivex",
-  "TriumphFX",
-  "TruTrade",
-  "UFX",
-  "Vantage International",
-  "Vantage Global",
-  "Vibon Markets",
-  "Vision Trade",
-  "VTB Forex",
-  "Whitelabel Brokers",
-  "XTB Online Trading",
-  "Yapikredi Invest",
-  "Yes Traders",
-  "Z.com Trade",
-  "ZBIFX",
-  "ZFX",
-  "AAAFx",
-  "ACY Securities",
-  "AETOS Capital Group",
-  "Alfa Forex",
-  "Alpari International",
-  "Askap Futures",
-  "ATFX",
-  "AvaTradeEU",
-  "AXSTrade",
-  "Baxia",
-  "BCS Forex",
-  "Binance Futures",
-  "BIT Markets",
-  "BlackWell Global",
-  "BrokerCreditService",
-  "Bybit",
-  "Capital Bear",
-  "Capitals.com",
-  "CFD Capital",
-  "CMS Prime",
-  "Colmex Pro",
-  "CyberTrade",
-  "DCI Capital",
-  "Doto Brokers",
-  "Ducascopy Bank",
-  "EBC Financial Group",
-  "EFX Group",
-  "Elite Trader Funding",
-  "EverFX",
-  "Evo Markets",
-  "Exclusive Markets",
-  "FINAM Forex",
-  "FirewoodFX",
-  "Forex4you",
-  "ForexChief",
-  "Forex.com UK",
-  "ForexTime",
-  "Fortune Prime Global",
-  "FreshForex",
-  "FTMO",
-  "FXTM Global",
-  "GCEX",
-  "GDMFX",
-  "Gembell Limited",
-  "Global Futures",
-  "GMI Markets",
-  "Goldenburg Capital",
-  "GTCFX",
-  "Guggenheim Markets",
-  "Hantec Markets UK",
-  "HF Markets Global",
-  "HFM Global",
-  "Holi Capital",
-  "HotForex Global",
-  "HY Markets",
-  "IC Brokers",
-  "IC Markets Global",
-  "IC Markets EU",
-  "IC Markets AU",
-  "ICM Brokers",
-  "Icon FX",
-  "IFC Markets Global",
-  "IG Index",
-  "IG Markets",
-  "InstaForex Europe",
-  "IronFX Global",
-  "iTrade Global",
-  "Just2Trade Global",
-  "JustMarkets Global",
-  "Key Trading",
-  "Kraken Futures",
-  "KVB Markets",
-  "KVB Kunlun",
-  "LCG",
-  "Libertex Global",
-  "LiteFinance Global",
-  "LMAX Exchange",
-  "LMAX Global",
-  "LMAX Digital",
-  "London Capital Group",
-  "Magic Trading",
-  "Market.com",
-  "Markets.com UK",
-  "Maxi Markets",
-  "MEX Group",
-  "MTrading Global",
-  "MultiBank FX",
-  "NAGA Trader",
-  "NordFX Global",
-  "NPBFX Global",
-  "OANDA Global Markets",
-  "OANDA Europe",
-  "OANDA Asia Pacific",
-  "OctaFX",
-  "Octa Markets",
-  "Octa Markets Global",
-  "OneRoyal",
-  "Optimus",
-  "Orbex Global",
-  "Pepperstone Global",
-  "Pepperstone AU",
-  "Pepperstone UK",
-  "Pepperstone EU",
-  "PhillipCapital",
-  "Plus500CY",
-  "Prime Trading",
-  "PuPrime Global",
-  "RoboForex EU",
-  "RoboForex Global",
-  "Royal Markets",
-  "Saxo Markets",
-  "Scope Markets Global",
-  "Skilling Markets",
-  "StarTrader Global",
-  "Swissquote Bank",
-  "ThinkMarkets Global",
-  "Tickmill Europe",
-  "Tickmill UK",
-  "Tickmill Global",
-  "TMGM Global",
-  "Trade360",
-  "Trade Nation Global",
-  "Tradeview",
-  "Trireme",
-  "Umarkets",
-  "Union Markets Global",
-  "Vantage Markets",
-  "Vantage FX",
-  "VT Markets Global",
-  "Windsor Brokers Global",
-  "XM Global",
-  "XM Trading",
-  "XM.com",
-  "XTB Limited",
-  "XTB Africa",
-  "YesTrader",
-  "Z.com Forex",
-
-  // South Africa & Africa-focused brokers
-  "Razor Markets",
-  "Razor Markets SA",
-  "GT247",
-  "GT247.com",
-  "EasyTrader",
-  "EasyEquities",
-  "RocketX",
-  "CapX Markets",
-  "CMC Markets South Africa",
-  "IG South Africa",
-  "Saxo Capital Markets South Africa",
-  "Swissquote South Africa",
-  "OANDA South Africa",
-  "Interactive Brokers South Africa",
-  "Plus500 South Africa",
-  "eToro South Africa",
-  "Trading 212 South Africa",
-  "XTB South Africa",
-  "Markets.com South Africa",
-  "City Index South Africa",
-  "Admirals South Africa",
-  "Admiral Markets South Africa",
-  "ThinkMarkets South Africa",
-  "Pepperstone South Africa",
-  "IC Markets South Africa",
-  "Exness South Africa",
-  "XM South Africa",
-  "HFM South Africa",
-  "HF Markets South Africa",
-  "AvaTrade South Africa",
-  "Tickmill South Africa",
-  "Vantage South Africa",
-  "FP Markets South Africa",
-  "Blueberry Markets South Africa",
-  "Fusion Markets South Africa",
-  "GO Markets South Africa",
-  "Global Prime South Africa",
-  "Axi South Africa",
-  "BlackBull Markets South Africa",
-  "OctaFX",
-  "JustMarkets",
-  "JustForex",
-  "FXPesa",
-  "Accuindex",
-  "SafeTrade",
-  "Safe Markets",
-  "AfrAsia Securities",
-  "Standard Bank Online Trading",
-  "Investec Share Trading",
-  "PSG Wealth",
-  "SatrixNOW",
-  "Purple Group",
-  "Velocity Trade South Africa",
-  "FundedNext",
-  "The Funded Trader",
-  "FTMO",
-  "Fidelcrest",
-  "SurgeTrader",
-  "E8 Funding",
-  "Topstep",
-  "My Forex Funds",
-  "DNA Funded",
-  "FundingPips",
-  "Instant Funding",
-  "Maven Trading",
-  "Prop Firm Match",
-];
-
-const BROKER_ALIASES = {
-  "razor-markets": ["razor", "razormarkets", "razor markets sa", "razor mt5"],
-  "razor-markets-sa": ["razor", "razormarkets"],
-  gt247: ["gt 247", "gt247.com", "easytrader", "purple group"],
-  "gt247-com": ["gt247", "gt 247"],
-  easytrader: ["gt247", "easy trader"],
-  rocketx: ["rocket x", "rocketx sa"],
-  "octafx": ["octa", "octa fx"],
-  justmarkets: ["just markets", "justforex", "just forex"],
-  justforex: ["justmarkets", "just markets"],
-  fxpesa: ["fx pesa", "fxpesa kenya"],
-  "hfm-south-africa": ["hfm", "hotforex", "hf markets"],
-  "hf-markets-south-africa": ["hfm", "hotforex"],
-  "exness-south-africa": ["exness sa", "exness africa"],
-  "xm-south-africa": ["xm sa", "xm africa"],
-  "pepperstone-south-africa": ["pepperstone sa"],
-  "ic-markets-south-africa": ["ic markets sa", "icmarkets"],
-  "xtb-south-africa": ["xtb sa", "xtb africa"],
-  "ig-south-africa": ["ig sa", "ig markets sa"],
-  "cmc-markets-south-africa": ["cmc sa", "cmc markets sa"],
-  "velocity-trade-south-africa": ["velocity", "velocitytrade"],
-};
-
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-const BROKERS = Array.from(
-  new Map(
-    BROKER_NAMES.map((name) => {
-      const id = slugify(name);
-      return [
-        id,
-        {
-          id,
-          name,
-          platforms: BOTH,
-          aliases: BROKER_ALIASES[id] || [],
-        },
-      ];
-    })
-  ).values()
-).sort((a, b) => a.name.localeCompare(b.name));
-
-function matchesBroker(broker, q) {
-  if (broker.name.toLowerCase().includes(q)) return true;
-  return (broker.aliases || []).some((alias) => alias.toLowerCase().includes(q) || q.includes(alias.toLowerCase()));
-}
-
 const emptyLogin = { login: "", password: "", server: "" };
+const MT5_SESSION_KEY = "apexea-mt5-session";
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(MT5_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(session) {
+  try {
+    if (!session) localStorage.removeItem(MT5_SESSION_KEY);
+    else localStorage.setItem(MT5_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore quota
+  }
+}
 
 export default function MetaTraderPanel({ variant = "zeta" }) {
   const { showToast } = useApp();
   const [platform, setPlatform] = useState("MT5");
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [selectedBroker, setSelectedBroker] = useState(null);
   const [step, setStep] = useState("browse");
   const [creds, setCreds] = useState(emptyLogin);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return BROKERS.filter((broker) => {
-      if (!broker.platforms.includes(platform)) return false;
-      return matchesBroker(broker, q);
-    });
-  }, [platform, query]);
+  const [connecting, setConnecting] = useState(false);
+  const [session, setSession] = useState(() => loadSession());
+  const searchRef = useRef(0);
 
   const hasQuery = query.trim().length > 0;
-  const exactMatch = filtered.some(
-    (broker) => broker.name.toLowerCase() === query.trim().toLowerCase()
-  );
-  const customBroker =
-    hasQuery && !exactMatch
-      ? {
-          id: `custom-${slugify(query.trim())}`,
-          name: query.trim(),
-          platforms: BOTH,
-          aliases: [],
-          custom: true,
-        }
-      : null;
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setSearchError("");
+      setSearching(false);
+      return undefined;
+    }
+
+    // API is MT5 broker directory; keep MT4 UI but still search same catalog.
+    const requestId = ++searchRef.current;
+    const controller = new AbortController();
+    setSearching(true);
+    setSearchError("");
+
+    const timer = setTimeout(async () => {
+      try {
+        const brokers = await searchBrokers(q, { signal: controller.signal });
+        if (requestId !== searchRef.current) return;
+        setResults(brokers);
+        if (!brokers.length) setSearchError("No brokers match that search.");
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (requestId !== searchRef.current) return;
+        setResults([]);
+        setSearchError(error.message || "Broker search failed");
+      } finally {
+        if (requestId === searchRef.current) setSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
+  const customBroker = useMemo(() => {
+    if (!hasQuery) return null;
+    const exact = results.some(
+      (broker) => broker.name.toLowerCase() === query.trim().toLowerCase()
+    );
+    if (exact) return null;
+    return {
+      id: `custom-${query.trim().toLowerCase()}`,
+      company: query.trim(),
+      name: query.trim(),
+      site: "",
+      logoUrl: "",
+      access: [],
+      platform,
+      custom: true,
+    };
+  }, [hasQuery, query, results, platform]);
 
   function pickBroker(broker) {
     setSelectedBroker(broker);
-    setCreds(emptyLogin);
+    setCreds({
+      login: "",
+      password: "",
+      server: broker.name || "",
+    });
     setStep("login");
   }
 
   function backToBrokers() {
     setStep("browse");
     setCreds(emptyLogin);
+    setConnecting(false);
   }
 
   function updateCred(field, value) {
     setCreds((prev) => ({ ...prev, [field]: value }));
   }
 
-  function connectAccount(event) {
+  async function connectAccount(event) {
     event.preventDefault();
     const login = creds.login.trim();
     const password = creds.password;
@@ -506,10 +130,49 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       return;
     }
 
-    showToast(`Connecting ${selectedBroker.name} · ${platform}`);
-    setStep("browse");
-    setQuery("");
-    setCreds(emptyLogin);
+    setConnecting(true);
+    try {
+      let token;
+      // Prefer server-name connect; fall back to first access host:port if needed.
+      try {
+        token = await connectByServer({ login, password, server });
+      } catch (serverError) {
+        const point = parseAccessPoint(selectedBroker?.access?.[0]);
+        if (!point) throw serverError;
+        token = await connectByHost({
+          login,
+          password,
+          host: point.host,
+          port: point.port,
+        });
+      }
+
+      const nextSession = {
+        token,
+        login,
+        server,
+        company: selectedBroker?.company || server,
+        platform,
+        connectedAt: Date.now(),
+      };
+      setSession(nextSession);
+      saveSession(nextSession);
+      showToast(`Connected ${selectedBroker?.company || server}`);
+      setStep("browse");
+      setQuery("");
+      setResults([]);
+      setCreds(emptyLogin);
+    } catch (error) {
+      showToast(error.message || "Connection failed");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function clearSession() {
+    setSession(null);
+    saveSession(null);
+    showToast("Disconnected MetaTrader session");
   }
 
   const rootClass = variant === "v2" ? "mt-panel mt-panel--v2" : "mt-panel";
@@ -522,8 +185,12 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
             ← Brokers
           </button>
           <p className="mt-panel-kicker">{platform}</p>
-          <h2 className="mt-panel-title">{selectedBroker.name}</h2>
-          <p className="mt-panel-sub">Enter your MetaTrader account details to connect.</p>
+          <h2 className="mt-panel-title">{selectedBroker.company}</h2>
+          <p className="mt-panel-sub">
+            {selectedBroker.custom
+              ? "Enter your MetaTrader account details to connect."
+              : `Server ${selectedBroker.name}. Enter login details to connect.`}
+          </p>
         </header>
 
         <form className="mt-login-form" onSubmit={connectAccount}>
@@ -567,8 +234,8 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
             />
           </label>
 
-          <button className="mt-connect-btn" type="submit">
-            Connect
+          <button className="mt-connect-btn" type="submit" disabled={connecting}>
+            {connecting ? "Connecting…" : "Connect"}
           </button>
         </form>
       </div>
@@ -580,8 +247,22 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       <header className="mt-panel-head">
         <p className="mt-panel-kicker">MetaTrader</p>
         <h2 className="mt-panel-title">Brokers</h2>
-        <p className="mt-panel-sub">Choose your terminal, then search for your broker.</p>
+        <p className="mt-panel-sub">Search live brokers, then connect with login details.</p>
       </header>
+
+      {session?.token ? (
+        <div className="mt-session">
+          <div>
+            <strong>{session.company || session.server}</strong>
+            <span>
+              {session.server} · login {session.login}
+            </span>
+          </div>
+          <button type="button" className="mt-session-btn" onClick={clearSession}>
+            Disconnect
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-platform-row" role="group" aria-label="MetaTrader platform">
         {["MT5", "MT4"].map((id) => (
@@ -618,16 +299,32 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         <ul className="mt-broker-list">
           {!hasQuery ? (
             <li className="mt-broker-empty">Search for your broker</li>
+          ) : searching ? (
+            <li className="mt-broker-empty">Searching brokers…</li>
           ) : (
             <>
-              {filtered.map((broker) => (
+              {results.map((broker) => (
                 <li key={broker.id}>
                   <button
                     type="button"
                     className="mt-broker-item"
                     onClick={() => pickBroker(broker)}
                   >
-                    <span className="mt-broker-name">{broker.name}</span>
+                    <span className="mt-broker-main">
+                      {broker.logoUrl ? (
+                        <img
+                          className="mt-broker-logo"
+                          src={broker.logoUrl}
+                          alt=""
+                          width="28"
+                          height="28"
+                        />
+                      ) : null}
+                      <span className="mt-broker-text">
+                        <span className="mt-broker-name">{broker.company}</span>
+                        <span className="mt-broker-server">{broker.name}</span>
+                      </span>
+                    </span>
                     <span className="mt-broker-meta">{platform}</span>
                   </button>
                 </li>
@@ -644,8 +341,8 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
                   </button>
                 </li>
               ) : null}
-              {filtered.length === 0 && !customBroker ? (
-                <li className="mt-broker-empty">No brokers match that search.</li>
+              {!results.length && searchError ? (
+                <li className="mt-broker-empty">{searchError}</li>
               ) : null}
             </>
           )}
