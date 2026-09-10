@@ -30,7 +30,7 @@ const ALL_SYMBOLS = [
 ];
 
 /** @type {Map<string, Set<string>>} */
-const eaSymbols = new Map([["zeta-scalper", new Set(["XAUUSD", "EURUSD"])]]);
+const eaSymbols = new Map();
 const draftEaSymbols = new Set();
 
 const pairsSheet = document.getElementById("pairs-sheet");
@@ -495,6 +495,7 @@ document.getElementById("ea-create-form")?.addEventListener("submit", (event) =>
   item.querySelector(".ea-meta > span").textContent = `${strategyLabels[strategy] || strategy} · ${timeframe} · Risk ${risk}%`;
   item.querySelector("[data-delete-ea]").addEventListener("click", () => deleteEa(id, name));
   eaList?.prepend(item);
+  document.getElementById("ea-empty")?.remove();
   refreshEaItemSymbols(id);
 
   if (eaCount) {
@@ -530,7 +531,15 @@ function deleteEa(eaId, name) {
   eaSymbols.delete(eaId);
   document.querySelector(`.ea-item[data-ea-id="${eaId}"]`)?.remove();
   if (eaCount && eaList) {
-    eaCount.textContent = String(eaList.querySelectorAll(".ea-item").length);
+    const remaining = eaList.querySelectorAll(".ea-item").length;
+    eaCount.textContent = String(remaining);
+    if (remaining === 0 && !document.getElementById("ea-empty")) {
+      const empty = document.createElement("p");
+      empty.className = "admin-empty";
+      empty.id = "ea-empty";
+      empty.textContent = "No EAs yet — create one above";
+      eaList.appendChild(empty);
+    }
   }
   // Remove robot from home list if present
   robotList?.querySelectorAll(".robot-row").forEach((row) => {
@@ -552,21 +561,8 @@ document.querySelectorAll("[data-delete-ea]").forEach((btn) => {
   });
 });
 
-// Initialize default EA symbol chips with delete controls
-refreshEaItemSymbols("zeta-scalper");
-
 /* —— Bot license system —— */
-const botRegistry = new Map([
-  [
-    "zeta",
-    {
-      id: "zeta",
-      name: "ZETA SCALPER AI",
-      photo: "./assets/avatar.png",
-      active: true,
-    },
-  ],
-]);
+const botRegistry = new Map();
 
 /** @type {Array<{key:string, botId:string, botName:string, used:boolean, createdAt:number}>} */
 const licenseKeys = [];
@@ -596,7 +592,17 @@ function refreshLicenseBotOptions() {
   if (!licenseBotSelect) return;
   const current = licenseBotSelect.value;
   licenseBotSelect.innerHTML = "";
-  [...botRegistry.values()].forEach((bot) => {
+  const bots = [...botRegistry.values()];
+  if (bots.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.disabled = true;
+    opt.selected = true;
+    opt.textContent = "No bots yet";
+    licenseBotSelect.appendChild(opt);
+    return;
+  }
+  bots.forEach((bot) => {
     const opt = document.createElement("option");
     opt.value = bot.id;
     opt.textContent = `${bot.name}${bot.active ? "" : " (removed)"}`;
@@ -1192,3 +1198,8 @@ addEaToHome = function (name, photoUrl) {
 };
 
 applyInterface(activeInterface, { animate: false });
+
+// Fresh in-memory start: no seeded bots/EAs/pending data
+if (!hasActiveBot()) {
+  setHeroEmpty(true);
+}

@@ -133,21 +133,6 @@
 
           <section class="robots" aria-label="Robot list">
             <h2 class="robots-title">ROBOT LIST:</h2>
-            <button class="robot-row is-active" type="button" data-bot="zeta">
-              <img src="./assets/avatar.png" alt="" width="36" height="36" />
-              <span>ZETA SCALPER AI</span>
-              <span class="check" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="m6.5 12.5 3.5 3.5 7.5-8"
-                    stroke="currentColor"
-                    stroke-width="2.2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </span>
-            </button>
             <button class="robot-row robot-add" type="button" data-action="add-bot">
               <span class="plus" aria-hidden="true">+</span>
               <span>Add New Trading Bot</span>
@@ -777,15 +762,15 @@
             <div class="admin-stat-stack">
               <article class="admin-stat-card">
                 <p class="admin-stat-label">Total Mentors</p>
-                <p class="admin-stat-value">6117</p>
+                <p class="admin-stat-value" id="stat-total-mentors">0</p>
               </article>
               <article class="admin-stat-card">
                 <p class="admin-stat-label">Pending Approval</p>
-                <p class="admin-stat-value is-warn">62</p>
+                <p class="admin-stat-value is-warn" id="stat-pending-mentors">0</p>
               </article>
               <article class="admin-stat-card">
                 <p class="admin-stat-label">Approved Mentors</p>
-                <p class="admin-stat-value is-ok">6026</p>
+                <p class="admin-stat-value is-ok" id="stat-approved-mentors">0</p>
               </article>
             </div>
           </section>
@@ -835,39 +820,14 @@
               </div>
             </div>
             <div class="admin-card">
-              <p class="admin-card-meta">6117 mentors found · Showing page 1 of 612</p>
+              <p class="admin-card-meta" id="mentors-meta">0 mentors found</p>
               <div class="admin-table-head">
                 <span>Name</span>
                 <span>Status</span>
                 <span>Actions</span>
               </div>
-              <div class="admin-table-row">
-                <span class="admin-name">tar Gee</span>
-                <span class="admin-badge is-pending">Pending</span>
-                <button class="admin-link-btn" type="button" data-admin-toast="Opened tar Gee">
-                  View
-                </button>
-              </div>
-              <div class="admin-table-row">
-                <span class="admin-name">Blvckstar Gee</span>
-                <span class="admin-badge is-pending">Pending</span>
-                <button class="admin-link-btn" type="button" data-admin-toast="Opened Blvckstar Gee">
-                  View
-                </button>
-              </div>
-              <div class="admin-table-row">
-                <span class="admin-name">Nova Trade</span>
-                <span class="admin-badge is-approved">Approved</span>
-                <button class="admin-link-btn" type="button" data-admin-toast="Opened Nova Trade">
-                  View
-                </button>
-              </div>
-              <div class="admin-table-row">
-                <span class="admin-name">Alpha Mentor</span>
-                <span class="admin-badge is-pending">Pending</span>
-                <button class="admin-link-btn" type="button" data-admin-toast="Opened Alpha Mentor">
-                  View
-                </button>
+              <div id="mentors-list">
+                <p class="admin-empty">No mentors yet</p>
               </div>
             </div>
           </section>
@@ -890,22 +850,13 @@
               />
             </div>
             <div class="admin-card">
-              <p class="admin-card-meta">Total clients: 1787</p>
+              <p class="admin-card-meta" id="clients-meta">Total clients: 0</p>
               <div class="admin-table-head admin-table-head-2">
                 <span>Email</span>
                 <span>Username</span>
               </div>
-              <div class="admin-table-row admin-table-row-2">
-                <span>buthelezithapelo9@gmail.com</span>
-                <span>thapelo_b</span>
-              </div>
-              <div class="admin-table-row admin-table-row-2">
-                <span>nomsa.trades@outlook.com</span>
-                <span>nomsafx</span>
-              </div>
-              <div class="admin-table-row admin-table-row-2">
-                <span>kabelo.mokoena@yahoo.com</span>
-                <span>kabelom</span>
+              <div id="clients-list">
+                <p class="admin-empty">No clients yet</p>
               </div>
             </div>
           </section>
@@ -924,28 +875,8 @@
               <h2 class="admin-h1">Top Mentors</h2>
             </div>
             <p class="admin-sub">Mentors ranked by paid client count</p>
-            <div class="admin-top-list">
-              <article class="admin-top-card">
-                <div class="admin-avatar-circle">ZK</div>
-                <div>
-                  <p class="admin-name">Zanele Khumalo</p>
-                  <p class="admin-muted">142 paid clients</p>
-                </div>
-              </article>
-              <article class="admin-top-card">
-                <div class="admin-avatar-circle">LM</div>
-                <div>
-                  <p class="admin-name">Lerato Molefe</p>
-                  <p class="admin-muted">118 paid clients</p>
-                </div>
-              </article>
-              <article class="admin-top-card">
-                <div class="admin-avatar-circle">SN</div>
-                <div>
-                  <p class="admin-name">Sipho Ndlovu</p>
-                  <p class="admin-muted">97 paid clients</p>
-                </div>
-              </article>
+            <div class="admin-top-list" id="top-mentors-list">
+              <p class="admin-empty">No top mentors yet</p>
             </div>
           </section>
 
@@ -963,7 +894,7 @@
             <div class="admin-card">
               <div class="admin-card-title-row">
                 <h3>Mentors</h3>
-                <span class="admin-count-badge">10</span>
+                <span class="admin-count-badge" id="email-mentor-count">0</span>
               </div>
               <div class="admin-search-row">
                 <input class="admin-input" type="search" placeholder="Search mentors..." />
@@ -986,45 +917,19 @@
                 <button class="admin-link-btn" type="button" data-admin-toast="Selected all">
                   Select All
                 </button>
-                <span>0 / 10</span>
+                <span id="email-selected-meta">0 / 0</span>
               </div>
-              <label class="admin-email-row">
-                <input type="checkbox" />
-                <span class="admin-name">tar Gee</span>
-                <span class="admin-muted">tar.gee@email.com</span>
-                <span class="admin-badge is-pending">Pending</span>
-              </label>
-              <label class="admin-email-row">
-                <input type="checkbox" />
-                <span class="admin-name">Blvckstar Gee</span>
-                <span class="admin-muted">blvckstar@email.com</span>
-                <span class="admin-badge is-pending">Pending</span>
-              </label>
+              <div id="email-mentors-list">
+                <p class="admin-empty">No mentors to email yet</p>
+              </div>
             </div>
           </section>
 
           <section class="admin-page" data-admin-page="activate" hidden>
             <h2 class="admin-h1">Activate Accounts</h2>
             <p class="admin-sub">Review and activate pending mentor accounts.</p>
-            <div class="admin-card admin-activate-list">
-              <div class="admin-table-row">
-                <span class="admin-name">Jordan Mokoena</span>
-                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Jordan">
-                  Activate
-                </button>
-              </div>
-              <div class="admin-table-row">
-                <span class="admin-name">Aisha Dlamini</span>
-                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Aisha">
-                  Activate
-                </button>
-              </div>
-              <div class="admin-table-row">
-                <span class="admin-name">Chris van Wyk</span>
-                <button class="admin-btn admin-btn-solid admin-btn-sm" type="button" data-admin-toast="Activated Chris">
-                  Activate
-                </button>
-              </div>
+            <div class="admin-card admin-activate-list" id="activate-list">
+              <p class="admin-empty">No pending accounts</p>
             </div>
           </section>
 
@@ -1103,26 +1008,10 @@
             <div class="admin-card">
               <div class="admin-card-title-row">
                 <h3>Your EAs</h3>
-                <span class="admin-badge" id="ea-count">1</span>
+                <span class="admin-badge" id="ea-count">0</span>
               </div>
               <div class="ea-list" id="ea-list">
-                <div class="ea-item" data-ea-id="zeta-scalper">
-                  <img src="./assets/avatar.png" alt="" width="40" height="40" />
-                  <div class="ea-meta">
-                    <strong>ZETA SCALPER AI</strong>
-                    <span>Scalper · M5 · Risk 1%</span>
-                    <div class="ea-item-symbols" data-ea-symbols="XAUUSD,EURUSD">
-                      <span class="ea-sym-chip">XAUUSD</span>
-                      <span class="ea-sym-chip">EURUSD</span>
-                    </div>
-                  </div>
-                  <div class="ea-item-actions">
-                    <span class="admin-badge is-approved">Live</span>
-                    <button class="ea-delete-btn" type="button" data-delete-ea="zeta-scalper" aria-label="Delete EA">
-                      Delete
-                    </button>
-                  </div>
-                </div>
+                <p class="admin-empty" id="ea-empty">No EAs yet — create one above</p>
               </div>
             </div>
           </section>
@@ -1141,7 +1030,7 @@
                 <label class="ea-field">
                   <span>Bot</span>
                   <select class="admin-input" id="license-bot" name="bot" required>
-                    <option value="zeta">ZETA SCALPER AI</option>
+                    <option value="" disabled selected>No bots yet</option>
                   </select>
                 </label>
                 <button class="admin-btn admin-btn-solid admin-btn-block" type="submit">
