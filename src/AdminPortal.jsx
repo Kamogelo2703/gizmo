@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import AdminAuth from "./AdminAuth.jsx";
+import {
+  fetchMentors,
+  updateMentorStatus,
+} from "./mentorsApi.js";
 import { STRATEGY_LABELS, useApp } from "./store.jsx";
 import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
+
+const ADMIN_SESSION_KEY = "apexea-admin-session";
 
 function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
@@ -8,6 +15,34 @@ function isUploadedProfilePhoto(value) {
   if (photo === "/logo.png") return false;
   // Uploaded images are stored as data URLs (or remote URLs if ever used).
   return photo.startsWith("data:image/") || /^https?:\/\//i.test(photo);
+}
+
+function readAdminSession() {
+  try {
+    const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.email) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeAdminSession(mentor) {
+  if (!mentor) {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    return;
+  }
+  sessionStorage.setItem(
+    ADMIN_SESSION_KEY,
+    JSON.stringify({
+      id: mentor.id,
+      email: mentor.email,
+      username: mentor.username,
+      role: mentor.role,
+      status: mentor.status,
+    })
+  );
 }
 
 export default function AdminPortal() {
@@ -37,6 +72,8 @@ export default function AdminPortal() {
   } = useApp();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [adminSession, setAdminSession] = useState(() => readAdminSession());
+  const [mentors, setMentors] = useState([]);
   const [photo, setPhoto] = useState("/logo.png");
   const [photoUploaded, setPhotoUploaded] = useState(false);
   const [name, setName] = useState("");
@@ -60,6 +97,14 @@ export default function AdminPortal() {
   const declined = useMemo(
     () => signups.filter((s) => s.status === "declined").sort((a, b) => b.createdAt - a.createdAt),
     [signups]
+  );
+  const pendingMentors = useMemo(
+    () => mentors.filter((m) => m.status === "pending").sort((a, b) => b.createdAt - a.createdAt),
+    [mentors]
+  );
+  const approvedMentors = useMemo(
+    () => mentors.filter((m) => m.status === "approved").sort((a, b) => b.createdAt - a.createdAt),
+    [mentors]
   );
 
   useEffect(() => {
@@ -86,7 +131,72 @@ export default function AdminPortal() {
     return () => clearInterval(timer);
   }, [adminOpen, adminPage, refreshSignups]);
 
+  useEffect(() => {
+    if (!adminOpen || !adminSession) return undefined;
+    let cancelled = false;
+    async function loadMentors() {
+      try {
+        const list = await fetchMentors();
+        if (!cancelled) setMentors(Array.isArray(list) ? list : []);
+      } catch {
+        if (!cancelled) setMentors([]);
+      }
+    }
+    loadMentors();
+    const timer = setInterval(loadMentors, 12000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [adminOpen, adminSession, adminPage]);
+
   if (!adminOpen) return null;
+
+  function onAuthenticated(mentor) {
+    writeAdminSession(mentor);
+    setAdminSession(mentor);
+    setAdminPage("dashboard");
+  }
+
+  function logoutAdmin() {
+    writeAdminSession(null);
+    setAdminSession(null);
+    setDrawerOpen(false);
+    showToast("Signed out");
+  }
+
+  async function changeMentorStatus(email, status) {
+    try {
+      const updated = await updateMentorStatus(email, status);
+      setMentors((prev) => {
+        const next = prev.map((m) => (m.email === updated.email ? updated : m));
+        if (!next.some((m) => m.email === updated.email)) next.unshift(updated);
+        return next;
+      });
+      showToast(`Mentor ${status}`);
+    } catch (error) {
+      showToast(error.message || "Could not update mentor");
+    }
+  }
+
+  if (!adminSession) {
+    return (
+      <div className="admin-portal admin-portal-auth">
+        <header className="admin-topbar">
+          <span className="admin-topbar-title">Mentor Access</span>
+          <button
+            className="admin-icon-btn"
+            type="button"
+            aria-label="Close admin portal"
+            onClick={() => setAdminOpen(false)}
+          >
+            ✕
+          </button>
+        </header>
+        <AdminAuth onAuthenticated={onAuthenticated} showToast={showToast} />
+      </div>
+    );
+  }
 
   function resetForm() {
     setEditingEaId(null);
@@ -246,7 +356,7 @@ export default function AdminPortal() {
         <div className="admin-drawer-header">
           <div className="admin-drawer-user">
             <img src="/logo.png" alt="" width="36" height="36" />
-            <span>Admin</span>
+            <span>{adminSession.username || "Admin"}</span>
           </div>
           <button className="admin-icon-btn" type="button" onClick={() => setDrawerOpen(false)}>
             ✕
@@ -267,6 +377,11 @@ export default function AdminPortal() {
             </button>
           ))}
         </nav>
+        <div className="admin-drawer-footer">
+          <button className="admin-nav-item admin-logout" type="button" onClick={logoutAdmin}>
+            <span>Sign out</span>
+          </button>
+        </div>
       </aside>
 
       <div className="admin-content">
@@ -277,15 +392,15 @@ export default function AdminPortal() {
             <div className="admin-stat-stack">
               <article className="admin-stat-card">
                 <p className="admin-stat-label">Total Mentors</p>
-                <p className="admin-stat-value">{signups.length}</p>
+                <p className="admin-stat-value">{mentors.length}</p>
               </article>
               <article className="admin-stat-card">
                 <p className="admin-stat-label">Pending Approval</p>
-                <p className="admin-stat-value is-warn">{pending.length}</p>
+                <p className="admin-stat-value is-warn">{pendingMentors.length}</p>
               </article>
               <article className="admin-stat-card">
                 <p className="admin-stat-label">Approved Mentors</p>
-                <p className="admin-stat-value is-ok">{approved.length}</p>
+                <p className="admin-stat-value is-ok">{approvedMentors.length}</p>
               </article>
             </div>
           </section>
@@ -780,14 +895,74 @@ export default function AdminPortal() {
           </section>
         )}
 
-        {["mentors", "top-mentors", "emails"].includes(adminPage) && (
+        {adminPage === "mentors" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Mentor Management</h2>
+            <p className="admin-sub">Approve mentor registrations for portal access</p>
+            <div className="admin-card">
+              <div className="admin-card-title-row">
+                <h3 className="admin-card-title">Pending</h3>
+                <span className="admin-badge is-pending">{pendingMentors.length}</span>
+              </div>
+              {pendingMentors.length === 0 ? (
+                <p className="admin-empty">No pending mentors</p>
+              ) : (
+                pendingMentors.map((mentor) => (
+                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                    <div>
+                      <strong>{mentor.username}</strong>
+                      <p className="admin-card-meta">{mentor.email}</p>
+                      <p className="admin-card-meta">{mentor.contact}</p>
+                    </div>
+                    <div className="admin-row-actions">
+                      <button
+                        className="admin-btn admin-btn-solid admin-btn-sm"
+                        type="button"
+                        onClick={() => changeMentorStatus(mentor.email, "approved")}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        className="admin-btn admin-btn-danger admin-btn-sm"
+                        type="button"
+                        onClick={() => changeMentorStatus(mentor.email, "declined")}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="admin-card" style={{ marginTop: 14 }}>
+              <div className="admin-card-title-row">
+                <h3 className="admin-card-title">Approved</h3>
+                <span className="admin-badge is-approved">{approvedMentors.length}</span>
+              </div>
+              {approvedMentors.length === 0 ? (
+                <p className="admin-empty">No approved mentors</p>
+              ) : (
+                approvedMentors.map((mentor) => (
+                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                    <div>
+                      <strong>{mentor.username}</strong>
+                      <p className="admin-card-meta">{mentor.email}</p>
+                      <p className="admin-card-meta">
+                        {mentor.role === "superadmin" ? "Super admin" : mentor.contact || "—"}
+                      </p>
+                    </div>
+                    <span className="admin-badge is-approved">{mentor.status}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {["top-mentors", "emails"].includes(adminPage) && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">
-              {adminPage === "mentors"
-                ? "Mentor Management"
-                : adminPage === "top-mentors"
-                  ? "Top Mentors"
-                  : "Email Management"}
+              {adminPage === "top-mentors" ? "Top Mentors" : "Email Management"}
             </h2>
             <p className="admin-sub">Starts empty — new data appears as clients sign up.</p>
             <div className="admin-card">
