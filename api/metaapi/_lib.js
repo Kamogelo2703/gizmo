@@ -298,6 +298,25 @@ export async function subscribeToStrategy(account, strategyId) {
   return data;
 }
 
+/** Remove CopyFactory subscriptions so MT5 connect never opens mirrored strategy trades. */
+export async function clearStrategySubscriptions(account) {
+  const region = accountRegion(account) || "vint-hill";
+  const base = COPYFACTORY_URL_TEMPLATE.replace("{region}", region);
+  const subscriberId = accountIdOf(account);
+  if (!subscriberId) return null;
+  const { data } = await metaFetch(
+    `${base}/users/current/configuration/subscribers/${encodeURIComponent(subscriberId)}`,
+    {
+      method: "PUT",
+      body: {
+        name: account.name || `Subscriber ${account.login}`,
+        subscriptions: [],
+      },
+    }
+  );
+  return data;
+}
+
 function sessionPayload(account, {
   login,
   server,
@@ -319,7 +338,7 @@ function sessionPayload(account, {
     connectionStatus: connection,
     region: accountRegion(account),
     strategyId: strategyId || null,
-    subscribed: Boolean(subscription) && !subscriptionError,
+    subscribed: Boolean(strategyId) && Boolean(subscription) && !subscriptionError,
     subscriptionError: subscriptionError || null,
     pending: Boolean(pending),
   };
@@ -331,7 +350,9 @@ export async function connectTradingAccount({
   server,
   platform = "MT5",
   company = "",
-  strategyId = process.env.METAAPI_STRATEGY_ID || "",
+  // Opt-in only — never auto-subscribe from METAAPI_STRATEGY_ID (that opened
+  // mirrored strategy trades without a chart scan).
+  strategyId = "",
 }) {
   const userLogin = String(login || "").trim();
   const userPassword = String(password || "");
@@ -389,11 +410,16 @@ export async function connectTradingAccount({
 
   let subscription = null;
   let subscriptionError = null;
-  if (!pending && strategyId) {
+  if (!pending) {
     try {
-      subscription = await subscribeToStrategy(account, strategyId);
+      if (strategyId) {
+        subscription = await subscribeToStrategy(account, strategyId);
+      } else {
+        // Detach any prior CopyFactory mirrors so only Chart Scanner opens trades.
+        subscription = await clearStrategySubscriptions(account);
+      }
     } catch (error) {
-      subscriptionError = error.message || "CopyFactory subscribe failed";
+      subscriptionError = error.message || "CopyFactory update failed";
     }
   }
 
@@ -402,7 +428,7 @@ export async function connectTradingAccount({
     server: userServer,
     platform: mtPlatform === "mt4" ? "MT4" : "MT5",
     company: company || "",
-    strategyId,
+    strategyId: strategyId || null,
     subscription,
     subscriptionError,
     pending,
@@ -410,7 +436,7 @@ export async function connectTradingAccount({
 }
 
 export async function getConnectionStatus(accountId, {
-  strategyId = process.env.METAAPI_STRATEGY_ID || "",
+  strategyId = "",
   company = "",
 } = {}) {
   const id = String(accountId || "").trim();
@@ -433,11 +459,15 @@ export async function getConnectionStatus(accountId, {
   let subscriptionError = null;
   const pending = connection !== "CONNECTED";
 
-  if (!pending && strategyId) {
+  if (!pending) {
     try {
-      subscription = await subscribeToStrategy(account, strategyId);
+      if (strategyId) {
+        subscription = await subscribeToStrategy(account, strategyId);
+      } else {
+        subscription = await clearStrategySubscriptions(account);
+      }
     } catch (error) {
-      subscriptionError = error.message || "CopyFactory subscribe failed";
+      subscriptionError = error.message || "CopyFactory update failed";
     }
   }
 
@@ -446,7 +476,7 @@ export async function getConnectionStatus(accountId, {
     server: account?.server || "",
     platform: account?.platform === "mt4" ? "MT4" : "MT5",
     company: company || account?.name || "",
-    strategyId,
+    strategyId: strategyId || null,
     subscription,
     subscriptionError,
     pending,
@@ -611,7 +641,7 @@ export async function placeMarketTrade({
     actionType,
     symbol: resolved.symbol,
     volume: vol,
-    comment: String(comment || "ApexEA scanner").slice(0, 31),
+    comment: String(comment || "bot~apexea").slice(0, 31),
   };
   if (Number.isFinite(Number(stopLoss)) && Number(stopLoss) > 0) {
     body.stopLoss = Number(stopLoss);

@@ -165,11 +165,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       };
       setMt5Session(nextSession);
       pushEngineLog("Trading engine armed · MT5 connected");
-      showToast(
-        connected.subscribed
-          ? `Connected ${nextSession.company} · copy trading on`
-          : `Connected ${nextSession.company}`
-      );
+      showToast(`Connected ${nextSession.company}`);
       setStep("browse");
       setQuery("");
       setResults([]);

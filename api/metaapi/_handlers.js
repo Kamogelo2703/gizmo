@@ -56,7 +56,7 @@ export async function handleConnect(req, res) {
       server: body.server,
       platform: body.platform || "MT5",
       company: body.company || "",
-      strategyId: body.strategyId || process.env.METAAPI_STRATEGY_ID || "",
+      strategyId: body.strategyId || "",
     });
     sendJson(res, 200, session);
   } catch (error) {
@@ -83,8 +83,8 @@ export async function handleStatus(req, res) {
     const url = new URL(req.url, `http://${host}`);
     const accountId = url.searchParams.get("accountId") || "";
     const company = url.searchParams.get("company") || "";
-    const strategyId =
-      url.searchParams.get("strategyId") || process.env.METAAPI_STRATEGY_ID || "";
+    // Opt-in only — do not fall back to METAAPI_STRATEGY_ID.
+    const strategyId = url.searchParams.get("strategyId") || "";
     const session = await getConnectionStatus(accountId, { strategyId, company });
     sendJson(res, 200, session);
   } catch (error) {
@@ -109,6 +109,12 @@ export async function handleTrade(req, res) {
   try {
     const body = await readJsonBody(req);
     const token = tokenFromRequest(req);
+    const source = String(body.source || "").trim().toLowerCase();
+    if (source !== "chart-scanner") {
+      const err = new Error("Trades can only be opened from Chart Scanner after a scan");
+      err.status = 403;
+      throw err;
+    }
     const result = await placeMarketTrade({
       accountId: body.accountId,
       symbol: body.symbol,
@@ -116,7 +122,7 @@ export async function handleTrade(req, res) {
       side: body.side || body.action || "BUY",
       stopLoss: body.stopLoss,
       takeProfit: body.takeProfit,
-      comment: body.comment || "ApexEA scanner",
+      comment: body.comment || "bot~apexea",
       region: body.region,
       token,
     });
