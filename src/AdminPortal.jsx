@@ -9,6 +9,7 @@ export default function AdminPortal() {
     setAdminPage,
     signups,
     setSignupStatus,
+    refreshSignups,
     eas,
     upsertEa,
     deleteEa,
@@ -58,6 +59,15 @@ export default function AdminPortal() {
   useEffect(() => {
     if (!licenseBotId && bots[0]) setLicenseBotId(bots[0].id);
   }, [bots, licenseBotId]);
+
+  useEffect(() => {
+    if (!adminOpen) return undefined;
+    refreshSignups?.();
+    const timer = setInterval(() => {
+      refreshSignups?.();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [adminOpen, adminPage, refreshSignups]);
 
   if (!adminOpen) return null;
 
@@ -300,6 +310,14 @@ export default function AdminPortal() {
                 <h3>Pending signups</h3>
                 <span className="admin-badge">{pending.length}</span>
               </div>
+              <button
+                className="admin-btn admin-btn-sm"
+                type="button"
+                style={{ marginBottom: 10 }}
+                onClick={() => refreshSignups?.().then(() => showToast("Pending list refreshed"))}
+              >
+                Refresh pending
+              </button>
               <div className="admin-activate-list">
                 {pending.length === 0 ? (
                   <p className="admin-empty">No pending accounts</p>

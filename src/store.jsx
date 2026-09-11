@@ -7,6 +7,12 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  fetchSignups,
+  mergeSignups,
+  submitSignup,
+  updateSignupStatus,
+} from "./signupsApi.js";
 
 const STORAGE_KEY = "apexea-app-v1";
 const BACKUP_KEY = "apexea-app-v1-backup";
@@ -286,8 +292,27 @@ export function AppProvider({ children }) {
     [symbolMeta]
   );
 
+  const refreshSignups = useCallback(async () => {
+    try {
+      const remote = await fetchSignups();
+      setSignups((prev) => mergeSignups(prev, remote));
+      return remote;
+    } catch (error) {
+      // Keep local cache if remote sync is temporarily unavailable.
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSignups();
+    const timer = setInterval(() => {
+      refreshSignups();
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [refreshSignups]);
+
   const requestSignup = useCallback(
-    (email) => {
+    async (email) => {
       const key = normalizeEmail(email);
       setCoverEmail(key);
       setSignups((prev) => {
@@ -302,22 +327,42 @@ export function AppProvider({ children }) {
           }
           return prev;
         }
-        return [
-          ...prev,
-          { email: key, status: "pending", createdAt: Date.now() },
-        ];
+        return [...prev, { email: key, status: "pending", createdAt: Date.now() }];
       });
+
+      try {
+        const remote = await submitSignup(key);
+        if (remote) {
+          setSignups((prev) => mergeSignups(prev, [remote]));
+        } else {
+          await refreshSignups();
+        }
+      } catch (error) {
+        showToast(error.message || "Could not sync signup to server");
+      }
       return key;
     },
-    []
+    [refreshSignups, showToast]
   );
 
   const setSignupStatus = useCallback(
-    (email, status) => {
+    async (email, status) => {
       const key = normalizeEmail(email);
-      setSignups((prev) =>
-        prev.map((s) => (s.email === key ? { ...s, status } : s))
-      );
+      setSignups((prev) => {
+        const exists = prev.some((s) => s.email === key);
+        if (exists) {
+          return prev.map((s) => (s.email === key ? { ...s, status } : s));
+        }
+        return [...prev, { email: key, status, createdAt: Date.now() }];
+      });
+
+      try {
+        const remote = await updateSignupStatus(key, status);
+        if (remote) setSignups((prev) => mergeSignups(prev, [remote]));
+      } catch (error) {
+        showToast(error.message || "Could not update signup on server");
+      }
+
       showToast(
         status === "approved"
           ? `${key} approved`
@@ -335,6 +380,7 @@ export function AppProvider({ children }) {
     },
     [coverEmail, showToast]
   );
+
 
   const getSignup = useCallback(
     (email = coverEmail) => {
@@ -575,6 +621,7 @@ export function AppProvider({ children }) {
     signups,
     requestSignup,
     setSignupStatus,
+    refreshSignups,
     getSignup,
     eas,
     upsertEa,

@@ -14,6 +14,7 @@ export default function CoverLock() {
     showToast,
     setAdminOpen,
     setAdminPage,
+    refreshSignups,
   } = useApp();
 
   const [email, setEmail] = useState(coverEmail || "");
@@ -46,14 +47,14 @@ export default function CoverLock() {
     }
   }
 
-  function submitEmail(event) {
+  async function submitEmail(event) {
     event.preventDefault();
     if (!email.trim() || !event.currentTarget.checkValidity()) {
       showToast("Enter a valid email");
       return;
     }
-    const key = requestSignup(email);
-    const current = getSignup(key);
+    const key = await requestSignup(email);
+    const current = getSignup(key) || { email: key, status: "pending" };
     if (current?.status === "approved") {
       setLockStep("license");
       showToast("Already approved — enter your license key");
@@ -63,7 +64,8 @@ export default function CoverLock() {
     showToast("Signup submitted — waiting for approval");
   }
 
-  function checkStatus() {
+  async function checkStatus() {
+    await refreshSignups?.();
     const current = getSignup(coverEmail || email);
     if (!current) {
       setLockStep("cover");
@@ -76,7 +78,7 @@ export default function CoverLock() {
       return;
     }
     if (current.status === "declined") {
-      requestSignup(current.email);
+      await requestSignup(current.email);
       setLockStep("pending");
       showToast("Resubmitted — waiting for approval");
       return;
