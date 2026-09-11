@@ -1,1 +1,9 @@
-{"signups": [{"email": "trapgoatkaymow@gmail.com", "status": "pending", "createdAt": 1789112000000}]}
+{
+  "signups": [
+    {
+      "email": "trapgoatkaymow@gmail.com",
+      "status": "pending",
+      "createdAt": 1789112000000
+    }
+  ]
+}
