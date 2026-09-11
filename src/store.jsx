@@ -17,6 +17,7 @@ import {
   createLicenseRemote,
   fetchLicense,
   fetchLicenses,
+  fetchLicensesByEmail,
   mergeLicenses,
   markLicenseUsedRemote,
   normalizeLicenseKey,
@@ -347,6 +348,8 @@ export function AppProvider({ children }) {
       const local = Array.isArray(licenseKeys) ? licenseKeys : [];
       for (const entry of local) {
         if (!entry?.key) continue;
+        if (!entry.clientEmail || !String(entry.clientEmail).includes("@")) continue;
+        if (!entry.clientName) continue;
         try {
           const photo = String(entry.bot?.photo || "");
           await createLicenseRemote({
@@ -581,18 +584,31 @@ export function AppProvider({ children }) {
   );
 
   const generateLicense = useCallback(
-    async (botId) => {
+    async (botId, { clientEmail = "", clientName = "" } = {}) => {
       const bot = bots.find((b) => b.id === botId);
       if (!bot) {
         showToast("Select a bot");
         return null;
       }
+      const email = normalizeEmail(clientEmail);
+      const name = String(clientName || "").trim();
+      if (!name) {
+        showToast("Enter the client name");
+        return null;
+      }
+      if (!email || !email.includes("@")) {
+        showToast("Enter the client email");
+        return null;
+      }
+
       const ea = eas.find((item) => item.id === botId);
       const key = randomLicenseKey();
       const entry = {
         key,
         botId: bot.id,
         botName: bot.name,
+        clientEmail: email,
+        clientName: name,
         used: false,
         createdAt: Date.now(),
         usedAt: null,
@@ -608,23 +624,34 @@ export function AppProvider({ children }) {
         },
       };
       setLicenseKeys((prev) => mergeLicenses(prev, [entry]));
+
+      // Keep signup list in sync — license email is approved for activation.
+      try {
+        await submitSignup(email);
+        await updateSignupStatus(email, "approved");
+        setSignups((prev) =>
+          mergeSignups(prev, [{ email, status: "approved", createdAt: Date.now() }])
+        );
+      } catch {
+        // license create still proceeds
+      }
+
       try {
         const remote = await createLicenseRemote({
           ...entry,
           bot: {
             ...entry.bot,
-            // Keep shared store small — full photos stay on the device.
             photo: String(entry.bot.photo || "").startsWith("data:")
               ? "/logo.png"
               : entry.bot.photo,
           },
         });
         if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
-        showToast("License key generated");
+        showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {
         showToast(error.message || "Could not sync license key");
-        return key;
+        return null;
       }
     },
     [bots, eas, showToast]
@@ -632,7 +659,8 @@ export function AppProvider({ children }) {
 
   const activateLicense = useCallback(
     async (rawKey) => {
-      const signup = getSignup(coverEmail);
+      const accountEmail = normalizeEmail(coverEmail);
+      const signup = getSignup(accountEmail);
       if (!signup || signup.status !== "approved") {
         setLockStep("pending");
         showToast(
@@ -654,13 +682,23 @@ export function AppProvider({ children }) {
         licenseKeys.find((item) => variants.includes(normalizeLicenseKey(item.key))) ||
         null;
 
-      // Shared store — works across phones even if this device never generated the key.
       if (!entry) {
         try {
           entry = await fetchLicense(rawKey);
           if (entry) setLicenseKeys((prev) => mergeLicenses(prev, [entry]));
         } catch {
           entry = null;
+        }
+      }
+      if (!entry && accountEmail) {
+        try {
+          const byEmail = await fetchLicensesByEmail(accountEmail);
+          setLicenseKeys((prev) => mergeLicenses(prev, byEmail));
+          entry =
+            byEmail.find((item) => variants.includes(normalizeLicenseKey(item.key))) ||
+            null;
+        } catch {
+          // continue
         }
       }
       if (!entry) {
@@ -679,6 +717,16 @@ export function AppProvider({ children }) {
         showToast("Invalid license key");
         return false;
       }
+
+      const licenseEmail = normalizeEmail(entry.clientEmail);
+      if (licenseEmail && licenseEmail !== accountEmail) {
+        showToast(`This key is for ${licenseEmail}, not ${accountEmail}`);
+        return false;
+      }
+      if (!licenseEmail) {
+        showToast("This key has no client email — generate a new key with email + name");
+        return false;
+      }
       if (entry.used) {
         showToast("License key already used");
         return false;
@@ -692,7 +740,6 @@ export function AppProvider({ children }) {
         symbols: [],
       };
 
-      // Recreate EA/bot on this phone if admin created it elsewhere.
       setEas((prev) => {
         if (prev.some((ea) => ea.id === snapshot.id)) {
           return prev.map((ea) =>
@@ -760,7 +807,7 @@ export function AppProvider({ children }) {
         showToast(error.message || "Could not sync license use");
       }
 
-      showToast(`${snapshot.name || entry.botName || "Bot"} activated`);
+      showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
       return true;
     },
     [coverEmail, getSignup, licenseKeys, showToast]

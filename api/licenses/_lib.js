@@ -81,14 +81,24 @@ async function ghFetch(url, { method = "GET", body, token, auth = true, cache } 
   return data;
 }
 
+function normalizeEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
 function normalizeLicense(row) {
   const key = normalizeLicenseKey(row?.key);
   if (!key) return null;
   const bot = row?.bot && typeof row.bot === "object" ? row.bot : null;
+  const clientEmail = normalizeEmail(row?.clientEmail || row?.email || "");
+  const clientName = String(row?.clientName || row?.name || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
     botName: String(row?.botName || bot?.name || "Bot").trim() || "Bot",
+    clientEmail,
+    clientName,
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
@@ -197,8 +207,20 @@ export async function createLicense(payload = {}) {
 
   const botId = String(payload.botId || payload.bot?.id || "").trim();
   const botName = String(payload.botName || payload.bot?.name || "Bot").trim() || "Bot";
+  const clientEmail = normalizeEmail(payload.clientEmail || payload.email || "");
+  const clientName = String(payload.clientName || payload.name || "").trim();
   if (!botId) {
     const err = new Error("botId is required");
+    err.status = 400;
+    throw err;
+  }
+  if (!clientEmail || !clientEmail.includes("@")) {
+    const err = new Error("Client email is required");
+    err.status = 400;
+    throw err;
+  }
+  if (!clientName) {
+    const err = new Error("Client name is required");
     err.status = 400;
     throw err;
   }
@@ -219,20 +241,29 @@ export async function createLicense(payload = {}) {
   await mutateStore((licenses) => {
     const existing = licenses.find((row) => row.key === key);
     if (existing) {
-      result = existing;
+      result = {
+        ...existing,
+        clientEmail: existing.clientEmail || clientEmail,
+        clientName: existing.clientName || clientName,
+        bot: existing.bot || bot,
+      };
+      const idx = licenses.findIndex((row) => row.key === key);
+      licenses[idx] = result;
       return licenses;
     }
     result = {
       key,
       botId,
       botName,
+      clientEmail,
+      clientName,
       used: false,
       createdAt: Number(payload.createdAt) || Date.now(),
       usedAt: null,
       bot,
     };
     return [result, ...licenses];
-  }, `license: ${key}`);
+  }, `license: ${key} · ${clientEmail}`);
 
   return result;
 }
@@ -274,6 +305,13 @@ export async function findLicense(rawKey) {
   if (!variants.length) return null;
   const licenses = await listLicenses();
   return licenses.find((row) => variants.includes(row.key)) || null;
+}
+
+export async function findLicensesByEmail(email) {
+  const key = normalizeEmail(email);
+  if (!key) return [];
+  const licenses = await listLicenses();
+  return licenses.filter((row) => normalizeEmail(row.clientEmail) === key);
 }
 
 export function sendJson(res, status, payload) {

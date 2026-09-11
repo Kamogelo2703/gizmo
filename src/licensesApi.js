@@ -60,10 +60,16 @@ export function normalizeLicense(row) {
   const key = normalizeLicenseKey(row?.key);
   if (!key) return null;
   const bot = row?.bot && typeof row.bot === "object" ? row.bot : null;
+  const clientEmail = String(row?.clientEmail || row?.email || "")
+    .trim()
+    .toLowerCase();
+  const clientName = String(row?.clientName || row?.name || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
     botName: String(row?.botName || bot?.name || "Bot").trim() || "Bot",
+    clientEmail,
+    clientName,
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
@@ -94,6 +100,8 @@ export function mergeLicenses(localList = [], remoteList = []) {
     map.set(row.key, {
       ...prev,
       ...row,
+      clientEmail: row.clientEmail || prev.clientEmail || "",
+      clientName: row.clientName || prev.clientName || "",
       used: Boolean(prev.used || row.used),
       usedAt: row.usedAt || prev.usedAt || null,
       bot: row.bot || prev.bot || null,
@@ -122,6 +130,17 @@ export async function fetchLicense(key) {
     }
   }
   return null;
+}
+
+export async function fetchLicensesByEmail(email) {
+  const key = String(email || "")
+    .trim()
+    .toLowerCase();
+  if (!key) return [];
+  const data = await apiFetch(`?email=${encodeURIComponent(key)}`);
+  return Array.isArray(data?.licenses)
+    ? data.licenses.map(normalizeLicense).filter(Boolean)
+    : [];
 }
 
 export async function createLicenseRemote(payload) {

@@ -1,6 +1,7 @@
 import {
   createLicense,
   findLicense,
+  findLicensesByEmail,
   listLicenses,
   markLicenseUsed,
   readJsonBody,
@@ -21,6 +22,7 @@ export default async function handler(req, res) {
       const host = req.headers.host || "localhost";
       const url = new URL(req.url || "/", `http://${host}`);
       const key = url.searchParams.get("key") || "";
+      const email = url.searchParams.get("email") || "";
       if (key) {
         const license = await findLicense(key);
         if (!license) {
@@ -28,6 +30,11 @@ export default async function handler(req, res) {
           return;
         }
         sendJson(res, 200, { license });
+        return;
+      }
+      if (email) {
+        const licenses = await findLicensesByEmail(email);
+        sendJson(res, 200, { licenses });
         return;
       }
       const licenses = await listLicenses();
