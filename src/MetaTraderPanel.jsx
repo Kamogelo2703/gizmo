@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  connectByHost,
-  connectByServer,
-  parseAccessPoint,
-  searchBrokers,
-} from "./mt5Api.js";
+import { connectAccount, disconnectAccount, searchBrokers } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 
 const emptyLogin = { login: "", password: "", server: "" };
@@ -53,7 +48,6 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       return undefined;
     }
 
-    // API is MT5 broker directory; keep MT4 UI but still search same catalog.
     const requestId = ++searchRef.current;
     const controller = new AbortController();
     setSearching(true);
@@ -61,7 +55,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
     const timer = setTimeout(async () => {
       try {
-        const brokers = await searchBrokers(q, { signal: controller.signal });
+        const brokers = await searchBrokers(q, platform, { signal: controller.signal });
         if (requestId !== searchRef.current) return;
         setResults(brokers);
         if (!brokers.length) setSearchError("No brokers match that search.");
@@ -79,7 +73,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, platform]);
 
   const customBroker = useMemo(() => {
     if (!hasQuery) return null;
@@ -119,7 +113,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     setCreds((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function connectAccount(event) {
+  async function onConnect(event) {
     event.preventDefault();
     const login = creds.login.trim();
     const password = creds.password;
@@ -132,32 +126,33 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
     setConnecting(true);
     try {
-      let token;
-      // Prefer server-name connect; fall back to first access host:port if needed.
-      try {
-        token = await connectByServer({ login, password, server });
-      } catch (serverError) {
-        const point = parseAccessPoint(selectedBroker?.access?.[0]);
-        if (!point) throw serverError;
-        token = await connectByHost({
-          login,
-          password,
-          host: point.host,
-          port: point.port,
-        });
-      }
+      const connected = await connectAccount({
+        login,
+        password,
+        server,
+        platform,
+        company: selectedBroker?.company || "",
+      });
 
       const nextSession = {
-        token,
-        login,
-        server,
-        company: selectedBroker?.company || server,
-        platform,
+        accountId: connected.accountId,
+        login: connected.login,
+        server: connected.server,
+        company: connected.company || selectedBroker?.company || server,
+        platform: connected.platform || platform,
+        connectionStatus: connected.connectionStatus,
+        subscribed: connected.subscribed,
+        strategyId: connected.strategyId,
+        subscriptionError: connected.subscriptionError,
         connectedAt: Date.now(),
       };
       setSession(nextSession);
       saveSession(nextSession);
-      showToast(`Connected ${selectedBroker?.company || server}`);
+      showToast(
+        connected.subscribed
+          ? `Connected ${nextSession.company} · copy trading on`
+          : `Connected ${nextSession.company}`
+      );
       setStep("browse");
       setQuery("");
       setResults([]);
@@ -169,9 +164,17 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     }
   }
 
-  function clearSession() {
+  async function clearSession() {
+    const accountId = session?.accountId;
     setSession(null);
     saveSession(null);
+    if (accountId) {
+      try {
+        await disconnectAccount(accountId);
+      } catch {
+        // local disconnect still ok
+      }
+    }
     showToast("Disconnected MetaTrader session");
   }
 
@@ -193,7 +196,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
           </p>
         </header>
 
-        <form className="mt-login-form" onSubmit={connectAccount}>
+        <form className="mt-login-form" onSubmit={onConnect}>
           <label className="mt-field">
             <span>Login</span>
             <input
@@ -235,8 +238,11 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
           </label>
 
           <button className="mt-connect-btn" type="submit" disabled={connecting}>
-            {connecting ? "Connecting…" : "Connect"}
+            {connecting ? "Connecting to MetaAPI…" : "Connect"}
           </button>
+          {connecting ? (
+            <p className="mt-panel-sub">Broker auth can take up to a few minutes. Keep this screen open.</p>
+          ) : null}
         </form>
       </div>
     );
@@ -247,15 +253,16 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       <header className="mt-panel-head">
         <p className="mt-panel-kicker">MetaTrader</p>
         <h2 className="mt-panel-title">Brokers</h2>
-        <p className="mt-panel-sub">Search live brokers, then connect with login details.</p>
+        <p className="mt-panel-sub">Search brokers, then connect your MT account via MetaAPI.</p>
       </header>
 
-      {session?.token ? (
+      {session?.accountId ? (
         <div className="mt-session">
           <div>
             <strong>{session.company || session.server}</strong>
             <span>
               {session.server} · login {session.login}
+              {session.subscribed ? " · copying" : ""}
             </span>
           </div>
           <button type="button" className="mt-session-btn" onClick={clearSession}>
@@ -311,15 +318,6 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
                     onClick={() => pickBroker(broker)}
                   >
                     <span className="mt-broker-main">
-                      {broker.logoUrl ? (
-                        <img
-                          className="mt-broker-logo"
-                          src={broker.logoUrl}
-                          alt=""
-                          width="28"
-                          height="28"
-                        />
-                      ) : null}
                       <span className="mt-broker-text">
                         <span className="mt-broker-name">{broker.company}</span>
                         <span className="mt-broker-server">{broker.name}</span>

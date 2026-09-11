@@ -1,12 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/mt5-api/:path*",
-      "destination": "http://66.23.225.158/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

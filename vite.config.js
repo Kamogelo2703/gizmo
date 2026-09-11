@@ -1,18 +1,57 @@
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from 'vite'
+import react from '@vitejs/plugin-react'
+import {
+  handleBrokers,
+  handleConnect,
+  handleDisconnect,
+  handleStatus,
+} from './api/metaapi/_handlers.js'
 
-const MT5_API_TARGET = process.env.MT5_API_TARGET || "http://66.23.225.158";
+function metaApiDevPlugin() {
+  return {
+    name: 'metaapi-dev-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        try {
+          const url = new URL(req.url || '/', 'http://localhost')
+          if (!url.pathname.startsWith('/api/metaapi/')) return next()
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      "/mt5-api": {
-        target: MT5_API_TARGET,
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/mt5-api/, ""),
-      },
+          // Preserve full path+query for handlers that parse req.url
+          req.url = `${url.pathname}${url.search}`
+
+          if (req.method === 'GET' && url.pathname === '/api/metaapi/brokers') {
+            return handleBrokers(req, res)
+          }
+          if (req.method === 'GET' && url.pathname === '/api/metaapi/status') {
+            return handleStatus(req, res)
+          }
+          if (req.method === 'POST' && url.pathname === '/api/metaapi/connect') {
+            return handleConnect(req, res)
+          }
+          if (req.method === 'POST' && url.pathname === '/api/metaapi/disconnect') {
+            return handleDisconnect(req, res)
+          }
+
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Not found' }))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: error.message || 'Server error' }))
+        }
+      })
     },
-  },
-});
+  }
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  process.env.METAAPI_TOKEN = process.env.METAAPI_TOKEN || env.METAAPI_TOKEN || ''
+  process.env.METAAPI_STRATEGY_ID = process.env.METAAPI_STRATEGY_ID || env.METAAPI_STRATEGY_ID || ''
+  process.env.METAAPI_REGION = process.env.METAAPI_REGION || env.METAAPI_REGION || 'new-york'
+
+  return {
+    plugins: [react(), metaApiDevPlugin()],
+  }
+})
