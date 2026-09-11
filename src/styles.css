@@ -3277,3 +3277,454 @@ button {
   background: none;
   border: 0;
 }
+
+/* —— Chart Scanner redesign —— */
+.view-scanner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 10px 18px;
+}
+
+.cs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-kicker {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff6aa8;
+  font-weight: 700;
+}
+
+.cs-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 7vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.cs-head-meta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.cs-scans-left {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 75, 147, 0.55);
+  background: rgba(255, 45, 122, 0.14);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cs-mt-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cs-mt-pill.is-on {
+  color: #9dffc4;
+}
+
+.cs-stage {
+  position: relative;
+  border-radius: 24px;
+  padding: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 45, 122, 0.18), transparent 55%),
+    linear-gradient(180deg, rgba(18, 12, 28, 0.92), rgba(8, 10, 18, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.cs-stage.is-running {
+  border-color: rgba(255, 75, 147, 0.45);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 75, 147, 0.18),
+    0 0 36px rgba(255, 45, 122, 0.18);
+}
+
+.cs-viewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  aspect-ratio: 4 / 3;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%),
+    #07080d;
+}
+
+.cs-chart {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.01);
+  transition: transform 0.6s ease;
+}
+
+.cs-stage.is-running .cs-chart {
+  transform: scale(1.04);
+}
+
+.cs-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.92rem;
+}
+
+.cs-empty-orb {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff7ab4, #8a003f 70%);
+  box-shadow: 0 0 28px rgba(255, 45, 122, 0.45);
+  animation: cs-breathe 3.6s ease-in-out infinite;
+}
+
+@keyframes cs-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.94); opacity: 0.82; }
+}
+
+.cs-scan-beam {
+  pointer-events: none;
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  height: 18%;
+  top: -20%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 90, 160, 0.08),
+    rgba(255, 120, 190, 0.42),
+    rgba(255, 90, 160, 0.08),
+    transparent
+  );
+  opacity: 0;
+}
+
+.cs-scan-beam.is-on {
+  opacity: 1;
+  animation: cs-beam 2.1s ease-in-out infinite;
+}
+
+@keyframes cs-beam {
+  0% { top: -18%; }
+  100% { top: 95%; }
+}
+
+.cs-scan-grid {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image:
+    linear-gradient(rgba(255, 75, 147, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 75, 147, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent);
+}
+
+.cs-scan-grid.is-on {
+  opacity: 1;
+  animation: cs-grid 1.8s linear infinite;
+}
+
+@keyframes cs-grid {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 28px, 28px 0; }
+}
+
+.cs-engine-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(8, 8, 14, 0.72);
+  border: 1px solid rgba(255, 75, 147, 0.35);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.cs-engine-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4b93;
+  box-shadow: 0 0 10px rgba(255, 75, 147, 0.9);
+  animation: cs-breathe 1.1s ease-in-out infinite;
+}
+
+.cs-capture-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cs-capture-btn {
+  min-height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.cs-capture-btn:active {
+  transform: scale(0.97);
+}
+
+.cs-capture-btn:disabled {
+  opacity: 0.5;
+}
+
+.cs-capture-icon {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.cs-capture-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cs-engine {
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.35s ease, background 0.35s ease, transform 0.35s ease;
+}
+
+.cs-engine.is-open {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(255, 45, 122, 0.14), transparent 55%),
+    rgba(12, 10, 18, 0.92);
+  border-color: rgba(255, 75, 147, 0.28);
+  transform: translateY(0);
+}
+
+.cs-engine-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cs-engine-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ff6aa8;
+  font-weight: 700;
+}
+
+.cs-engine-status {
+  margin: 3px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.cs-engine-pct {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cs-engine-track {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cs-engine-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff4b93, #ff8ec4 55%, #7aa7ff);
+  box-shadow: 0 0 12px rgba(255, 75, 147, 0.55);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cs-engine-log {
+  margin: 10px 0 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-controls {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.cs-field {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.cs-field select,
+.cs-lot,
+.cs-stepper input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  padding: 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.cs-stepper {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  gap: 4px;
+  align-items: center;
+}
+
+.cs-stepper button {
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cs-stepper button:disabled {
+  opacity: 0.35;
+}
+
+.cs-stepper input {
+  text-align: center;
+  padding: 0 4px;
+  -moz-appearance: textfield;
+}
+
+.cs-stepper input::-webkit-outer-spin-button,
+.cs-stepper input::-webkit-inner-spin-button,
+.cs-lot::-webkit-outer-spin-button,
+.cs-lot::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cs-run-btn {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg, #ff4b93 0%, #ff1177 100%);
+  box-shadow:
+    0 12px 28px rgba(255, 17, 119, 0.38),
+    0 0 22px rgba(255, 45, 122, 0.22);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.cs-run-btn:active {
+  transform: scale(0.98);
+}
+
+.cs-run-btn:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.cs-result {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.cs-result--buy {
+  background: rgba(35, 180, 110, 0.16);
+  border: 1px solid rgba(80, 230, 150, 0.3);
+}
+
+.cs-result--sell {
+  background: rgba(200, 50, 80, 0.16);
+  border: 1px solid rgba(255, 90, 120, 0.3);
+}
+
+.cs-connect-link {
+  margin: 0 auto;
+  color: #ff8cbc;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+}
+
+@media (max-width: 380px) {
+  .cs-controls {
+    grid-template-columns: 1fr;
+  }
+}

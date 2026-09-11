@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import EnginePanel from "./EnginePanel.jsx";
 import {
   TRADE_ENGINE_STEPS,
   analyzeChartImage,
@@ -8,12 +7,46 @@ import {
 import { placeTrade } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 
+const SCANS_KEY = "apexea-scans-left";
+const DEFAULT_SCANS = 25;
+
+function loadScansLeft() {
+  try {
+    const raw = localStorage.getItem(SCANS_KEY);
+    if (raw == null) return DEFAULT_SCANS;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : DEFAULT_SCANS;
+  } catch {
+    return DEFAULT_SCANS;
+  }
+}
+
+function saveScansLeft(value) {
+  try {
+    localStorage.setItem(SCANS_KEY, String(value));
+  } catch {
+    // ignore
+  }
+}
+
+function clampTrades(value) {
+  const n = Math.floor(Number(value) || 1);
+  return Math.min(20, Math.max(1, n));
+}
+
+function clampLot(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0.01;
+  return Math.min(100, Math.max(0.01, Number(n.toFixed(2))));
+}
+
 export default function ChartScanner() {
   const {
     activeBot,
     eas,
     catalog,
     getSymbolMeta,
+    saveSymbolMeta,
     mt5Session,
     setZetaView,
     showToast,
@@ -26,7 +59,8 @@ export default function ChartScanner() {
     engineLogs,
   } = useApp();
 
-  const fileRef = useRef(null);
+  const uploadRef = useRef(null);
+  const cameraRef = useRef(null);
   const symbols = useMemo(() => {
     const ea = eas.find((item) => item.id === activeBot?.id);
     const fromEa = Array.isArray(ea?.symbols) ? ea.symbols : [];
@@ -37,19 +71,47 @@ export default function ChartScanner() {
 
   const [preview, setPreview] = useState("");
   const [symbol, setSymbol] = useState("EURUSD");
-  const [autoExecute, setAutoExecute] = useState(true);
+  const [trades, setTrades] = useState(1);
+  const [lotSize, setLotSize] = useState(0.01);
+  const [scansLeft, setScansLeft] = useState(() => loadScansLeft());
   const [signal, setSignal] = useState(null);
   const [fills, setFills] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [engineProgress, setEngineProgress] = useState(0);
 
   useEffect(() => {
     if (symbols.length && !symbols.includes(symbol)) setSymbol(symbols[0]);
   }, [symbols, symbol]);
 
-  const connected = Boolean(mt5Session?.accountId);
+  useEffect(() => {
+    const meta = getSymbolMeta(symbol);
+    setTrades(clampTrades(meta.trades));
+    setLotSize(clampLot(meta.lotSize));
+  }, [symbol, getSymbolMeta]);
 
-  function openPicker() {
-    fileRef.current?.click();
+  const connected = Boolean(mt5Session?.accountId);
+  const engineActive = engineMode === "scanning" || engineMode === "trading";
+  const activeStepLabel =
+    TRADE_ENGINE_STEPS[Math.min(engineStep, TRADE_ENGINE_STEPS.length - 1)]?.label ||
+    "Trading engine ready";
+
+  function persistTradeSettings(nextTrades = trades, nextLot = lotSize) {
+    const meta = getSymbolMeta(symbol);
+    saveSymbolMeta(symbol, {
+      ...meta,
+      trades: clampTrades(nextTrades),
+      lotSize: clampLot(nextLot),
+      platform: meta.platform || "MT5",
+      action: meta.action || "BOTH",
+    });
+  }
+
+  function openUpload() {
+    uploadRef.current?.click();
+  }
+
+  function openCamera() {
+    cameraRef.current?.click();
   }
 
   function onFile(event) {
@@ -64,7 +126,8 @@ export default function ChartScanner() {
       setPreview(String(reader.result || ""));
       setSignal(null);
       setFills([]);
-      showToast("Chart loaded — start scan");
+      setEngineProgress(0);
+      showToast("Chart ready to scan");
     };
     reader.readAsDataURL(file);
     event.target.value = "";
@@ -72,13 +135,26 @@ export default function ChartScanner() {
 
   async function runScanAndTrade() {
     if (!preview) {
-      showToast("Upload a chart first");
+      showToast("Capture or upload a chart first");
       return;
     }
     if (!symbol) {
       showToast("Pick a symbol");
       return;
     }
+    if (scansLeft <= 0) {
+      showToast("No scans left");
+      return;
+    }
+    if (!connected) {
+      showToast("Connect MT5 first to execute trades");
+      setZetaView("metatrader");
+      return;
+    }
+
+    const tradeCount = clampTrades(trades);
+    const lot = clampLot(lotSize);
+    persistTradeSettings(tradeCount, lot);
 
     setBusy(true);
     setSignal(null);
@@ -86,46 +162,40 @@ export default function ChartScanner() {
     setEngineLogs([]);
     setEngineMode("scanning");
     setEngineStep(0);
+    setEngineProgress(8);
+
+    const nextScans = Math.max(0, scansLeft - 1);
+    setScansLeft(nextScans);
+    saveScansLeft(nextScans);
 
     try {
       for (let i = 0; i < 4; i += 1) {
         setEngineStep(i);
+        setEngineProgress(12 + i * 12);
         pushEngineLog(TRADE_ENGINE_STEPS[i].label);
-        await sleep(450 + i * 120);
+        await sleep(520 + i * 90);
       }
 
       const result = await analyzeChartImage(preview, { symbol });
       setSignal(result);
       setEngineStep(3);
+      setEngineProgress(55);
       pushEngineLog(`Signal ${result.side} ${result.symbol} · ${result.confidence}%`);
+      await sleep(420);
 
       const meta = getSymbolMeta(symbol);
-      const lot = Number(meta.lotSize) > 0 ? Number(meta.lotSize) : 0.01;
-      const count = Math.max(1, Math.min(10, Math.floor(Number(meta.trades) || 1)));
       const action = String(meta.action || "BOTH").toUpperCase();
       let side = result.side;
       if (action === "BUY" || action === "SELL") side = action;
 
-      if (!autoExecute) {
-        setEngineMode("idle");
-        showToast(`Scan complete · ${side} ${symbol}`);
-        return;
-      }
-
-      if (!connected) {
-        setEngineMode("idle");
-        showToast("Connect MT5 first to execute trades");
-        setZetaView("metatrader");
-        return;
-      }
-
       setEngineMode("trading");
       setEngineStep(4);
-      pushEngineLog(`Routing ${count}× ${side} ${symbol} @ ${lot}+ lots (broker min applied)`);
+      setEngineProgress(68);
+      pushEngineLog(`Opening ${tradeCount}× ${side} @ ${lot} lots`);
 
       const nextFills = [];
       let lastError = "";
-      for (let i = 0; i < count; i += 1) {
+      for (let i = 0; i < tradeCount; i += 1) {
         try {
           const fill = await placeTrade({
             accountId: mt5Session.accountId,
@@ -137,7 +207,7 @@ export default function ChartScanner() {
           });
           nextFills.push(fill);
           pushEngineLog(
-            `Fill ${i + 1}/${count} · ${fill.side} ${fill.symbol} ${fill.volume}`
+            `Fill ${i + 1}/${tradeCount} · ${fill.side} ${fill.symbol} ${fill.volume}`
           );
         } catch (error) {
           lastError = error.message || "Trade failed";
@@ -150,24 +220,27 @@ export default function ChartScanner() {
           });
           pushEngineLog(`Order ${i + 1} failed · ${lastError}`);
         }
-        await sleep(350);
+        setEngineProgress(68 + Math.round(((i + 1) / tradeCount) * 24));
+        await sleep(280);
       }
 
       setFills(nextFills);
       setEngineStep(5);
+      setEngineProgress(100);
       const okCount = nextFills.filter((f) => f.ok !== false).length;
       if (okCount) {
         const filled = nextFills.find((f) => f.ok !== false);
         showToast(
-          `Executed ${okCount}/${count} ${filled.side} ${filled.symbol} @ ${filled.volume}`
+          `Executed ${okCount}/${tradeCount} ${filled.side} ${filled.symbol} @ ${filled.volume}`
         );
       } else {
         showToast(lastError || nextFills[0]?.error || "No trades filled");
       }
-      await sleep(1200);
+      await sleep(900);
       setEngineMode("idle");
     } catch (error) {
       setEngineMode("idle");
+      setEngineProgress(0);
       showToast(error.message || "Scan failed");
     } finally {
       setBusy(false);
@@ -176,50 +249,110 @@ export default function ChartScanner() {
 
   return (
     <section className="view is-active view-scanner">
-      <header className="scanner-top">
-        <div className="scanner-title-wrap">
-          <span className="scanner-dot" />
-          <h2 className="scanner-title">Scanner</h2>
+      <header className="cs-head">
+        <div className="cs-head-main">
+          <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
+          <h2 className="cs-title">Chart Scanner</h2>
         </div>
-        <p className={`scanner-mt-pill${connected ? " is-on" : ""}`}>
-          {connected
-            ? `MT5 · ${mt5Session.login || mt5Session.server}`
-            : "MT5 offline"}
-        </p>
+        <div className="cs-head-meta">
+          <span className="cs-scans-left">{scansLeft} scans left</span>
+          <span className={`cs-mt-pill${connected ? " is-on" : ""}`}>
+            {connected ? `MT5 · ${mt5Session.login}` : "MT5 offline"}
+          </span>
+        </div>
       </header>
 
-      {(engineMode === "scanning" || engineMode === "trading") && (
-        <EnginePanel
-          mode={engineMode}
-          stepIndex={engineStep}
-          logs={engineLogs}
-          signal={signal}
-          fills={fills}
-          subtitle={
-            connected
-              ? `Live account ${mt5Session.company || mt5Session.server}`
-              : "Scan only — connect MetaTrader to execute"
-          }
-        />
-      )}
-
-      <div className="scanner-hero">
-        <div className="scanner-orb">
+      <div className={`cs-stage${engineActive ? " is-running" : ""}${preview ? " has-chart" : ""}`}>
+        <div className="cs-viewport" aria-label="Chart preview">
           {preview ? (
-            <img src={preview} alt="Uploaded chart" width="120" height="120" />
+            <img className="cs-chart" src={preview} alt="Chart to scan" />
           ) : (
-            <img src="/logo.png" alt="" width="120" height="120" />
+            <div className="cs-empty">
+              <span className="cs-empty-orb" />
+              <p>Point the camera at a chart or upload a screenshot</p>
+            </div>
           )}
+          <div className={`cs-scan-beam${engineActive ? " is-on" : ""}`} aria-hidden="true" />
+          <div className={`cs-scan-grid${engineActive ? " is-on" : ""}`} aria-hidden="true" />
+          {engineActive ? (
+            <div className="cs-engine-chip">
+              <span className="cs-engine-pulse" />
+              <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
+            </div>
+          ) : null}
         </div>
-        <p className="scanner-brand">{activeBot?.name || "ApexEA"}</p>
-        <h3 className="scanner-heading">Chart Scanner</h3>
-        <p className="scanner-sub">
-          Upload a chart. Trading Engine scans it, then fires to your connected MT5.
-        </p>
 
-        <label className="scanner-symbol">
+        <div className="cs-capture-row">
+          <button className="cs-capture-btn" type="button" onClick={openCamera} disabled={busy}>
+            <span className="cs-capture-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.2-1.8A1.5 1.5 0 0 1 10.9 3.5h2.2a1.5 1.5 0 0 1 1.2.7L15.5 6h2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+                <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+            </span>
+            Camera
+          </button>
+          <button className="cs-capture-btn" type="button" onClick={openUpload} disabled={busy}>
+            <span className="cs-capture-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            Upload
+          </button>
+        </div>
+
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={onFile}
+        />
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={onFile}
+        />
+      </div>
+
+      <div className={`cs-engine${engineActive ? " is-open" : ""}`} aria-live="polite">
+        <div className="cs-engine-top">
+          <div>
+            <p className="cs-engine-kicker">Trading Engine</p>
+            <p className="cs-engine-status">{engineActive ? activeStepLabel : "Armed and ready"}</p>
+          </div>
+          <span className="cs-engine-pct">{engineActive ? `${engineProgress}%` : "0%"}</span>
+        </div>
+        <div className="cs-engine-track">
+          <span className="cs-engine-fill" style={{ width: `${engineProgress}%` }} />
+        </div>
+        {engineActive && engineLogs.length ? (
+          <p className="cs-engine-log">{engineLogs[engineLogs.length - 1]}</p>
+        ) : null}
+      </div>
+
+      <div className="cs-controls">
+        <label className="cs-field">
           <span>Symbol</span>
-          <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+          <select
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
+            disabled={busy}
+          >
             {symbols.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -228,68 +361,100 @@ export default function ChartScanner() {
           </select>
         </label>
 
-        <label className="scanner-auto">
-          <input
-            type="checkbox"
-            checked={autoExecute}
-            onChange={(e) => setAutoExecute(e.target.checked)}
-          />
-          <span>Auto-execute on connected MT5</span>
+        <label className="cs-field">
+          <span>Trades</span>
+          <div className="cs-stepper">
+            <button
+              type="button"
+              aria-label="Fewer trades"
+              disabled={busy || trades <= 1}
+              onClick={() => {
+                const next = clampTrades(trades - 1);
+                setTrades(next);
+                persistTradeSettings(next, lotSize);
+              }}
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={trades}
+              disabled={busy}
+              onChange={(e) => setTrades(clampTrades(e.target.value))}
+              onBlur={() => persistTradeSettings(trades, lotSize)}
+            />
+            <button
+              type="button"
+              aria-label="More trades"
+              disabled={busy || trades >= 20}
+              onClick={() => {
+                const next = clampTrades(trades + 1);
+                setTrades(next);
+                persistTradeSettings(next, lotSize);
+              }}
+            >
+              +
+            </button>
+          </div>
         </label>
 
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={onFile}
-        />
-
-        <div className="scanner-actions">
-          <button className="upload-btn" type="button" onClick={openPicker} disabled={busy}>
-            {preview ? "Replace Chart" : "Upload Chart"}
-          </button>
-          <button
-            className="scan-exec-btn"
-            type="button"
-            onClick={runScanAndTrade}
-            disabled={busy || !preview}
-          >
-            {busy ? "Engine running…" : autoExecute ? "Scan & Trade" : "Scan Chart"}
-          </button>
-        </div>
-
-        {signal && engineMode === "idle" ? (
-          <div className={`scanner-result scanner-result--${signal.side.toLowerCase()}`}>
-            <strong>
-              {signal.side} {signal.symbol}
-            </strong>
-            <span>
-              {signal.confidence}% · {signal.reasons?.[0]}
-            </span>
-            {fills.length ? (
-              <span>
-                {fills.filter((f) => f.ok !== false).length}/{fills.length} orders sent
-                {fills.some((f) => f.ok === false)
-                  ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
-                  : fills[0]?.symbol
-                    ? ` · ${fills[0].symbol} ${fills[0].volume}`
-                    : ""}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        {!connected ? (
-          <button
-            className="scanner-connect-link"
-            type="button"
-            onClick={() => setZetaView("metatrader")}
-          >
-            Connect MetaTrader to enable live execution →
-          </button>
-        ) : null}
+        <label className="cs-field">
+          <span>Lot size</span>
+          <input
+            className="cs-lot"
+            type="number"
+            min="0.01"
+            max="100"
+            step="0.01"
+            value={lotSize}
+            disabled={busy}
+            onChange={(e) => setLotSize(clampLot(e.target.value))}
+            onBlur={() => persistTradeSettings(trades, lotSize)}
+          />
+        </label>
       </div>
+
+      <button
+        className="cs-run-btn"
+        type="button"
+        onClick={runScanAndTrade}
+        disabled={busy || !preview || scansLeft <= 0}
+      >
+        {busy ? "Trading engine running…" : "Scan & Open Trades"}
+      </button>
+
+      {signal && !engineActive ? (
+        <div className={`cs-result cs-result--${signal.side.toLowerCase()}`}>
+          <strong>
+            {signal.side} {fills[0]?.symbol || signal.symbol}
+          </strong>
+          <span>
+            {signal.confidence}% · {signal.reasons?.[0]}
+          </span>
+          {fills.length ? (
+            <span>
+              {fills.filter((f) => f.ok !== false).length}/{fills.length} filled
+              {fills.some((f) => f.ok === false)
+                ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
+                : fills[0]?.volume
+                  ? ` · lot ${fills[0].volume}`
+                  : ""}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!connected ? (
+        <button
+          className="cs-connect-link"
+          type="button"
+          onClick={() => setZetaView("metatrader")}
+        >
+          Connect MetaTrader before scanning →
+        </button>
+      ) : null}
     </section>
   );
 }
