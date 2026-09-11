@@ -71,12 +71,18 @@ export function deriveAppTheme(baseColor = DEFAULT_APP_COLOR) {
   return {
     pink,
     pinkHot: darken(pink, 0.08),
-    magenta: mix(pink, "#ff00aa", 0.25),
+    magenta: mix(pink, lighten(pink, 0.12), 0.45),
     pinkSoft: lighten(pink, 0.16),
     pinkDeep: darken(pink, 0.28),
     pinkDark: darken(pink, 0.55),
-    glow: mix(darken(pink, 0.72), "#12000a", 0.35),
+    // Keep ambient wash in the chosen hue (do not blend toward a pink-black).
+    glow: darken(pink, 0.78),
   };
+}
+
+function rgbChannels(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  return `${r}, ${g}, ${b}`;
 }
 
 export function applyAppTheme(baseColor = DEFAULT_APP_COLOR) {
@@ -90,6 +96,12 @@ export function applyAppTheme(baseColor = DEFAULT_APP_COLOR) {
   root.style.setProperty("--pink-deep", theme.pinkDeep);
   root.style.setProperty("--pink-dark", theme.pinkDark);
   root.style.setProperty("--accent-glow", theme.glow);
+  root.style.setProperty("--pink-rgb", rgbChannels(theme.pink));
+  root.style.setProperty("--pink-hot-rgb", rgbChannels(theme.pinkHot));
+  root.style.setProperty("--magenta-rgb", rgbChannels(theme.magenta));
+  root.style.setProperty("--pink-soft-rgb", rgbChannels(theme.pinkSoft));
+  root.style.setProperty("--pink-deep-rgb", rgbChannels(theme.pinkDeep));
+  root.style.setProperty("--pink-dark-rgb", rgbChannels(theme.pinkDark));
   root.dataset.appColor = theme.pink;
   return theme;
 }
