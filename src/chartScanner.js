@@ -33,11 +33,181 @@ function sampleBias(imageData) {
   return { bull, bear, bullRatio, structure };
 }
 
+const COMMON_SYMBOLS = [
+  "EURUSD",
+  "GBPUSD",
+  "USDJPY",
+  "USDCHF",
+  "AUDUSD",
+  "USDCAD",
+  "NZDUSD",
+  "EURJPY",
+  "GBPJPY",
+  "EURGBP",
+  "XAUUSD",
+  "XAGUSD",
+  "BTCUSD",
+  "ETHUSD",
+  "US30",
+  "US500",
+  "NAS100",
+  "GER40",
+  "UK100",
+];
+
+function normalizeDetectedSymbol(raw) {
+  return String(raw || "")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[\/_\-]/g, "")
+    .replace(/[^A-Z0-9.]/g, "");
+}
+
+function compactSymbol(raw) {
+  const full = normalizeDetectedSymbol(raw);
+  // Keep broker suffix if present (EURUSD.mic → base EURUSD for matching)
+  const base = full.split(".")[0];
+  return { full, base };
+}
+
+function scoreCandidate(candidate, catalog = []) {
+  const { full, base } = compactSymbol(candidate);
+  if (!base || base.length < 4) return null;
+  const catalogSet = new Set(
+    (catalog || []).map((s) => compactSymbol(s).base).filter(Boolean)
+  );
+  let score = 1;
+  if (COMMON_SYMBOLS.includes(base)) score += 3;
+  if (catalogSet.has(base)) score += 4;
+  if (/^[A-Z]{6}$/.test(base)) score += 2;
+  if (/^(XAU|XAG|BTC|ETH)/.test(base)) score += 2;
+  if (/^(US30|US500|NAS100|GER40|UK100)$/.test(base)) score += 2;
+  // Prefer returning a catalog/broker-friendly form when possible
+  const catalogHit = (catalog || []).find((s) => compactSymbol(s).base === base);
+  return {
+    symbol: catalogHit || full || base,
+    base,
+    score,
+  };
+}
+
+function extractSymbolCandidates(text) {
+  const upper = String(text || "").toUpperCase();
+  const hits = [];
+
+  // EUR/USD, EUR-USD, EUR USD, EURUSD, EURUSD.mic
+  const pairRe =
+    /\b([A-Z]{3})\s*[\/\-\s]?\s*([A-Z]{3})(?:\.[A-Z0-9]+)?\b/g;
+  let m;
+  while ((m = pairRe.exec(upper))) {
+    hits.push(`${m[1]}${m[2]}`);
+  }
+
+  // Metals / crypto / indices compact forms
+  const specialRe =
+    /\b((?:XAU|XAG|BTC|ETH)USD|US30|US500|NAS100|GER40|UK100)(?:\.[A-Z0-9]+)?\b/g;
+  while ((m = specialRe.exec(upper))) {
+    hits.push(m[1]);
+  }
+
+  // Fallback: glued 6-letter tokens that look like FX pairs
+  const gluedRe = /\b([A-Z]{6})(?:\.[A-Z0-9]+)?\b/g;
+  while ((m = gluedRe.exec(upper))) {
+    hits.push(m[1]);
+  }
+
+  return hits;
+}
+
+async function cropChartHeader(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const canvas = document.createElement("canvas");
+  const maxW = 900;
+  const scale = Math.min(1, maxW / Math.max(1, img.width));
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+  // Trading apps usually put the pair in the top banner / left header.
+  const bandH = Math.max(40, Math.round(height * 0.28));
+  canvas.width = width;
+  canvas.height = bandH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Chart crop unavailable");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, bandH);
+  ctx.drawImage(img, 0, 0, width, height, 0, 0, width, bandH);
+  // Boost contrast for OCR
+  const image = ctx.getImageData(0, 0, width, bandH);
+  const d = image.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    const v = lum > 140 ? 255 : lum < 90 ? 0 : lum;
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(image, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 /**
- * Local chart scan: samples candle colors from the screenshot to bias BUY/SELL.
- * Not a full vision model — pairs with Trading Engine UX and live MT5 execution.
+ * Read the symbol shown on a chart screenshot (OCR of the header band).
  */
-export async function analyzeChartImage(dataUrl, { symbol = "EURUSD" } = {}) {
+export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
+  if (!dataUrl) return null;
+  try {
+    const crop = await cropChartHeader(dataUrl);
+    const { createWorker } = await import("tesseract.js");
+    const worker = await createWorker("eng");
+    try {
+      await worker.setParameters({
+        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./- ",
+        preserve_interword_spaces: "1",
+      });
+      const {
+        data: { text },
+      } = await worker.recognize(crop);
+      const candidates = extractSymbolCandidates(text);
+      // Also try matching known symbols as substrings in OCR noise
+      const blob = String(text || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+      for (const known of [...COMMON_SYMBOLS, ...(catalog || [])]) {
+        const base = compactSymbol(known).base;
+        if (base && blob.includes(base)) candidates.push(base);
+      }
+
+      let best = null;
+      for (const candidate of candidates) {
+        const scored = scoreCandidate(candidate, catalog);
+        if (!scored) continue;
+        if (!best || scored.score > best.score) best = scored;
+      }
+      if (!best) return { symbol: null, rawText: text || "", confidence: 0 };
+      return {
+        symbol: best.symbol,
+        base: best.base,
+        rawText: text || "",
+        confidence: Math.min(95, 55 + best.score * 8),
+      };
+    } finally {
+      await worker.terminate();
+    }
+  } catch (error) {
+    return {
+      symbol: null,
+      rawText: "",
+      confidence: 0,
+      error: error.message || "Symbol detection failed",
+    };
+  }
+}
+
+/**
+ * Local chart scan: samples candle colors from the screenshot to bias BUY/SELL,
+ * and OCR-detects the symbol shown on the chart header.
+ */
+export async function analyzeChartImage(
+  dataUrl,
+  { symbol = "EURUSD", catalog = [], preferDetectedSymbol = true } = {}
+) {
   const img = await loadImage(dataUrl);
   const canvas = document.createElement("canvas");
   const maxW = 640;
@@ -70,6 +240,13 @@ export async function analyzeChartImage(dataUrl, { symbol = "EURUSD" } = {}) {
   }
   confidence = Math.min(92, Math.max(55, confidence));
 
+  const detection = await detectSymbolFromChart(dataUrl, { catalog });
+  const detected =
+    preferDetectedSymbol && detection?.symbol
+      ? String(detection.symbol).toUpperCase()
+      : null;
+  const resolvedSymbol = detected || String(symbol || "EURUSD").toUpperCase();
+
   const reasons = [
     recentBias.bullRatio >= 0.5
       ? "Recent candles skew bullish"
@@ -77,11 +254,15 @@ export async function analyzeChartImage(dataUrl, { symbol = "EURUSD" } = {}) {
     fullBias.structure === "dark-theme"
       ? "Dark chart theme detected"
       : "Light chart theme detected",
-    `Bias score ${(score * 100).toFixed(0)}% bullish mass`,
+    detected
+      ? `Symbol from chart: ${resolvedSymbol}`
+      : `Bias score ${(score * 100).toFixed(0)}% bullish mass`,
   ];
 
   return {
-    symbol: String(symbol || "EURUSD").toUpperCase(),
+    symbol: resolvedSymbol,
+    detectedSymbol: detected,
+    detectionConfidence: detection?.confidence || 0,
     side,
     confidence,
     score,
