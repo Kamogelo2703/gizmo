@@ -14,8 +14,7 @@ export default function ZetaInterface() {
     v2Running,
     setV2Running,
     showToast,
-    setAdminOpen,
-    setAdminPage,
+    openAdmin,
     setLockStep,
     getSignup,
     coverEmail,
@@ -101,8 +100,7 @@ export default function ZetaInterface() {
                 className="robot-row robot-add"
                 type="button"
                 onClick={() => {
-                  setAdminPage("manage-ea");
-                  setAdminOpen(true);
+                  openAdmin("manage-ea");
                 }}
               >
                 <span className="plus">+</span>

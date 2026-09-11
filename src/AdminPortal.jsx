@@ -48,7 +48,6 @@ function writeAdminSession(mentor) {
 export default function AdminPortal() {
   const {
     adminOpen,
-    setAdminOpen,
     adminPage,
     setAdminPage,
     signups,
@@ -182,16 +181,8 @@ export default function AdminPortal() {
   if (!adminSession) {
     return (
       <div className="admin-portal admin-portal-auth">
-        <header className="admin-topbar">
+        <header className="admin-topbar admin-topbar-auth">
           <span className="admin-topbar-title">Mentor Access</span>
-          <button
-            className="admin-icon-btn"
-            type="button"
-            aria-label="Close admin portal"
-            onClick={() => setAdminOpen(false)}
-          >
-            ✕
-          </button>
         </header>
         <AdminAuth onAuthenticated={onAuthenticated} showToast={showToast} />
       </div>
@@ -339,14 +330,7 @@ export default function AdminPortal() {
           ☰
         </button>
         <h1 className="admin-topbar-title">Admin Portal</h1>
-        <button
-          className="admin-icon-btn"
-          type="button"
-          aria-label="Close admin portal"
-          onClick={() => setAdminOpen(false)}
-        >
-          ✕
-        </button>
+        <span className="admin-topbar-spacer" aria-hidden="true" />
       </header>
 
       {!drawerOpen ? null : (

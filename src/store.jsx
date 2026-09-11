@@ -32,6 +32,14 @@ import {
 const STORAGE_KEY = "apexea-app-v1";
 const BACKUP_KEY = "apexea-app-v1-backup";
 const MT5_SESSION_KEY = "apexea-mt5-session";
+export const ADMIN_PATH = "/admin";
+
+export function isAdminPath(pathname = typeof window !== "undefined" ? window.location.pathname : "/") {
+  const path = String(pathname || "/")
+    .replace(/\/+$/, "")
+    .toLowerCase() || "/";
+  return path === ADMIN_PATH || path.endsWith(ADMIN_PATH);
+}
 
 function loadMt5Session() {
   try {
@@ -211,7 +219,9 @@ export function AppProvider({ children }) {
     normalizeHexColor(saved?.appColor || DEFAULT_APP_COLOR)
   );
   const [toast, setToast] = useState("");
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpenState] = useState(() =>
+    typeof window !== "undefined" ? isAdminPath() : false
+  );
   const [adminPage, setAdminPage] = useState("dashboard");
   const [lockStep, setLockStep] = useState("cover");
   const [pairsOpen, setPairsOpen] = useState(false);
@@ -226,6 +236,58 @@ export function AppProvider({ children }) {
   const [engineStep, setEngineStep] = useState(0);
   const [engineLogs, setEngineLogs] = useState([]);
   const persistReady = useRef(false);
+
+  const syncAdminPath = useCallback((open) => {
+    if (typeof window === "undefined") return;
+    const onAdmin = isAdminPath();
+    if (open && !onAdmin) {
+      window.history.pushState({ apexAdmin: true }, "", ADMIN_PATH);
+    } else if (!open && onAdmin) {
+      window.history.pushState({ apexAdmin: false }, "", "/");
+    }
+  }, []);
+
+  const openAdmin = useCallback(
+    (page = "dashboard") => {
+      if (page) setAdminPage(page);
+      setAdminOpenState(true);
+      syncAdminPath(true);
+    },
+    [syncAdminPath]
+  );
+
+  const setAdminOpen = useCallback(
+    (open) => {
+      if (open) {
+        openAdmin("dashboard");
+        return;
+      }
+      setAdminOpenState(false);
+      syncAdminPath(false);
+    },
+    [openAdmin, syncAdminPath]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    function onPopState() {
+      setAdminOpenState(isAdminPath());
+    }
+    window.addEventListener("popstate", onPopState);
+    // Deep-link /admin on first load.
+    if (isAdminPath()) setAdminOpenState(true);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const previous = document.title;
+    if (adminOpen) document.title = "Admin — APEX EA";
+    else document.title = previous.includes("Admin") ? "ZETA SCALPER AI — ApexEA" : previous;
+    return () => {
+      document.title = previous;
+    };
+  }, [adminOpen]);
 
   const setMt5Session = useCallback((session) => {
     setMt5SessionState(session);
@@ -911,6 +973,7 @@ export function AppProvider({ children }) {
     showToast,
     adminOpen,
     setAdminOpen,
+    openAdmin,
     adminPage,
     setAdminPage,
     lockStep,
