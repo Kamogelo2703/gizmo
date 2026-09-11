@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { FALLBACK_METAAPI_TOKEN } from "./_fallbackToken.js";
 
 const PROVISIONING_BASE =
   process.env.METAAPI_PROVISIONING_URL ||
@@ -8,8 +9,13 @@ const COPYFACTORY_URL_TEMPLATE =
   process.env.METAAPI_COPYFACTORY_URL_TEMPLATE ||
   "https://copyfactory-api-v1.{region}.agiliumtrade.agiliumtrade.ai";
 
-function requireToken() {
-  const token = process.env.METAAPI_TOKEN || "";
+
+function requireToken(requestToken = "") {
+  const token =
+    String(requestToken || "").trim() ||
+    process.env.METAAPI_TOKEN ||
+    FALLBACK_METAAPI_TOKEN ||
+    "";
   if (!token) {
     const err = new Error("METAAPI_TOKEN is not configured on the server");
     err.status = 500;
@@ -18,12 +24,20 @@ function requireToken() {
   return token;
 }
 
+export function tokenFromRequest(req) {
+  const header =
+    req?.headers?.["x-metaapi-token"] ||
+    req?.headers?.["auth-token"] ||
+    "";
+  return String(header || "").trim();
+}
+
 function transactionId() {
   return randomBytes(16).toString("hex");
 }
 
 async function metaFetch(url, { method = "GET", body, headers = {}, token } = {}) {
-  const auth = token || requireToken();
+  const auth = requireToken(token);
   const response = await fetch(url, {
     method,
     headers: {
@@ -82,13 +96,13 @@ function accountIdOf(account) {
   return account?.id || account?._id || null;
 }
 
-export async function searchKnownServers(query, platform = "MT5") {
+export async function searchKnownServers(query, platform = "MT5", { token } = {}) {
   const q = String(query || "").trim();
   if (!q) return [];
 
   const version = String(platform).toUpperCase() === "MT4" ? 4 : 5;
   const url = `${PROVISIONING_BASE}/known-mt-servers/${version}/search?query=${encodeURIComponent(q)}`;
-  const { data } = await metaFetch(url);
+  const { data } = await metaFetch(url, { token });
 
   const brokers = [];
   const grouped = data && typeof data === "object" ? data : {};

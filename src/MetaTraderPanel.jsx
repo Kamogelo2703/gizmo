@@ -95,10 +95,13 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
   function pickBroker(broker) {
     setSelectedBroker(broker);
+    // Local/custom rows are company names only — user must type the exact MT server.
+    const server =
+      broker.local || broker.custom ? "" : String(broker.name || "").trim();
     setCreds({
       login: "",
       password: "",
-      server: broker.name || "",
+      server,
     });
     setStep("login");
   }
@@ -230,7 +233,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
               className="mt-search-input"
               type="text"
               autoComplete="off"
-              placeholder="Enter server"
+              placeholder="Exact MT server name (from MT5)"
               value={creds.server}
               onChange={(e) => updateCred("server", e.target.value)}
               required

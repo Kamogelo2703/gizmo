@@ -1,12 +1,33 @@
 const API_BASE = "/api/metaapi";
+const TOKEN_KEY = "apexea-metaapi-token";
+
+export function getClientMetaApiToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setClientMetaApiToken(token) {
+  try {
+    const value = String(token || "").trim();
+    if (!value) localStorage.removeItem(TOKEN_KEY);
+    else localStorage.setItem(TOKEN_KEY, value);
+  } catch {
+    // ignore
+  }
+}
 
 async function apiFetch(path, { method = "GET", body, signal } = {}) {
+  const clientToken = getClientMetaApiToken();
   const response = await fetch(`${API_BASE}${path}`, {
     method,
     signal,
     headers: {
       Accept: "application/json",
       ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(clientToken ? { "x-metaapi-token": clientToken } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -23,7 +44,10 @@ async function apiFetch(path, { method = "GET", body, signal } = {}) {
     const message =
       (data && (data.error || data.message)) ||
       (typeof data === "string" ? data : `Request failed (${response.status})`);
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = response.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
@@ -36,12 +60,27 @@ function sleep(ms) {
 export async function searchBrokers(query, platform = "MT5", { signal } = {}) {
   const q = String(query || "").trim();
   if (!q) return [];
-  const params = new URLSearchParams({
-    q,
-    platform: String(platform || "MT5").toUpperCase(),
-  });
-  const data = await apiFetch(`/brokers?${params.toString()}`, { signal });
-  return Array.isArray(data?.brokers) ? data.brokers : [];
+
+  // Always include local catalog so search works even if MetaAPI env is missing.
+  const { searchLocalBrokers } = await import("./brokerCatalog.js");
+  const local = searchLocalBrokers(q, platform);
+
+  try {
+    const params = new URLSearchParams({
+      q,
+      platform: String(platform || "MT5").toUpperCase(),
+    });
+    const data = await apiFetch(`/brokers?${params.toString()}`, { signal });
+    const remote = Array.isArray(data?.brokers) ? data.brokers : [];
+    if (!remote.length) return local;
+
+    // Prefer MetaAPI server names; append local matches not already present.
+    const seen = new Set(remote.map((b) => `${b.company}::${b.name}`.toLowerCase()));
+    const extras = local.filter((b) => !seen.has(`${b.company}::${b.name}`.toLowerCase()));
+    return [...remote, ...extras];
+  } catch {
+    return local;
+  }
 }
 
 export async function getAccountStatus(accountId, { company = "", strategyId = "", signal } = {}) {
