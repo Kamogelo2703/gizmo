@@ -12,8 +12,7 @@ export default function CoverLock() {
     getSignup,
     activateLicense,
     showToast,
-    setAdminOpen,
-    setAdminPage,
+    openAdmin,
     refreshSignups,
   } = useApp();
 
@@ -41,8 +40,7 @@ export default function CoverLock() {
     }
     if (hotspotRef.current.count >= 3) {
       hotspotRef.current = { count: 0, first: 0 };
-      setAdminPage("dashboard");
-      setAdminOpen(true);
+      openAdmin("dashboard");
       showToast("Admin portal");
     }
   }

@@ -12,8 +12,7 @@ export default function App() {
     toggleInterface,
     hasActiveBot,
     adminOpen,
-    setAdminOpen,
-    setAdminPage,
+    openAdmin,
     toast,
     showToast,
   } = useApp();
@@ -32,8 +31,7 @@ export default function App() {
     }
     if (hotspotRef.current.count >= 3) {
       hotspotRef.current = { count: 0, first: 0 };
-      setAdminPage("dashboard");
-      setAdminOpen(true);
+      openAdmin("dashboard");
       showToast("Admin portal");
     }
   }
