@@ -26,6 +26,7 @@ export default function AdminPortal() {
     bots,
     licenseKeys,
     generateLicense,
+    refreshLicenses,
     catalog,
     ensureCatalog,
     normalizeSymbol,
@@ -592,15 +593,17 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Generate License Key</h2>
             <p className="admin-sub">
-              Create a license key so a removed bot can be activated again on the app.
+              Create a license key that works on any phone. Keys sync to the shared store
+              automatically — generate once, activate on the client device.
             </p>
             <div className="admin-card">
               <form
                 className="license-form"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  const key = generateLicense(licenseBotId);
+                  const key = await generateLicense(licenseBotId);
                   if (key) setLatestKey(key);
+                  await refreshLicenses?.();
                 }}
               >
                 <label className="ea-field">

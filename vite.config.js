@@ -8,6 +8,7 @@ import {
   handleTrade,
 } from './api/metaapi/_handlers.js'
 import signupsHandler from './api/signups/index.js'
+import licensesHandler from './api/licenses/index.js'
 
 function metaApiDevPlugin() {
   return {
@@ -20,6 +21,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/signups' || url.pathname === '/api/signups/') {
             req.url = `${url.pathname}${url.search}`
             return signupsHandler(req, res)
+          }
+
+          if (url.pathname === '/api/licenses' || url.pathname === '/api/licenses/') {
+            req.url = `${url.pathname}${url.search}`
+            return licensesHandler(req, res)
           }
 
           if (!url.pathname.startsWith('/api/metaapi/')) return next()

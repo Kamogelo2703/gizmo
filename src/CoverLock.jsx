@@ -93,7 +93,7 @@ export default function CoverLock() {
 
   function submitLicense(event) {
     event.preventDefault();
-    activateLicense(licenseKey);
+    void activateLicense(licenseKey);
   }
 
   return (
