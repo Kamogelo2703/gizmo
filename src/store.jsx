@@ -415,17 +415,24 @@ export function AppProvider({ children }) {
     ({ id, name, strategy, photo, symbols }) => {
       const cleanSymbols = symbols.map(normalizeSymbol).filter(Boolean);
       cleanSymbols.forEach(ensureCatalog);
+      const photoValue = String(photo || "").trim();
+      const hasProfilePhoto =
+        photoValue.startsWith("data:image/") || /^https?:\/\//i.test(photoValue);
+      if (!hasProfilePhoto) {
+        showToast("Upload a profile picture before creating the bot");
+        return null;
+      }
       if (id) {
         setEas((prev) =>
           prev.map((ea) =>
             ea.id === id
-              ? { ...ea, name, strategy, photo, symbols: cleanSymbols }
+              ? { ...ea, name, strategy, photo: photoValue, symbols: cleanSymbols }
               : ea
           )
         );
         setBots((prev) =>
           prev.map((bot) =>
-            bot.id === id ? { ...bot, name, photo, active: true } : bot
+            bot.id === id ? { ...bot, name, photo: photoValue, active: true } : bot
           )
         );
         showToast(`${name} profile updated`);
@@ -436,7 +443,7 @@ export function AppProvider({ children }) {
             id: newId,
             name,
             strategy,
-            photo,
+            photo: photoValue,
             symbols: cleanSymbols,
           },
           ...prev,
@@ -446,7 +453,7 @@ export function AppProvider({ children }) {
           {
             id: newId,
             name,
-            photo,
+            photo: photoValue,
             active: true,
             selected: true,
           },
@@ -454,6 +461,7 @@ export function AppProvider({ children }) {
         showToast(`${name} created`);
       }
       setEditingEaId(null);
+      return true;
     },
     [ensureCatalog, showToast]
   );

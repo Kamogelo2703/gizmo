@@ -2076,8 +2076,24 @@ button {
 
 .ea-photo-field {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.ea-photo-field.needs-photo .ea-photo-btn {
+  border-color: #fb7185;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.ea-photo-field.has-photo .ea-photo-btn {
+  border-style: solid;
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
 }
 
 .ea-photo-btn {
@@ -2112,6 +2128,12 @@ button {
   font-size: 0.78rem;
   color: #6b7280;
   font-weight: 500;
+}
+
+.ea-photo-required {
+  color: #be123c;
+  text-align: center;
+  max-width: 220px;
 }
 
 .ea-symbol-picker,

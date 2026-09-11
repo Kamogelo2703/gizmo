@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { STRATEGY_LABELS, useApp } from "./store.jsx";
 
+function isUploadedProfilePhoto(value) {
+  const photo = String(value || "").trim();
+  if (!photo) return false;
+  if (photo === "/logo.png") return false;
+  // Uploaded images are stored as data URLs (or remote URLs if ever used).
+  return photo.startsWith("data:image/") || /^https?:\/\//i.test(photo);
+}
+
 export default function AdminPortal() {
   const {
     adminOpen,
@@ -26,6 +34,7 @@ export default function AdminPortal() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [photo, setPhoto] = useState("/logo.png");
+  const [photoUploaded, setPhotoUploaded] = useState(false);
   const [name, setName] = useState("");
   const [strategy, setStrategy] = useState("scalper");
   const [draftSymbols, setDraftSymbols] = useState([]);
@@ -53,6 +62,7 @@ export default function AdminPortal() {
     setName(ea.name);
     setStrategy(ea.strategy);
     setPhoto(ea.photo || "/logo.png");
+    setPhotoUploaded(isUploadedProfilePhoto(ea.photo));
     setDraftSymbols([...ea.symbols]);
   }, [editingEaId, eas]);
 
@@ -76,6 +86,7 @@ export default function AdminPortal() {
     setName("");
     setStrategy("scalper");
     setPhoto("/logo.png");
+    setPhotoUploaded(false);
     setDraftSymbols([]);
     setCustomSymbol("");
   }
@@ -119,7 +130,13 @@ export default function AdminPortal() {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          setPhoto(dataUrl || "/logo.png");
+          if (!dataUrl.startsWith("data:image/")) {
+            setPhotoUploaded(false);
+            showToast("Could not read image");
+            return;
+          }
+          setPhoto(dataUrl);
+          setPhotoUploaded(true);
           showToast("Picture ready");
           return;
         }
@@ -127,15 +144,18 @@ export default function AdminPortal() {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
         setPhoto(canvas.toDataURL("image/jpeg", 0.72));
+        setPhotoUploaded(true);
         showToast("Picture ready");
       };
       img.onerror = () => {
         setPhoto("/logo.png");
+        setPhotoUploaded(false);
         showToast("Could not read image");
       };
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+    event.target.value = "";
   }
 
   function submitEa(event) {
@@ -150,6 +170,11 @@ export default function AdminPortal() {
     }
     if (!name.trim()) {
       showToast("Enter a robot name");
+      return;
+    }
+    const hasPhoto = photoUploaded || isUploadedProfilePhoto(photo);
+    if (!hasPhoto) {
+      showToast("Upload a profile picture before creating the bot");
       return;
     }
     if (symbols.length === 0) {
@@ -391,22 +416,34 @@ export default function AdminPortal() {
                 <h3>{editingEaId ? "Edit Robot EA" : "Create Robot EA"}</h3>
               </div>
               <form className="ea-form" onSubmit={submitEa}>
-                <div className="ea-photo-field">
+                <div className={`ea-photo-field${photoUploaded || isUploadedProfilePhoto(photo) ? " has-photo" : " needs-photo"}`}>
                   <button
                     className="ea-photo-btn"
                     type="button"
                     onClick={() => document.getElementById("ea-photo-react")?.click()}
                   >
                     <img src={photo} alt="" />
-                    <span>{editingEaId ? "Change picture" : "Upload picture"}</span>
+                    <span>
+                      {photoUploaded || isUploadedProfilePhoto(photo)
+                        ? editingEaId
+                          ? "Change picture"
+                          : "Picture added"
+                        : "Upload profile picture *"}
+                    </span>
                   </button>
                   <input
                     id="ea-photo-react"
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     hidden
                     onChange={onPhotoChange}
                   />
+                  {photoUploaded || isUploadedProfilePhoto(photo) ? null : (
+                    <p className="ea-hint ea-photo-required">
+                      Profile picture is required for the bot interface.
+                    </p>
+                  )}
                 </div>
                 <label className="ea-field">
                   <span>Robot name</span>
