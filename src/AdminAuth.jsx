@@ -73,7 +73,7 @@ export default function AdminAuth({ onAuthenticated, showToast }) {
       <div className="admin-auth">
         <header className="admin-auth-brand">
           <img src="/logo.png" alt="" className="admin-auth-logo" width="64" height="64" />
-          <p className="admin-auth-brand-name">gizmo pro</p>
+          <p className="admin-auth-brand-name">APEX EA</p>
         </header>
 
         <section className="admin-auth-card">
