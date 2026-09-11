@@ -6,9 +6,9 @@
       "botName": "zeta",
       "clientEmail": "mukundimukhuba8@gmail.com",
       "clientName": "mukundi",
-      "used": false,
+      "used": true,
       "createdAt": 1789114617196,
-      "usedAt": null,
+      "usedAt": 1789114666862,
       "bot": {
         "id": "zeta-mtw5gwqh",
         "name": "zeta",
