@@ -128,12 +128,19 @@ export default function ChartScanner() {
         ensureCatalog?.(next);
         setSymbol(next);
         setSymbolSource("scanner");
-        showToast(`Scanner symbol: ${next}`);
+        showToast(
+          detection.source === "openai"
+            ? `AI symbol: ${next}`
+            : `Scanner symbol: ${next}`
+        );
         return next;
       }
       setSymbol("");
       setSymbolSource("");
-      showToast("Scanner could not read the symbol — try a clearer chart header");
+      showToast(
+        detection?.error ||
+          "Could not read the symbol — add OPENAI_API_KEY or use a clearer chart"
+      );
       return null;
     } catch {
       setSymbol("");

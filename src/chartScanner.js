@@ -250,11 +250,79 @@ async function ocrWithTesseract(crops) {
   return texts;
 }
 
+async function shrinkChartImage(dataUrl, { maxW = 1024, quality = 0.72 } = {}) {
+  try {
+    const img = await loadImage(dataUrl);
+    const scale = Math.min(1, maxW / Math.max(1, img.width));
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return dataUrl;
+  }
+}
+
+async function detectSymbolWithOpenAI(dataUrl, { catalog = [] } = {}) {
+  const image = await shrinkChartImage(dataUrl);
+  const response = await fetch("/api/chart/symbol", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ image, catalog }),
+    cache: "no-store",
+  });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { error: text };
+  }
+  if (!response.ok) {
+    const message =
+      (data && (data.error || data.message)) ||
+      `Symbol vision failed (${response.status})`;
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
+  }
+  const symbol = String(data?.symbol || "")
+    .trim()
+    .toUpperCase();
+  if (!symbol) {
+    throw new Error("Could not read the symbol from this chart");
+  }
+  return {
+    symbol,
+    base: symbol.split(".")[0],
+    rawText: "",
+    confidence: Number(data?.confidence) || 80,
+    source: "openai",
+  };
+}
+
 /**
- * Read the symbol shown on a chart screenshot (scanner OCR).
+ * Read the symbol shown on a chart screenshot.
+ * Prefers OpenAI Vision (accurate); falls back to local OCR.
  */
 export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
   if (!dataUrl) return { symbol: null, rawText: "", confidence: 0 };
+
+  let openAiError = "";
+  try {
+    return await detectSymbolWithOpenAI(dataUrl, { catalog });
+  } catch (error) {
+    openAiError = error.message || "OpenAI vision unavailable";
+  }
+
   try {
     const crops = await cropChartRegions(dataUrl);
     const texts = [];
@@ -264,15 +332,26 @@ export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
       const tessTexts = await ocrWithTesseract(crops);
       texts.push(...tessTexts);
     } catch {
-      // native OCR may still have worked
+      // ignore local OCR worker failures
     }
-    return pickBestSymbol(texts, catalog);
+    const local = pickBestSymbol(texts, catalog);
+    if (local?.symbol) {
+      return { ...local, source: "ocr", openAiError };
+    }
+    return {
+      symbol: null,
+      rawText: local?.rawText || "",
+      confidence: 0,
+      error: openAiError || "Could not read the symbol from this chart",
+      source: "none",
+    };
   } catch (error) {
     return {
       symbol: null,
       rawText: "",
       confidence: 0,
-      error: error.message || "Symbol detection failed",
+      error: openAiError || error.message || "Symbol detection failed",
+      source: "none",
     };
   }
 }

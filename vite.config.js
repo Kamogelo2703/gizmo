@@ -9,6 +9,7 @@ import {
 } from './api/metaapi/_handlers.js'
 import signupsHandler from './api/signups/index.js'
 import licensesHandler from './api/licenses/index.js'
+import chartSymbolHandler from './api/chart/symbol.js'
 
 function metaApiDevPlugin() {
   return {
@@ -26,6 +27,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/licenses' || url.pathname === '/api/licenses/') {
             req.url = `${url.pathname}${url.search}`
             return licensesHandler(req, res)
+          }
+
+          if (url.pathname === '/api/chart/symbol' || url.pathname === '/api/chart/symbol/') {
+            req.url = `${url.pathname}${url.search}`
+            return chartSymbolHandler(req, res)
           }
 
           if (!url.pathname.startsWith('/api/metaapi/')) return next()
@@ -70,6 +76,9 @@ export default defineConfig(({ mode }) => {
   process.env.SIGNUPS_GITHUB_TOKEN =
     process.env.SIGNUPS_GITHUB_TOKEN || env.SIGNUPS_GITHUB_TOKEN || ''
   process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || env.GITHUB_TOKEN || ''
+  process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || env.OPENAI_API_KEY || ''
+  process.env.OPENAI_VISION_MODEL =
+    process.env.OPENAI_VISION_MODEL || env.OPENAI_VISION_MODEL || 'gpt-4o-mini'
 
   return {
     plugins: [react(), metaApiDevPlugin()],
