@@ -5,6 +5,7 @@ import {
   handleConnect,
   handleDisconnect,
   handleStatus,
+  handleTrade,
 } from './api/metaapi/_handlers.js'
 
 function metaApiDevPlugin() {
@@ -27,6 +28,9 @@ function metaApiDevPlugin() {
           }
           if (req.method === 'POST' && url.pathname === '/api/metaapi/connect') {
             return handleConnect(req, res)
+          }
+          if (req.method === 'POST' && url.pathname === '/api/metaapi/trade') {
+            return handleTrade(req, res)
           }
           if (req.method === 'POST' && url.pathname === '/api/metaapi/disconnect') {
             return handleDisconnect(req, res)

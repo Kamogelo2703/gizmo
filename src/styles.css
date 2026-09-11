@@ -3023,3 +3023,257 @@ button {
   opacity: 0;
   pointer-events: none;
 }
+
+/* —— Connecting / Trading Engine —— */
+.engine-panel {
+  margin: 10px 14px 16px;
+  padding: 18px 16px 16px;
+  border-radius: 22px;
+  background:
+    radial-gradient(120% 80% at 10% 0%, rgba(255, 45, 122, 0.22), transparent 55%),
+    linear-gradient(165deg, rgba(18, 12, 28, 0.96), rgba(8, 10, 18, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  animation: engine-in 0.35s ease;
+}
+
+@keyframes engine-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.engine-panel-core {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.engine-ring {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+}
+
+.engine-ring-spin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #ff4b93;
+  border-right-color: rgba(255, 75, 147, 0.35);
+  animation: engine-spin 0.9s linear infinite;
+}
+
+.engine-ring-core {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff7ab4, #b01055 70%);
+  box-shadow: 0 0 18px rgba(255, 45, 122, 0.55);
+  animation: engine-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes engine-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes engine-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.92); opacity: 0.85; }
+}
+
+.engine-kicker {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ff4b93;
+  font-weight: 700;
+}
+
+.engine-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.engine-sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.engine-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.engine-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.engine-step.is-active {
+  color: #fff;
+  font-weight: 600;
+}
+
+.engine-step.is-done {
+  color: rgba(140, 255, 190, 0.9);
+}
+
+.engine-step-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  flex: 0 0 auto;
+}
+
+.engine-step.is-active .engine-step-mark {
+  background: #ff4b93;
+  box-shadow: 0 0 10px rgba(255, 75, 147, 0.8);
+  animation: engine-pulse 1s ease-in-out infinite;
+}
+
+.engine-step.is-done .engine-step-mark {
+  background: #4dff9a;
+}
+
+.engine-signal {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.engine-signal--buy {
+  background: rgba(35, 180, 110, 0.18);
+  border: 1px solid rgba(80, 230, 150, 0.35);
+}
+
+.engine-signal--sell {
+  background: rgba(200, 50, 80, 0.18);
+  border: 1px solid rgba(255, 90, 120, 0.35);
+}
+
+.engine-fills,
+.engine-log {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.scanner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scanner-mt-pill {
+  margin: 0 14px 0 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.scanner-mt-pill.is-on {
+  color: #9dffc4;
+  background: rgba(40, 160, 100, 0.18);
+}
+
+.scanner-symbol,
+.scanner-auto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto 12px;
+  width: min(100%, 320px);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.88rem;
+}
+
+.scanner-symbol select {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  padding: 0 12px;
+}
+
+.scanner-actions {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 320px);
+  margin: 0 auto;
+}
+
+.scan-exec-btn {
+  min-height: 52px;
+  border-radius: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #3d7cff 0%, #2456d6 100%);
+  box-shadow: 0 10px 24px rgba(36, 86, 214, 0.35);
+}
+
+.scan-exec-btn:disabled,
+.upload-btn:disabled {
+  opacity: 0.55;
+}
+
+.scanner-result {
+  margin: 18px auto 0;
+  width: min(100%, 320px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.scanner-result--buy {
+  background: rgba(35, 180, 110, 0.16);
+  border: 1px solid rgba(80, 230, 150, 0.3);
+}
+
+.scanner-result--sell {
+  background: rgba(200, 50, 80, 0.16);
+  border: 1px solid rgba(255, 90, 120, 0.3);
+}
+
+.scanner-connect-link {
+  margin-top: 16px;
+  color: #ff8cbc;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+}

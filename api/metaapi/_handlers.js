@@ -2,9 +2,11 @@ import {
   connectTradingAccount,
   getConnectionStatus,
   getAccount,
+  placeMarketTrade,
   readJsonBody,
   searchKnownServers,
   sendJson,
+  tokenFromRequest,
   undeployAccount,
 } from "./_lib.js";
 
@@ -24,7 +26,8 @@ export async function handleBrokers(req, res) {
     const url = new URL(req.url, `http://${host}`);
     const q = url.searchParams.get("q") || "";
     const platform = url.searchParams.get("platform") || "MT5";
-    const brokers = await searchKnownServers(q, platform);
+    const token = tokenFromRequest(req);
+    const brokers = await searchKnownServers(q, platform, { token });
     sendJson(res, 200, { brokers });
   } catch (error) {
     sendJson(res, error.status || 500, {
@@ -87,6 +90,40 @@ export async function handleStatus(req, res) {
   } catch (error) {
     sendJson(res, error.status || 500, {
       error: error.message || "Status check failed",
+      details: error.data || null,
+    });
+  }
+}
+
+export async function handleTrade(req, res) {
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(req);
+    const token = tokenFromRequest(req);
+    const result = await placeMarketTrade({
+      accountId: body.accountId,
+      symbol: body.symbol,
+      volume: body.volume,
+      side: body.side || body.action || "BUY",
+      stopLoss: body.stopLoss,
+      takeProfit: body.takeProfit,
+      comment: body.comment || "ApexEA scanner",
+      region: body.region,
+      token,
+    });
+    sendJson(res, 200, result);
+  } catch (error) {
+    sendJson(res, error.status || 500, {
+      error: error.message || "Trade failed",
       details: error.data || null,
     });
   }

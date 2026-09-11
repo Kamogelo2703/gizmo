@@ -144,3 +144,30 @@ export async function disconnectAccount(accountId, { signal } = {}) {
     body: { accountId },
   });
 }
+
+export async function placeTrade({
+  accountId,
+  symbol,
+  volume = 0.01,
+  side = "BUY",
+  stopLoss,
+  takeProfit,
+  comment = "ApexEA scanner",
+  region = "",
+  signal,
+} = {}) {
+  return apiFetch("/trade", {
+    method: "POST",
+    signal,
+    body: {
+      accountId,
+      symbol,
+      volume,
+      side,
+      stopLoss,
+      takeProfit,
+      comment,
+      region,
+    },
+  });
+}

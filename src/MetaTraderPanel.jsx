@@ -1,30 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import EnginePanel from "./EnginePanel.jsx";
+import { CONNECT_ENGINE_STEPS, sleep } from "./chartScanner.js";
 import { connectAccount, disconnectAccount, searchBrokers } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 
 const emptyLogin = { login: "", password: "", server: "" };
-const MT5_SESSION_KEY = "apexea-mt5-session";
-
-function loadSession() {
-  try {
-    const raw = localStorage.getItem(MT5_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(session) {
-  try {
-    if (!session) localStorage.removeItem(MT5_SESSION_KEY);
-    else localStorage.setItem(MT5_SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // ignore quota
-  }
-}
 
 export default function MetaTraderPanel({ variant = "zeta" }) {
-  const { showToast } = useApp();
+  const {
+    showToast,
+    mt5Session,
+    setMt5Session,
+    engineMode,
+    setEngineMode,
+    engineStep,
+    setEngineStep,
+    engineLogs,
+    setEngineLogs,
+    pushEngineLog,
+  } = useApp();
   const [platform, setPlatform] = useState("MT5");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -34,10 +28,10 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
   const [step, setStep] = useState("browse");
   const [creds, setCreds] = useState(emptyLogin);
   const [connecting, setConnecting] = useState(false);
-  const [session, setSession] = useState(() => loadSession());
   const searchRef = useRef(0);
 
   const hasQuery = query.trim().length > 0;
+  const session = mt5Session;
 
   useEffect(() => {
     const q = query.trim();
@@ -95,7 +89,6 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
   function pickBroker(broker) {
     setSelectedBroker(broker);
-    // Local/custom rows are company names only — user must type the exact MT server.
     const server =
       broker.local || broker.custom ? "" : String(broker.name || "").trim();
     setCreds({
@@ -110,6 +103,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     setStep("browse");
     setCreds(emptyLogin);
     setConnecting(false);
+    if (engineMode === "connecting") setEngineMode("idle");
   }
 
   function updateCred(field, value) {
@@ -128,14 +122,33 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     }
 
     setConnecting(true);
+    setEngineLogs([]);
+    setEngineMode("connecting");
+    setEngineStep(0);
+    pushEngineLog(CONNECT_ENGINE_STEPS[0].label);
+
+    const advance = async (index) => {
+      setEngineStep(index);
+      pushEngineLog(CONNECT_ENGINE_STEPS[index].label);
+      await sleep(380);
+    };
+
     try {
+      await advance(0);
+      await advance(1);
       const connected = await connectAccount({
         login,
         password,
         server,
         platform,
         company: selectedBroker?.company || "",
+        onProgress: async () => {
+          setEngineStep((prev) => Math.min(3, Math.max(2, prev)));
+        },
       });
+      await advance(2);
+      await advance(3);
+      await advance(4);
 
       const nextSession = {
         accountId: connected.accountId,
@@ -147,10 +160,11 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         subscribed: connected.subscribed,
         strategyId: connected.strategyId,
         subscriptionError: connected.subscriptionError,
+        region: connected.region || null,
         connectedAt: Date.now(),
       };
-      setSession(nextSession);
-      saveSession(nextSession);
+      setMt5Session(nextSession);
+      pushEngineLog("Trading engine armed · MT5 connected");
       showToast(
         connected.subscribed
           ? `Connected ${nextSession.company} · copy trading on`
@@ -160,7 +174,10 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       setQuery("");
       setResults([]);
       setCreds(emptyLogin);
+      await sleep(700);
+      setEngineMode("idle");
     } catch (error) {
+      setEngineMode("idle");
       showToast(error.message || "Connection failed");
     } finally {
       setConnecting(false);
@@ -169,8 +186,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
   async function clearSession() {
     const accountId = session?.accountId;
-    setSession(null);
-    saveSession(null);
+    setMt5Session(null);
     if (accountId) {
       try {
         await disconnectAccount(accountId);
@@ -182,6 +198,19 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
   }
 
   const rootClass = variant === "v2" ? "mt-panel mt-panel--v2" : "mt-panel";
+
+  if (connecting || engineMode === "connecting") {
+    return (
+      <div className={rootClass}>
+        <EnginePanel
+          mode="connecting"
+          stepIndex={engineStep}
+          logs={engineLogs}
+          subtitle={`${selectedBroker?.company || "Broker"} · ${creds.server || "server"}`}
+        />
+      </div>
+    );
+  }
 
   if (step === "login" && selectedBroker) {
     return (
@@ -241,11 +270,8 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
           </label>
 
           <button className="mt-connect-btn" type="submit" disabled={connecting}>
-            {connecting ? "Connecting to MetaAPI…" : "Connect"}
+            {connecting ? "Starting connecting engine…" : "Connect"}
           </button>
-          {connecting ? (
-            <p className="mt-panel-sub">Broker auth can take up to a few minutes. Keep this screen open.</p>
-          ) : null}
         </form>
       </div>
     );
@@ -256,7 +282,9 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
       <header className="mt-panel-head">
         <p className="mt-panel-kicker">MetaTrader</p>
         <h2 className="mt-panel-title">Brokers</h2>
-        <p className="mt-panel-sub">Search brokers, then connect your MT account via MetaAPI.</p>
+        <p className="mt-panel-sub">
+          Search brokers, connect MT5, then arm the ApexEA trading engine.
+        </p>
       </header>
 
       {session?.accountId ? (
@@ -265,7 +293,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
             <strong>{session.company || session.server}</strong>
             <span>
               {session.server} · login {session.login}
-              {session.subscribed ? " · copying" : ""}
+              {session.subscribed ? " · copying" : ""} · engine armed
             </span>
           </div>
           <button type="button" className="mt-session-btn" onClick={clearSession}>

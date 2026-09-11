@@ -433,6 +433,83 @@ export async function getConnectionStatus(accountId, {
   });
 }
 
+function clientApiBase(region) {
+  const r = String(region || process.env.METAAPI_REGION || "new-york").trim() || "new-york";
+  const template =
+    process.env.METAAPI_CLIENT_URL_TEMPLATE ||
+    "https://mt-client-api-v1.{region}.agiliumtrade.ai";
+  return template.replace("{region}", r);
+}
+
+export async function placeMarketTrade({
+  accountId,
+  symbol,
+  volume = 0.01,
+  side = "BUY",
+  stopLoss,
+  takeProfit,
+  comment = "ApexEA scanner",
+  region,
+  token,
+} = {}) {
+  const id = String(accountId || "").trim();
+  const sym = String(symbol || "").trim().toUpperCase();
+  const vol = Number(volume);
+  if (!id) {
+    const err = new Error("accountId is required");
+    err.status = 400;
+    throw err;
+  }
+  if (!sym) {
+    const err = new Error("symbol is required");
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(vol) || vol <= 0) {
+    const err = new Error("volume must be greater than 0");
+    err.status = 400;
+    throw err;
+  }
+
+  let resolvedRegion = region;
+  if (!resolvedRegion) {
+    try {
+      const account = await getAccount(id);
+      resolvedRegion = accountRegion(account);
+    } catch {
+      resolvedRegion = process.env.METAAPI_REGION || "new-york";
+    }
+  }
+
+  const actionType =
+    String(side).toUpperCase() === "SELL" ? "ORDER_TYPE_SELL" : "ORDER_TYPE_BUY";
+
+  const body = {
+    actionType,
+    symbol: sym,
+    volume: vol,
+    comment: String(comment || "ApexEA scanner").slice(0, 31),
+  };
+  if (Number.isFinite(Number(stopLoss)) && Number(stopLoss) > 0) {
+    body.stopLoss = Number(stopLoss);
+  }
+  if (Number.isFinite(Number(takeProfit)) && Number(takeProfit) > 0) {
+    body.takeProfit = Number(takeProfit);
+  }
+
+  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(id)}/trade`;
+  const { data } = await metaFetch(url, { method: "POST", body, token });
+  return {
+    ok: true,
+    accountId: id,
+    symbol: sym,
+    volume: vol,
+    side: actionType === "ORDER_TYPE_SELL" ? "SELL" : "BUY",
+    region: resolvedRegion,
+    result: data,
+  };
+}
+
 export function sendJson(res, status, payload) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");

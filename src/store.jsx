@@ -10,6 +10,25 @@ import {
 
 const STORAGE_KEY = "apexea-app-v1";
 const BACKUP_KEY = "apexea-app-v1-backup";
+const MT5_SESSION_KEY = "apexea-mt5-session";
+
+function loadMt5Session() {
+  try {
+    const raw = localStorage.getItem(MT5_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistMt5Session(session) {
+  try {
+    if (!session) localStorage.removeItem(MT5_SESSION_KEY);
+    else localStorage.setItem(MT5_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore
+  }
+}
 
 export const DEFAULT_SYMBOLS = [
   "EURUSD",
@@ -172,7 +191,20 @@ export function AppProvider({ children }) {
   const [v2SymTab, setV2SymTab] = useState("allowed");
   const [editingSymbol, setEditingSymbol] = useState(null);
   const [editingEaId, setEditingEaId] = useState(null);
+  const [mt5Session, setMt5SessionState] = useState(() => loadMt5Session());
+  const [engineMode, setEngineMode] = useState("idle");
+  const [engineStep, setEngineStep] = useState(0);
+  const [engineLogs, setEngineLogs] = useState([]);
   const persistReady = useRef(false);
+
+  const setMt5Session = useCallback((session) => {
+    setMt5SessionState(session);
+    persistMt5Session(session);
+  }, []);
+
+  const pushEngineLog = useCallback((line) => {
+    setEngineLogs((prev) => [...prev.slice(-40), String(line)]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -586,6 +618,15 @@ export function AppProvider({ children }) {
     setV2SymTab,
     editingSymbol,
     setEditingSymbol,
+    mt5Session,
+    setMt5Session,
+    engineMode,
+    setEngineMode,
+    engineStep,
+    setEngineStep,
+    engineLogs,
+    setEngineLogs,
+    pushEngineLog,
     STRATEGY_LABELS,
   };
 

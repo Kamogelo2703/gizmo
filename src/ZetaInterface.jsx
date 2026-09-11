@@ -1,4 +1,5 @@
 import { useApp } from "./store.jsx";
+import ChartScanner from "./ChartScanner.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 
 export default function ZetaInterface() {
@@ -33,10 +34,7 @@ export default function ZetaInterface() {
     if (signup?.status === "approved") setLockStep("license");
     else if (signup) setLockStep("pending");
     else setLockStep("cover");
-    // Force lock UI even if bots exist? Only when activating license for removed bots
-    // Use temporary approach: if no active bot, CoverLock shows itself
     if (bots.some((b) => b.active)) {
-      // still allow opening admin activate via selecting removed bots - simplify: toast
       showToast("Use Admin → License Keys for activation keys");
     }
   }
@@ -118,31 +116,7 @@ export default function ZetaInterface() {
           </section>
         )}
 
-        {zetaView === "scanner" && (
-          <section className="view is-active">
-            <header className="scanner-top">
-              <div className="scanner-title-wrap">
-                <span className="scanner-dot" />
-                <h2 className="scanner-title">Scanner</h2>
-              </div>
-            </header>
-            <div className="scanner-hero">
-              <div className="scanner-orb">
-                <img src="/logo.png" alt="" width="120" height="120" />
-              </div>
-              <p className="scanner-brand">{activeBot?.name || "ApexEA"}</p>
-              <h3 className="scanner-heading">Chart Scanner</h3>
-              <p className="scanner-sub">Upload a screenshot to get AI signals</p>
-              <button
-                className="upload-btn"
-                type="button"
-                onClick={() => showToast("Scanner ready")}
-              >
-                Upload Chart
-              </button>
-            </div>
-          </section>
-        )}
+        {zetaView === "scanner" && <ChartScanner />}
 
         {zetaView === "metatrader" && (
           <section className="view is-active view-metatrader">
