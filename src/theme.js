@@ -79,6 +79,11 @@ export function deriveAppTheme(baseColor = DEFAULT_APP_COLOR) {
   };
 }
 
+function rgbChannels(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  return `${r}, ${g}, ${b}`;
+}
+
 export function applyAppTheme(baseColor = DEFAULT_APP_COLOR) {
   if (typeof document === "undefined") return deriveAppTheme(baseColor);
   const theme = deriveAppTheme(baseColor);
@@ -90,6 +95,12 @@ export function applyAppTheme(baseColor = DEFAULT_APP_COLOR) {
   root.style.setProperty("--pink-deep", theme.pinkDeep);
   root.style.setProperty("--pink-dark", theme.pinkDark);
   root.style.setProperty("--accent-glow", theme.glow);
+  root.style.setProperty("--pink-rgb", rgbChannels(theme.pink));
+  root.style.setProperty("--pink-hot-rgb", rgbChannels(theme.pinkHot));
+  root.style.setProperty("--magenta-rgb", rgbChannels(theme.magenta));
+  root.style.setProperty("--pink-soft-rgb", rgbChannels(theme.pinkSoft));
+  root.style.setProperty("--pink-deep-rgb", rgbChannels(theme.pinkDeep));
+  root.style.setProperty("--pink-dark-rgb", rgbChannels(theme.pinkDark));
   root.dataset.appColor = theme.pink;
   return theme;
 }
