@@ -1,3 +1,23 @@
 {
-  "licenses": []
+  "licenses": [
+    {
+      "key": "APEX-6WDT-4380",
+      "botId": "zeta-shared",
+      "botName": "ZETA",
+      "clientEmail": "mukundimukhuba8@gmail.com",
+      "clientName": "Mukundi",
+      "used": false,
+      "createdAt": 1789114478845,
+      "usedAt": null,
+      "bot": {
+        "id": "zeta-shared",
+        "name": "ZETA",
+        "photo": "/logo.png",
+        "strategy": "scalper",
+        "symbols": [
+          "EURUSD"
+        ]
+      }
+    }
+  ]
 }
