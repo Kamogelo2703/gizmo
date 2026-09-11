@@ -119,77 +119,154 @@ function extractSymbolCandidates(text) {
   return hits;
 }
 
-async function cropChartHeader(dataUrl) {
+function pickBestSymbol(texts, catalog = []) {
+  const candidates = [];
+  const joined = (texts || []).filter(Boolean).join("\n");
+  for (const text of texts || []) {
+    candidates.push(...extractSymbolCandidates(text));
+  }
+  const blob = String(joined || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  for (const known of [...COMMON_SYMBOLS, ...(catalog || [])]) {
+    const base = compactSymbol(known).base;
+    if (base && blob.includes(base)) candidates.push(base);
+  }
+
+  let best = null;
+  for (const candidate of candidates) {
+    const scored = scoreCandidate(candidate, catalog);
+    if (!scored) continue;
+    if (!best || scored.score > best.score) best = scored;
+  }
+  return best
+    ? {
+        symbol: best.symbol,
+        base: best.base,
+        rawText: joined,
+        confidence: Math.min(95, 55 + best.score * 8),
+      }
+    : { symbol: null, rawText: joined, confidence: 0 };
+}
+
+async function cropChartRegions(dataUrl) {
   const img = await loadImage(dataUrl);
-  const canvas = document.createElement("canvas");
-  const maxW = 900;
+  const maxW = 1100;
   const scale = Math.min(1, maxW / Math.max(1, img.width));
   const width = Math.max(1, Math.round(img.width * scale));
   const height = Math.max(1, Math.round(img.height * scale));
-  // Trading apps usually put the pair in the top banner / left header.
-  const bandH = Math.max(40, Math.round(height * 0.28));
-  canvas.width = width;
-  canvas.height = bandH;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Chart crop unavailable");
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, bandH);
-  ctx.drawImage(img, 0, 0, width, height, 0, 0, width, bandH);
-  // Boost contrast for OCR
-  const image = ctx.getImageData(0, 0, width, bandH);
-  const d = image.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
-    const v = lum > 140 ? 255 : lum < 90 ? 0 : lum;
-    d[i] = d[i + 1] = d[i + 2] = v;
-  }
-  ctx.putImageData(image, 0, 0);
-  return canvas.toDataURL("image/png");
+
+  const regions = [
+    { x: 0, y: 0, w: width, h: Math.max(48, Math.round(height * 0.22)) }, // full top banner
+    { x: 0, y: 0, w: Math.round(width * 0.55), h: Math.max(48, Math.round(height * 0.2)) }, // top-left
+    { x: 0, y: 0, w: Math.round(width * 0.4), h: Math.max(40, Math.round(height * 0.14)) }, // title chip
+  ];
+
+  return regions.map((region) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, region.w);
+    canvas.height = Math.max(1, region.h);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      img,
+      Math.round(region.x / scale),
+      Math.round(region.y / scale),
+      Math.round(region.w / scale),
+      Math.round(region.h / scale),
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = image.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      const v = lum > 145 ? 255 : lum < 95 ? 0 : 255 - lum;
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(image, 0, 0);
+    return canvas.toDataURL("image/png");
+  }).filter(Boolean);
 }
 
-/**
- * Read the symbol shown on a chart screenshot (OCR of the header band).
- */
-export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
-  if (!dataUrl) return null;
+async function ocrWithTextDetector(dataUrl) {
+  if (typeof window === "undefined" || typeof window.TextDetector !== "function") {
+    return "";
+  }
   try {
-    const crop = await cropChartHeader(dataUrl);
-    const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("eng");
-    try {
-      await worker.setParameters({
-        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./- ",
-        preserve_interword_spaces: "1",
-      });
+    const detector = new window.TextDetector();
+    const img = await loadImage(dataUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = Math.max(1, Math.round(img.height * 0.28));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.drawImage(img, 0, 0);
+    const bitmap = await createImageBitmap(canvas);
+    const texts = await detector.detect(bitmap);
+    return (texts || []).map((t) => t.rawValue || "").join(" ");
+  } catch {
+    return "";
+  }
+}
+
+async function ocrWithTesseract(crops) {
+  const { createWorker, PSM } = await import("tesseract.js");
+  const worker = await createWorker("eng", 1, {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0",
+  });
+  const texts = [];
+  try {
+    await worker.setParameters({
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./- ",
+      preserve_interword_spaces: "1",
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
+    });
+    for (const crop of crops) {
       const {
         data: { text },
       } = await worker.recognize(crop);
-      const candidates = extractSymbolCandidates(text);
-      // Also try matching known symbols as substrings in OCR noise
-      const blob = String(text || "")
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "");
-      for (const known of [...COMMON_SYMBOLS, ...(catalog || [])]) {
-        const base = compactSymbol(known).base;
-        if (base && blob.includes(base)) candidates.push(base);
-      }
-
-      let best = null;
-      for (const candidate of candidates) {
-        const scored = scoreCandidate(candidate, catalog);
-        if (!scored) continue;
-        if (!best || scored.score > best.score) best = scored;
-      }
-      if (!best) return { symbol: null, rawText: text || "", confidence: 0 };
-      return {
-        symbol: best.symbol,
-        base: best.base,
-        rawText: text || "",
-        confidence: Math.min(95, 55 + best.score * 8),
-      };
-    } finally {
-      await worker.terminate();
+      if (text) texts.push(text);
     }
+    // Second pass with sparse text mode for denser headers
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+    });
+    if (crops[0]) {
+      const {
+        data: { text },
+      } = await worker.recognize(crops[0]);
+      if (text) texts.push(text);
+    }
+  } finally {
+    await worker.terminate();
+  }
+  return texts;
+}
+
+/**
+ * Read the symbol shown on a chart screenshot (scanner OCR).
+ */
+export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
+  if (!dataUrl) return { symbol: null, rawText: "", confidence: 0 };
+  try {
+    const crops = await cropChartRegions(dataUrl);
+    const texts = [];
+    const nativeText = await ocrWithTextDetector(dataUrl);
+    if (nativeText) texts.push(nativeText);
+    try {
+      const tessTexts = await ocrWithTesseract(crops);
+      texts.push(...tessTexts);
+    } catch {
+      // native OCR may still have worked
+    }
+    return pickBestSymbol(texts, catalog);
   } catch (error) {
     return {
       symbol: null,
@@ -206,7 +283,7 @@ export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
  */
 export async function analyzeChartImage(
   dataUrl,
-  { symbol = "EURUSD", catalog = [], preferDetectedSymbol = true } = {}
+  { symbol = "", catalog = [], preferDetectedSymbol = true } = {}
 ) {
   const img = await loadImage(dataUrl);
   const canvas = document.createElement("canvas");
@@ -245,7 +322,12 @@ export async function analyzeChartImage(
     preferDetectedSymbol && detection?.symbol
       ? String(detection.symbol).toUpperCase()
       : null;
-  const resolvedSymbol = detected || String(symbol || "EURUSD").toUpperCase();
+  if (!detected) {
+    const err = new Error("Could not read the symbol from this chart screenshot");
+    err.code = "SYMBOL_NOT_DETECTED";
+    throw err;
+  }
+  const resolvedSymbol = detected;
 
   const reasons = [
     recentBias.bullRatio >= 0.5
@@ -254,9 +336,7 @@ export async function analyzeChartImage(
     fullBias.structure === "dark-theme"
       ? "Dark chart theme detected"
       : "Light chart theme detected",
-    detected
-      ? `Symbol from chart: ${resolvedSymbol}`
-      : `Bias score ${(score * 100).toFixed(0)}% bullish mass`,
+    `Symbol from scanner: ${resolvedSymbol}`,
   ];
 
   return {

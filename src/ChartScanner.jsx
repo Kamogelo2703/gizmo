@@ -72,8 +72,8 @@ export default function ChartScanner() {
   }, [activeBot, eas, catalog]);
 
   const [preview, setPreview] = useState("");
-  const [symbol, setSymbol] = useState("EURUSD");
-  const [symbolSource, setSymbolSource] = useState("manual");
+  const [symbol, setSymbol] = useState("");
+  const [symbolSource, setSymbolSource] = useState("");
   const [detectingSymbol, setDetectingSymbol] = useState(false);
   const [trades, setTrades] = useState(1);
   const [lotSize, setLotSize] = useState(0.01);
@@ -84,12 +84,7 @@ export default function ChartScanner() {
   const [engineProgress, setEngineProgress] = useState(0);
 
   useEffect(() => {
-    // Don't overwrite a symbol read from the chart screenshot.
-    if (symbolSource === "chart") return;
-    if (!symbol && symbols.length) setSymbol(symbols[0]);
-  }, [symbols, symbol, symbolSource]);
-
-  useEffect(() => {
+    if (!symbol) return;
     const meta = getSymbolMeta(symbol);
     setTrades(clampTrades(meta.trades));
     setLotSize(clampLot(meta.lotSize));
@@ -122,6 +117,8 @@ export default function ChartScanner() {
 
   async function applyDetectedSymbol(dataUrl) {
     setDetectingSymbol(true);
+    setSymbol("");
+    setSymbolSource("");
     try {
       const detection = await detectSymbolFromChart(dataUrl, {
         catalog: [...symbols, ...(catalog || [])],
@@ -130,15 +127,18 @@ export default function ChartScanner() {
         const next = String(detection.symbol).toUpperCase();
         ensureCatalog?.(next);
         setSymbol(next);
-        setSymbolSource("chart");
-        showToast(`Symbol from chart: ${next}`);
+        setSymbolSource("scanner");
+        showToast(`Scanner symbol: ${next}`);
         return next;
       }
-      setSymbolSource("manual");
-      showToast("Could not read symbol from chart — pick one");
+      setSymbol("");
+      setSymbolSource("");
+      showToast("Scanner could not read the symbol — try a clearer chart header");
       return null;
     } catch {
-      setSymbolSource("manual");
+      setSymbol("");
+      setSymbolSource("");
+      showToast("Scanner could not read the symbol");
       return null;
     } finally {
       setDetectingSymbol(false);
@@ -159,7 +159,9 @@ export default function ChartScanner() {
       setSignal(null);
       setFills([]);
       setEngineProgress(0);
-      showToast("Chart ready to scan");
+      setSymbol("");
+      setSymbolSource("");
+      showToast("Chart ready — detecting symbol…");
       void applyDetectedSymbol(dataUrl);
     };
     reader.readAsDataURL(file);
@@ -204,7 +206,7 @@ export default function ChartScanner() {
         await sleep(520 + i * 90);
       }
 
-      pushEngineLog("Reading symbol from chart screenshot");
+      pushEngineLog("Scanner reading symbol from chart");
       const result = await analyzeChartImage(preview, {
         symbol,
         catalog: [...symbols, ...(catalog || [])],
@@ -214,16 +216,16 @@ export default function ChartScanner() {
         throw new Error("Scan produced no trade signal");
       }
 
-      const tradeSymbol = String(result.detectedSymbol || result.symbol || symbol || "")
+      const tradeSymbol = String(result.detectedSymbol || "")
         .trim()
         .toUpperCase();
       if (!tradeSymbol) {
-        throw new Error("Could not read the symbol on this chart");
+        throw new Error("Scanner could not read the symbol on this chart");
       }
 
       ensureCatalog?.(tradeSymbol);
       setSymbol(tradeSymbol);
-      setSymbolSource(result.detectedSymbol ? "chart" : "manual");
+      setSymbolSource("scanner");
       persistTradeSettings(tradeCount, lot, tradeSymbol);
 
       setSignal(result);
@@ -401,40 +403,22 @@ export default function ChartScanner() {
       </div>
 
       <div className="cs-controls">
-        <label className="cs-field">
+        <label className={`cs-field${symbolSource === "scanner" ? " is-from-scanner" : ""}`}>
           <span>
             Symbol
             {detectingSymbol
-              ? " · reading chart…"
-              : symbolSource === "chart"
-                ? " · from chart"
-                : ""}
+              ? " · scanner reading…"
+              : symbolSource === "scanner"
+                ? " · from scanner"
+                : " · auto from chart"}
           </span>
           <input
-            className="cs-lot"
-            list="cs-symbol-options"
-            value={symbol}
+            className="cs-lot cs-symbol-auto"
+            value={detectingSymbol ? "" : symbol}
+            readOnly
             disabled={busy || detectingSymbol}
-            placeholder="Auto from chart"
-            onChange={(e) => {
-              setSymbol(String(e.target.value || "").toUpperCase());
-              setSymbolSource("manual");
-            }}
-            onBlur={() => {
-              const next = String(symbol || "")
-                .trim()
-                .toUpperCase();
-              if (!next) return;
-              ensureCatalog?.(next);
-              setSymbol(next);
-              persistTradeSettings(trades, lotSize, next);
-            }}
+            placeholder={detectingSymbol ? "Detecting from chart…" : "Upload a chart to auto-fill"}
           />
-          <datalist id="cs-symbol-options">
-            {symbols.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
         </label>
 
         <label className="cs-field">
@@ -496,9 +480,15 @@ export default function ChartScanner() {
         className="cs-run-btn"
         type="button"
         onClick={runScanAndTrade}
-        disabled={busy || !preview || scansLeft <= 0}
+        disabled={busy || detectingSymbol || !preview || !symbol || scansLeft <= 0}
       >
-        {busy ? "Trading engine running…" : "Scan & Open Trades"}
+        {busy
+          ? "Trading engine running…"
+          : detectingSymbol
+            ? "Detecting symbol…"
+            : !symbol
+              ? "Waiting for scanner symbol…"
+              : "Scan & Open Trades"}
       </button>
 
       {signal && !engineActive ? (
