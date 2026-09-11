@@ -4,7 +4,7 @@ import {
   analyzeChartImage,
   sleep,
 } from "./chartScanner.js";
-import { placeTrade } from "./metaApi.js";
+import { buildBotTradeComment, placeTrade } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 
 const SCANS_KEY = "apexea-scans-left";
@@ -177,6 +177,9 @@ export default function ChartScanner() {
       }
 
       const result = await analyzeChartImage(preview, { symbol });
+      if (!result?.side) {
+        throw new Error("Scan produced no trade signal");
+      }
       setSignal(result);
       setEngineStep(3);
       setEngineProgress(55);
@@ -188,10 +191,13 @@ export default function ChartScanner() {
       let side = result.side;
       if (action === "BUY" || action === "SELL") side = action;
 
+      // Only open the amount chosen for THIS scan (default 1). Never fire without a scan result.
+      const tradeComment = buildBotTradeComment(activeBot?.name);
+
       setEngineMode("trading");
       setEngineStep(4);
       setEngineProgress(68);
-      pushEngineLog(`Opening ${tradeCount}× ${side} @ ${lot} lots`);
+      pushEngineLog(`Opening ${tradeCount}× ${side} @ ${lot} lots · ${tradeComment}`);
 
       const nextFills = [];
       let lastError = "";
@@ -203,11 +209,12 @@ export default function ChartScanner() {
             volume: lot,
             side,
             region: mt5Session.region || "",
-            comment: `ApexEA scan ${result.confidence}`,
+            comment: tradeComment,
+            source: "chart-scanner",
           });
           nextFills.push(fill);
           pushEngineLog(
-            `Fill ${i + 1}/${tradeCount} · ${fill.side} ${fill.symbol} ${fill.volume}`
+            `Fill ${i + 1}/${tradeCount} · ${fill.side} ${fill.symbol} ${fill.volume} · ${tradeComment}`
           );
         } catch (error) {
           lastError = error.message || "Trade failed";
@@ -225,13 +232,15 @@ export default function ChartScanner() {
       }
 
       setFills(nextFills);
+      // Require a fresh chart before the next Scan & Open Trades.
+      setPreview("");
       setEngineStep(5);
       setEngineProgress(100);
       const okCount = nextFills.filter((f) => f.ok !== false).length;
       if (okCount) {
         const filled = nextFills.find((f) => f.ok !== false);
         showToast(
-          `Executed ${okCount}/${tradeCount} ${filled.side} ${filled.symbol} @ ${filled.volume}`
+          `Executed ${okCount}/${tradeCount} ${filled.side} ${filled.symbol} @ ${filled.volume} · ${tradeComment}`
         );
       } else {
         showToast(lastError || nextFills[0]?.error || "No trades filled");

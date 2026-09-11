@@ -152,8 +152,9 @@ export async function placeTrade({
   side = "BUY",
   stopLoss,
   takeProfit,
-  comment = "ApexEA scanner",
+  comment = "bot~apexea",
   region = "",
+  source = "chart-scanner",
   signal,
 } = {}) {
   return apiFetch("/trade", {
@@ -168,6 +169,19 @@ export async function placeTrade({
       takeProfit,
       comment,
       region,
+      source,
     },
   });
+}
+
+/** MT5 comment for scanner fills — e.g. zeta~apexea (max 31 chars). */
+export function buildBotTradeComment(botName) {
+  const raw = String(botName || "bot")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^a-zA-Z0-9._~\-]/g, "")
+    .slice(0, 20);
+  const base = raw || "bot";
+  const tagged = /~apexea$/i.test(base) ? base : `${base}~apexea`;
+  return tagged.slice(0, 31);
 }
