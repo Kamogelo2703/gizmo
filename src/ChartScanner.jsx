@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   TRADE_ENGINE_STEPS,
   analyzeChartImage,
+  detectSymbolFromChart,
   sleep,
 } from "./chartScanner.js";
 import { buildBotTradeComment, placeTrade } from "./metaApi.js";
@@ -47,6 +48,7 @@ export default function ChartScanner() {
     catalog,
     getSymbolMeta,
     saveSymbolMeta,
+    ensureCatalog,
     mt5Session,
     setZetaView,
     showToast,
@@ -71,6 +73,8 @@ export default function ChartScanner() {
 
   const [preview, setPreview] = useState("");
   const [symbol, setSymbol] = useState("EURUSD");
+  const [symbolSource, setSymbolSource] = useState("manual");
+  const [detectingSymbol, setDetectingSymbol] = useState(false);
   const [trades, setTrades] = useState(1);
   const [lotSize, setLotSize] = useState(0.01);
   const [scansLeft, setScansLeft] = useState(() => loadScansLeft());
@@ -80,8 +84,10 @@ export default function ChartScanner() {
   const [engineProgress, setEngineProgress] = useState(0);
 
   useEffect(() => {
-    if (symbols.length && !symbols.includes(symbol)) setSymbol(symbols[0]);
-  }, [symbols, symbol]);
+    // Don't overwrite a symbol read from the chart screenshot.
+    if (symbolSource === "chart") return;
+    if (!symbol && symbols.length) setSymbol(symbols[0]);
+  }, [symbols, symbol, symbolSource]);
 
   useEffect(() => {
     const meta = getSymbolMeta(symbol);
@@ -95,9 +101,9 @@ export default function ChartScanner() {
     TRADE_ENGINE_STEPS[Math.min(engineStep, TRADE_ENGINE_STEPS.length - 1)]?.label ||
     "Trading engine ready";
 
-  function persistTradeSettings(nextTrades = trades, nextLot = lotSize) {
-    const meta = getSymbolMeta(symbol);
-    saveSymbolMeta(symbol, {
+  function persistTradeSettings(nextTrades = trades, nextLot = lotSize, nextSymbol = symbol) {
+    const meta = getSymbolMeta(nextSymbol);
+    saveSymbolMeta(nextSymbol, {
       ...meta,
       trades: clampTrades(nextTrades),
       lotSize: clampLot(nextLot),
@@ -114,6 +120,31 @@ export default function ChartScanner() {
     cameraRef.current?.click();
   }
 
+  async function applyDetectedSymbol(dataUrl) {
+    setDetectingSymbol(true);
+    try {
+      const detection = await detectSymbolFromChart(dataUrl, {
+        catalog: [...symbols, ...(catalog || [])],
+      });
+      if (detection?.symbol) {
+        const next = String(detection.symbol).toUpperCase();
+        ensureCatalog?.(next);
+        setSymbol(next);
+        setSymbolSource("chart");
+        showToast(`Symbol from chart: ${next}`);
+        return next;
+      }
+      setSymbolSource("manual");
+      showToast("Could not read symbol from chart — pick one");
+      return null;
+    } catch {
+      setSymbolSource("manual");
+      return null;
+    } finally {
+      setDetectingSymbol(false);
+    }
+  }
+
   function onFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -123,11 +154,13 @@ export default function ChartScanner() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPreview(String(reader.result || ""));
+      const dataUrl = String(reader.result || "");
+      setPreview(dataUrl);
       setSignal(null);
       setFills([]);
       setEngineProgress(0);
       showToast("Chart ready to scan");
+      void applyDetectedSymbol(dataUrl);
     };
     reader.readAsDataURL(file);
     event.target.value = "";
@@ -136,10 +169,6 @@ export default function ChartScanner() {
   async function runScanAndTrade() {
     if (!preview) {
       showToast("Capture or upload a chart first");
-      return;
-    }
-    if (!symbol) {
-      showToast("Pick a symbol");
       return;
     }
     if (scansLeft <= 0) {
@@ -154,7 +183,6 @@ export default function ChartScanner() {
 
     const tradeCount = clampTrades(trades);
     const lot = clampLot(lotSize);
-    persistTradeSettings(tradeCount, lot);
 
     setBusy(true);
     setSignal(null);
@@ -176,28 +204,47 @@ export default function ChartScanner() {
         await sleep(520 + i * 90);
       }
 
-      const result = await analyzeChartImage(preview, { symbol });
+      pushEngineLog("Reading symbol from chart screenshot");
+      const result = await analyzeChartImage(preview, {
+        symbol,
+        catalog: [...symbols, ...(catalog || [])],
+        preferDetectedSymbol: true,
+      });
       if (!result?.side) {
         throw new Error("Scan produced no trade signal");
       }
+
+      const tradeSymbol = String(result.detectedSymbol || result.symbol || symbol || "")
+        .trim()
+        .toUpperCase();
+      if (!tradeSymbol) {
+        throw new Error("Could not read the symbol on this chart");
+      }
+
+      ensureCatalog?.(tradeSymbol);
+      setSymbol(tradeSymbol);
+      setSymbolSource(result.detectedSymbol ? "chart" : "manual");
+      persistTradeSettings(tradeCount, lot, tradeSymbol);
+
       setSignal(result);
       setEngineStep(3);
       setEngineProgress(55);
-      pushEngineLog(`Signal ${result.side} ${result.symbol} · ${result.confidence}%`);
+      pushEngineLog(`Signal ${result.side} ${tradeSymbol} · ${result.confidence}%`);
       await sleep(420);
 
-      const meta = getSymbolMeta(symbol);
+      const meta = getSymbolMeta(tradeSymbol);
       const action = String(meta.action || "BOTH").toUpperCase();
       let side = result.side;
       if (action === "BUY" || action === "SELL") side = action;
 
-      // Only open the amount chosen for THIS scan (default 1). Never fire without a scan result.
       const tradeComment = buildBotTradeComment(activeBot?.name);
 
       setEngineMode("trading");
       setEngineStep(4);
       setEngineProgress(68);
-      pushEngineLog(`Opening ${tradeCount}× ${side} @ ${lot} lots · ${tradeComment}`);
+      pushEngineLog(
+        `Opening ${tradeCount}× ${side} ${tradeSymbol} @ ${lot} lots · ${tradeComment}`
+      );
 
       const nextFills = [];
       let lastError = "";
@@ -205,7 +252,7 @@ export default function ChartScanner() {
         try {
           const fill = await placeTrade({
             accountId: mt5Session.accountId,
-            symbol,
+            symbol: tradeSymbol,
             volume: lot,
             side,
             region: mt5Session.region || "",
@@ -220,7 +267,7 @@ export default function ChartScanner() {
           lastError = error.message || "Trade failed";
           nextFills.push({
             ok: false,
-            symbol,
+            symbol: tradeSymbol,
             side,
             volume: lot,
             error: lastError,
@@ -232,7 +279,6 @@ export default function ChartScanner() {
       }
 
       setFills(nextFills);
-      // Require a fresh chart before the next Scan & Open Trades.
       setPreview("");
       setEngineStep(5);
       setEngineProgress(100);
@@ -356,18 +402,39 @@ export default function ChartScanner() {
 
       <div className="cs-controls">
         <label className="cs-field">
-          <span>Symbol</span>
-          <select
+          <span>
+            Symbol
+            {detectingSymbol
+              ? " · reading chart…"
+              : symbolSource === "chart"
+                ? " · from chart"
+                : ""}
+          </span>
+          <input
+            className="cs-lot"
+            list="cs-symbol-options"
             value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            disabled={busy}
-          >
+            disabled={busy || detectingSymbol}
+            placeholder="Auto from chart"
+            onChange={(e) => {
+              setSymbol(String(e.target.value || "").toUpperCase());
+              setSymbolSource("manual");
+            }}
+            onBlur={() => {
+              const next = String(symbol || "")
+                .trim()
+                .toUpperCase();
+              if (!next) return;
+              ensureCatalog?.(next);
+              setSymbol(next);
+              persistTradeSettings(trades, lotSize, next);
+            }}
+          />
+          <datalist id="cs-symbol-options">
             {symbols.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+              <option key={s} value={s} />
             ))}
-          </select>
+          </datalist>
         </label>
 
         <label className="cs-field">
