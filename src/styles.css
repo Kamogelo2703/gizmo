@@ -3657,6 +3657,19 @@ button {
   font-weight: 700;
 }
 
+.cs-field.is-from-scanner .cs-symbol-auto {
+  border-color: rgba(255, 45, 122, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 45, 122, 0.2);
+  color: #fff;
+}
+
+.cs-symbol-auto::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .cs-stepper {
   display: grid;
   grid-template-columns: 36px 1fr 36px;
