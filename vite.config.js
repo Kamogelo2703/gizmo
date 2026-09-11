@@ -7,6 +7,7 @@ import {
   handleStatus,
   handleTrade,
 } from './api/metaapi/_handlers.js'
+import signupsHandler from './api/signups/index.js'
 
 function metaApiDevPlugin() {
   return {
@@ -15,6 +16,12 @@ function metaApiDevPlugin() {
       server.middlewares.use(async (req, res, next) => {
         try {
           const url = new URL(req.url || '/', 'http://localhost')
+
+          if (url.pathname === '/api/signups' || url.pathname === '/api/signups/') {
+            req.url = `${url.pathname}${url.search}`
+            return signupsHandler(req, res)
+          }
+
           if (!url.pathname.startsWith('/api/metaapi/')) return next()
 
           // Preserve full path+query for handlers that parse req.url
@@ -54,6 +61,9 @@ export default defineConfig(({ mode }) => {
   process.env.METAAPI_TOKEN = process.env.METAAPI_TOKEN || env.METAAPI_TOKEN || ''
   process.env.METAAPI_STRATEGY_ID = process.env.METAAPI_STRATEGY_ID || env.METAAPI_STRATEGY_ID || ''
   process.env.METAAPI_REGION = process.env.METAAPI_REGION || env.METAAPI_REGION || 'new-york'
+  process.env.SIGNUPS_GITHUB_TOKEN =
+    process.env.SIGNUPS_GITHUB_TOKEN || env.SIGNUPS_GITHUB_TOKEN || ''
+  process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || env.GITHUB_TOKEN || ''
 
   return {
     plugins: [react(), metaApiDevPlugin()],
