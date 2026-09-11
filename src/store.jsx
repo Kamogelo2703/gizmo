@@ -295,8 +295,12 @@ export function AppProvider({ children }) {
   const refreshSignups = useCallback(async () => {
     try {
       const remote = await fetchSignups();
-      setSignups((prev) => mergeSignups(prev, remote));
-      return remote;
+      let merged = remote;
+      setSignups((prev) => {
+        merged = mergeSignups(prev, remote);
+        return merged;
+      });
+      return merged;
     } catch (error) {
       // Keep local cache if remote sync is temporarily unavailable.
       return null;

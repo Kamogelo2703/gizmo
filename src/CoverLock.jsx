@@ -65,8 +65,13 @@ export default function CoverLock() {
   }
 
   async function checkStatus() {
-    await refreshSignups?.();
-    const current = getSignup(coverEmail || email);
+    const key = String(coverEmail || email || "")
+      .trim()
+      .toLowerCase();
+    const merged = await refreshSignups?.();
+    const current =
+      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
+      getSignup(key);
     if (!current) {
       setLockStep("cover");
       showToast("Submit your email first");

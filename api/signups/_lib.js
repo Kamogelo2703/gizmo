@@ -26,7 +26,7 @@ function requireToken() {
   return token;
 }
 
-async function ghFetch(url, { method = "GET", body, token, auth = true } = {}) {
+async function ghFetch(url, { method = "GET", body, token, auth = true, cache } = {}) {
   const headers = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -38,6 +38,7 @@ async function ghFetch(url, { method = "GET", body, token, auth = true } = {}) {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    ...(cache ? { cache } : {}),
   });
   const text = await response.text();
   let data = null;
@@ -81,33 +82,12 @@ function decodeContent(file) {
 }
 
 async function readStore() {
-  // Prefer public raw for reads (no auth / lower rate-limit pressure)
-  try {
-    const rawUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${FILE_PATH}?t=${Date.now()}`;
-    const response = await fetch(rawUrl, { headers: { Accept: "application/json" } });
-    if (response.ok) {
-      const parsed = await response.json();
-      const signups = Array.isArray(parsed?.signups) ? parsed.signups : [];
-      // Still need sha for writes
-      const meta = await ghFetch(
-        `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`
-      );
-      return {
-        sha: meta.sha,
-        signups: signups
-          .map((s) => ({
-            email: normalizeEmail(s.email),
-            status: String(s.status || "pending").toLowerCase(),
-            createdAt: Number(s.createdAt) || Date.now(),
-          }))
-          .filter((s) => s.email && s.email.includes("@")),
-      };
-    }
-  } catch {
-    // fall through
-  }
-
-  const file = await ghFetch(`${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`);
+  // Always read via Contents API — raw.githubusercontent.com is CDN-cached and
+  // can keep returning "pending" long after an approval commit lands on main.
+  const file = await ghFetch(
+    `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
+    { cache: "no-store" }
+  );
   return decodeContent(file);
 }
 
