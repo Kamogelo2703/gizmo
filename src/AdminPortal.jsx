@@ -41,7 +41,10 @@ export default function AdminPortal() {
   const [draftSymbols, setDraftSymbols] = useState([]);
   const [customSymbol, setCustomSymbol] = useState("");
   const [licenseBotId, setLicenseBotId] = useState("");
+  const [licenseClientName, setLicenseClientName] = useState("");
+  const [licenseClientEmail, setLicenseClientEmail] = useState("");
   const [latestKey, setLatestKey] = useState("");
+  const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
 
   const pending = useMemo(
     () => signups.filter((s) => s.status === "pending").sort((a, b) => b.createdAt - a.createdAt),
@@ -593,19 +596,57 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Generate License Key</h2>
             <p className="admin-sub">
-              Create a license key that works on any phone. Keys sync to the shared store
-              automatically — generate once, activate on the client device.
+              Enter the client name and email with the bot. The key syncs to that email so they
+              can activate on any phone after approval.
             </p>
             <div className="admin-card">
               <form
                 className="license-form"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  const key = await generateLicense(licenseBotId);
-                  if (key) setLatestKey(key);
+                  const key = await generateLicense(licenseBotId, {
+                    clientName: licenseClientName,
+                    clientEmail: licenseClientEmail,
+                  });
+                  if (key) {
+                    setLatestKey(key);
+                    setLatestLicenseMeta({
+                      name: licenseClientName.trim(),
+                      email: String(licenseClientEmail || "")
+                        .trim()
+                        .toLowerCase(),
+                    });
+                  }
                   await refreshLicenses?.();
                 }}
               >
+                <label className="ea-field">
+                  <span>Client name *</span>
+                  <input
+                    className="admin-input"
+                    value={licenseClientName}
+                    onChange={(e) => setLicenseClientName(e.target.value)}
+                    placeholder="e.g. Mukundi"
+                    required
+                  />
+                </label>
+                <label className="ea-field">
+                  <span>Client email *</span>
+                  <input
+                    className="admin-input"
+                    type="email"
+                    list="license-client-emails"
+                    value={licenseClientEmail}
+                    onChange={(e) => setLicenseClientEmail(e.target.value)}
+                    placeholder="client@email.com"
+                    required
+                  />
+                  <datalist id="license-client-emails">
+                    {[...approved, ...pending].map((s) => (
+                      <option key={s.email} value={s.email} />
+                    ))}
+                  </datalist>
+                </label>
                 <label className="ea-field">
                   <span>Bot</span>
                   <select
@@ -636,6 +677,11 @@ export default function AdminPortal() {
                 <div className="license-result">
                   <p>Latest key</p>
                   <code>{latestKey}</code>
+                  {latestLicenseMeta ? (
+                    <p className="ea-hint" style={{ marginTop: 8 }}>
+                      Bound to {latestLicenseMeta.name} · {latestLicenseMeta.email}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -654,7 +700,9 @@ export default function AdminPortal() {
                   >
                     <strong>{entry.key}</strong>
                     <span>
-                      {entry.botName} · {entry.used ? "Used" : "Available"}
+                      {entry.clientName ? `${entry.clientName} · ` : ""}
+                      {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
+                      {entry.used ? "Used" : "Available"}
                     </span>
                   </div>
                 ))
