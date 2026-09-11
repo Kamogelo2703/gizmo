@@ -23,6 +23,11 @@ import {
   normalizeLicenseKey,
   licenseKeyVariants,
 } from "./licensesApi.js";
+import {
+  DEFAULT_APP_COLOR,
+  applyAppTheme,
+  normalizeHexColor,
+} from "./theme.js";
 
 const STORAGE_KEY = "apexea-app-v1";
 const BACKUP_KEY = "apexea-app-v1-backup";
@@ -124,6 +129,7 @@ function loadState() {
           : primary?.licenseKeys || [],
         catalog: backup.catalog?.length ? backup.catalog : primary?.catalog,
         symbolMeta: backup.symbolMeta || primary?.symbolMeta || {},
+        appColor: primary?.appColor || backup.appColor || DEFAULT_APP_COLOR,
         coverEmail: primary?.coverEmail || backup.coverEmail || "",
         signups: primary?.signups?.length ? primary.signups : backup.signups || [],
         activeInterface: primary?.activeInterface || backup.activeInterface || "zeta",
@@ -181,6 +187,7 @@ const defaultState = {
   licenseKeys: [],
   catalog: [...DEFAULT_SYMBOLS],
   symbolMeta: {},
+  appColor: DEFAULT_APP_COLOR,
   toast: "",
 };
 
@@ -200,6 +207,9 @@ export function AppProvider({ children }) {
     saved?.catalog?.length ? saved.catalog : [...DEFAULT_SYMBOLS]
   );
   const [symbolMeta, setSymbolMeta] = useState(saved?.symbolMeta || {});
+  const [appColor, setAppColorState] = useState(
+    normalizeHexColor(saved?.appColor || DEFAULT_APP_COLOR)
+  );
   const [toast, setToast] = useState("");
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminPage, setAdminPage] = useState("dashboard");
@@ -235,6 +245,20 @@ export function AppProvider({ children }) {
   const showToast = useCallback((message) => setToast(message), []);
 
   useEffect(() => {
+    applyAppTheme(appColor);
+  }, [appColor]);
+
+  const setAppColor = useCallback(
+    (next) => {
+      const color = normalizeHexColor(next);
+      setAppColorState(color);
+      applyAppTheme(color);
+      showToast(`App color updated`);
+    },
+    [showToast]
+  );
+
+  useEffect(() => {
     // Skip the first run so Strict Mode remounts cannot blank a prior save
     // before React state finishes hydrating from localStorage.
     if (!persistReady.current) {
@@ -251,6 +275,7 @@ export function AppProvider({ children }) {
       licenseKeys,
       catalog,
       symbolMeta,
+      appColor,
     };
 
     try {
@@ -272,6 +297,7 @@ export function AppProvider({ children }) {
     licenseKeys,
     catalog,
     symbolMeta,
+    appColor,
     showToast,
   ]);
 
@@ -879,6 +905,8 @@ export function AppProvider({ children }) {
     removeSymbolEverywhere,
     normalizeSymbol,
     normalizeEmail,
+    appColor,
+    setAppColor,
     toast,
     showToast,
     adminOpen,
