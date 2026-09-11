@@ -8,6 +8,7 @@ async function apiFetch(path = "", { method = "GET", body } = {}) {
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
   });
   const text = await response.text();
   let data = null;
