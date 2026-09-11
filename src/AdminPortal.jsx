@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { STRATEGY_LABELS, useApp } from "./store.jsx";
+import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
 
 function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
@@ -31,6 +32,8 @@ export default function AdminPortal() {
     ensureCatalog,
     normalizeSymbol,
     showToast,
+    appColor,
+    setAppColor,
   } = useApp();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -711,16 +714,80 @@ export default function AdminPortal() {
           </section>
         )}
 
-        {["mentors", "top-mentors", "emails", "settings"].includes(adminPage) && (
+        {adminPage === "settings" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Settings</h2>
+            <p className="admin-sub">
+              Change the app accent color. Buttons, highlights, and scanner accents update live.
+            </p>
+            <div className="admin-card">
+              <div className="admin-card-title-row">
+                <h3>App color</h3>
+                <span className="admin-badge">{appColor || DEFAULT_APP_COLOR}</span>
+              </div>
+              <div className="app-color-preview" style={{ ["--preview-color"]: appColor }}>
+                <div className="app-color-preview-orb" aria-hidden="true" />
+                <div>
+                  <strong>Live preview</strong>
+                  <p className="ea-hint">This color drives the app theme on home, lock, and scanner.</p>
+                </div>
+              </div>
+              <label className="ea-field" style={{ marginTop: 14 }}>
+                <span>Custom color</span>
+                <div className="app-color-picker-row">
+                  <input
+                    className="app-color-swatch"
+                    type="color"
+                    value={appColor || DEFAULT_APP_COLOR}
+                    onChange={(e) => setAppColor(e.target.value)}
+                    aria-label="Choose app color"
+                  />
+                  <input
+                    className="admin-input"
+                    type="text"
+                    value={appColor || DEFAULT_APP_COLOR}
+                    onChange={(e) => setAppColor(e.target.value)}
+                    placeholder="#ff2d7a"
+                  />
+                  <button
+                    className="admin-btn admin-btn-outline"
+                    type="button"
+                    onClick={() => setAppColor(DEFAULT_APP_COLOR)}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </label>
+              <div className="app-color-presets" role="list">
+                {APP_COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="listitem"
+                    className={`app-color-preset${
+                      String(appColor).toLowerCase() === preset.color ? " is-active" : ""
+                    }`}
+                    style={{ ["--swatch"]: preset.color }}
+                    onClick={() => setAppColor(preset.color)}
+                    title={preset.label}
+                  >
+                    <span className="app-color-preset-dot" aria-hidden="true" />
+                    <span>{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {["mentors", "top-mentors", "emails"].includes(adminPage) && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">
               {adminPage === "mentors"
                 ? "Mentor Management"
                 : adminPage === "top-mentors"
                   ? "Top Mentors"
-                  : adminPage === "emails"
-                    ? "Email Management"
-                    : "Settings"}
+                  : "Email Management"}
             </h2>
             <p className="admin-sub">Starts empty — new data appears as clients sign up.</p>
             <div className="admin-card">
