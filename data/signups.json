@@ -1,6 +1,11 @@
 {
   "signups": [
     {
+      "email": "mukundimukhuba8@gmail.com",
+      "status": "pending",
+      "createdAt": 1789113235905
+    },
+    {
       "email": "trapgoatkaymow@gmail.com",
       "status": "approved",
       "createdAt": 1789112000000
