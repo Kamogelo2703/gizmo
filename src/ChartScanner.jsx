@@ -121,9 +121,10 @@ export default function ChartScanner() {
 
       setEngineMode("trading");
       setEngineStep(4);
-      pushEngineLog(`Routing ${count}× ${side} ${symbol} @ ${lot} lots`);
+      pushEngineLog(`Routing ${count}× ${side} ${symbol} @ ${lot}+ lots (broker min applied)`);
 
       const nextFills = [];
+      let lastError = "";
       for (let i = 0; i < count; i += 1) {
         try {
           const fill = await placeTrade({
@@ -135,16 +136,19 @@ export default function ChartScanner() {
             comment: `ApexEA scan ${result.confidence}`,
           });
           nextFills.push(fill);
-          pushEngineLog(`Fill ${i + 1}/${count} · ${side} ${symbol}`);
+          pushEngineLog(
+            `Fill ${i + 1}/${count} · ${fill.side} ${fill.symbol} ${fill.volume}`
+          );
         } catch (error) {
+          lastError = error.message || "Trade failed";
           nextFills.push({
             ok: false,
             symbol,
             side,
             volume: lot,
-            error: error.message || "Trade failed",
+            error: lastError,
           });
-          pushEngineLog(`Order ${i + 1} failed · ${error.message || "rejected"}`);
+          pushEngineLog(`Order ${i + 1} failed · ${lastError}`);
         }
         await sleep(350);
       }
@@ -153,11 +157,14 @@ export default function ChartScanner() {
       setEngineStep(5);
       const okCount = nextFills.filter((f) => f.ok !== false).length;
       if (okCount) {
-        showToast(`Executed ${okCount}/${count} ${side} ${symbol} on MT5`);
+        const filled = nextFills.find((f) => f.ok !== false);
+        showToast(
+          `Executed ${okCount}/${count} ${filled.side} ${filled.symbol} @ ${filled.volume}`
+        );
       } else {
-        showToast(nextFills[0]?.error || "No trades filled");
+        showToast(lastError || nextFills[0]?.error || "No trades filled");
       }
-      await sleep(900);
+      await sleep(1200);
       setEngineMode("idle");
     } catch (error) {
       setEngineMode("idle");
@@ -257,10 +264,17 @@ export default function ChartScanner() {
             <strong>
               {signal.side} {signal.symbol}
             </strong>
-            <span>{signal.confidence}% · {signal.reasons?.[0]}</span>
+            <span>
+              {signal.confidence}% · {signal.reasons?.[0]}
+            </span>
             {fills.length ? (
               <span>
                 {fills.filter((f) => f.ok !== false).length}/{fills.length} orders sent
+                {fills.some((f) => f.ok === false)
+                  ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
+                  : fills[0]?.symbol
+                    ? ` · ${fills[0].symbol} ${fills[0].volume}`
+                    : ""}
               </span>
             ) : null}
           </div>

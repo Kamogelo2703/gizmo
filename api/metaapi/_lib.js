@@ -345,24 +345,44 @@ export async function connectTradingAccount({
   const mtPlatform = String(platform).toUpperCase() === "MT4" ? "mt4" : "mt5";
   const keywords = [company, userServer].map((v) => String(v || "").trim()).filter(Boolean);
 
-  const created = await createAccountWithRetry({
-    login: userLogin,
-    password: userPassword,
-    name: `${company || userServer} ${userLogin}`.trim(),
-    server: userServer,
-    platform: mtPlatform,
-    magic: 0,
-    manualTrades: true,
-    type: "cloud-g2",
-    copyFactoryRoles: ["SUBSCRIBER"],
-    copyFactoryResourceSlots: 1,
-    resourceSlots: 1,
-    metastatsApiEnabled: false,
-    riskManagementApiEnabled: false,
-    ...(keywords.length ? { keywords } : {}),
-  });
+  // Reuse an already-provisioned account for this login/server (avoids E_AUTH on reconnect).
+  const existing = await findExistingAccount({ login: userLogin, server: userServer });
+  let accountId = accountIdOf(existing);
+  let created = existing;
 
-  const accountId = accountIdOf(created);
+  if (!accountId) {
+    try {
+      created = await createAccountWithRetry({
+        login: userLogin,
+        password: userPassword,
+        name: `${company || userServer} ${userLogin}`.trim(),
+        server: userServer,
+        platform: mtPlatform,
+        magic: 0,
+        manualTrades: true,
+        type: "cloud-g2",
+        copyFactoryRoles: ["SUBSCRIBER"],
+        copyFactoryResourceSlots: 1,
+        resourceSlots: 1,
+        metastatsApiEnabled: false,
+        riskManagementApiEnabled: false,
+        ...(keywords.length ? { keywords } : {}),
+      });
+      accountId = accountIdOf(created);
+    } catch (error) {
+      const details = error?.data?.details;
+      const code = details?.code || details || error?.data?.error;
+      if (code === "E_AUTH" || details === "E_AUTH") {
+        const again = await findExistingAccount({ login: userLogin, server: userServer });
+        accountId = accountIdOf(again);
+        created = again;
+        if (!accountId) throw error;
+      } else {
+        throw error;
+      }
+    }
+  }
+
   if (!accountId) throw new Error("MetaAPI did not return an account id");
 
   const { account, pending } = await waitUntilConnected(accountId, { timeoutMs: 40000 });
@@ -441,6 +461,129 @@ function clientApiBase(region) {
   return template.replace("{region}", r);
 }
 
+async function resolveAccountRegion(accountId, preferred) {
+  if (preferred) return preferred;
+  try {
+    const account = await getAccount(accountId);
+    return accountRegion(account) || process.env.METAAPI_REGION || "new-york";
+  } catch {
+    return process.env.METAAPI_REGION || "new-york";
+  }
+}
+
+export async function listAccountSymbols(accountId, { region, token } = {}) {
+  const resolvedRegion = await resolveAccountRegion(accountId, region);
+  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(accountId)}/symbols`;
+  const { data } = await metaFetch(url, { token });
+  return { region: resolvedRegion, symbols: Array.isArray(data) ? data : [] };
+}
+
+export async function getSymbolSpecification(accountId, symbol, { region, token } = {}) {
+  const resolvedRegion = await resolveAccountRegion(accountId, region);
+  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(accountId)}/symbols/${encodeURIComponent(symbol)}/specification`;
+  const { data } = await metaFetch(url, { token });
+  return { region: resolvedRegion, spec: data };
+}
+
+function candidateSymbols(symbol) {
+  const raw = String(symbol || "").trim();
+  if (!raw) return [];
+  const upper = raw.toUpperCase();
+  const base = upper.replace(/\.MIC$/i, "").replace(/^\./, "");
+  const out = [];
+  const push = (v) => {
+    if (v && !out.includes(v)) out.push(v);
+  };
+  push(upper);
+  push(`${base}.mic`);
+  push(`.${base}.mic`);
+  push(base);
+  push(`${base}.r`);
+  push(`${base}.i`);
+  push(`${base}m`);
+  return out;
+}
+
+export async function resolveTradeableSymbol(accountId, symbol, { region, token } = {}) {
+  const resolvedRegion = await resolveAccountRegion(accountId, region);
+  const { symbols } = await listAccountSymbols(accountId, { region: resolvedRegion, token });
+  const symbolSet = new Set(symbols);
+  const candidates = candidateSymbols(symbol).filter((s) => symbolSet.has(s));
+  if (!candidates.length) {
+    const err = new Error(
+      `Symbol ${String(symbol || "").toUpperCase()} not found on this MT5 account`
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  let bestDisabled = null;
+  for (const candidate of candidates) {
+    try {
+      const { spec } = await getSymbolSpecification(accountId, candidate, {
+        region: resolvedRegion,
+        token,
+      });
+      const mode = String(spec?.tradeMode || "");
+      const disabled = mode === "SYMBOL_TRADE_MODE_DISABLED";
+      const enabled =
+        !disabled &&
+        (mode === "SYMBOL_TRADE_MODE_FULL" ||
+          mode === "SYMBOL_TRADE_MODE_LONGONLY" ||
+          mode === "SYMBOL_TRADE_MODE_SHORTONLY" ||
+          mode === "");
+      const entry = {
+        symbol: candidate,
+        tradeMode: mode || "UNKNOWN",
+        minVolume: Number(spec?.minVolume) || 0.01,
+        volumeStep: Number(spec?.volumeStep) || 0.01,
+        maxVolume: Number(spec?.maxVolume) || 100,
+        fillingModes: Array.isArray(spec?.fillingModes) ? spec.fillingModes : [],
+        enabled,
+      };
+      if (entry.enabled) return { region: resolvedRegion, ...entry };
+      if (!bestDisabled) bestDisabled = entry;
+    } catch {
+      // try next candidate
+    }
+  }
+
+  if (bestDisabled) {
+    const err = new Error(
+      `Trade disabled for ${bestDisabled.symbol}. Try ${String(symbol || "").toUpperCase()}.mic (Razor min lot often 0.1).`
+    );
+    err.status = 400;
+    err.data = bestDisabled;
+    throw err;
+  }
+
+  const err = new Error(`No tradeable symbol match for ${symbol}`);
+  err.status = 400;
+  throw err;
+}
+
+function normalizeVolume(volume, { minVolume, volumeStep, maxVolume }) {
+  let vol = Number(volume);
+  if (!Number.isFinite(vol) || vol <= 0) vol = minVolume;
+  if (vol < minVolume) vol = minVolume;
+  if (vol > maxVolume) vol = maxVolume;
+  const step = volumeStep > 0 ? volumeStep : 0.01;
+  const steps = Math.round(vol / step);
+  vol = Number((steps * step).toFixed(8));
+  if (vol < minVolume) vol = minVolume;
+  return vol;
+}
+
+function isTradeSuccess(result) {
+  if (!result || typeof result !== "object") return false;
+  const code = String(result.stringCode || "");
+  return (
+    code === "TRADE_RETCODE_DONE" ||
+    code === "TRADE_RETCODE_DONE_PARTIAL" ||
+    Number(result.numericCode) === 10009
+  );
+}
+
 export async function placeMarketTrade({
   accountId,
   symbol,
@@ -453,40 +596,20 @@ export async function placeMarketTrade({
   token,
 } = {}) {
   const id = String(accountId || "").trim();
-  const sym = String(symbol || "").trim().toUpperCase();
-  const vol = Number(volume);
   if (!id) {
     const err = new Error("accountId is required");
     err.status = 400;
     throw err;
   }
-  if (!sym) {
-    const err = new Error("symbol is required");
-    err.status = 400;
-    throw err;
-  }
-  if (!Number.isFinite(vol) || vol <= 0) {
-    const err = new Error("volume must be greater than 0");
-    err.status = 400;
-    throw err;
-  }
 
-  let resolvedRegion = region;
-  if (!resolvedRegion) {
-    try {
-      const account = await getAccount(id);
-      resolvedRegion = accountRegion(account);
-    } catch {
-      resolvedRegion = process.env.METAAPI_REGION || "new-york";
-    }
-  }
-
+  const resolved = await resolveTradeableSymbol(id, symbol, { region, token });
+  const vol = normalizeVolume(volume, resolved);
   const actionType =
     String(side).toUpperCase() === "SELL" ? "ORDER_TYPE_SELL" : "ORDER_TYPE_BUY";
 
   const body = {
     actionType,
-    symbol: sym,
+    symbol: resolved.symbol,
     volume: vol,
     comment: String(comment || "ApexEA scanner").slice(0, 31),
   };
@@ -497,17 +620,45 @@ export async function placeMarketTrade({
     body.takeProfit = Number(takeProfit);
   }
 
-  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(id)}/trade`;
+  const url = `${clientApiBase(resolved.region)}/users/current/accounts/${encodeURIComponent(id)}/trade`;
   const { data } = await metaFetch(url, { method: "POST", body, token });
+
+  if (!isTradeSuccess(data)) {
+    const message =
+      (data && (data.message || data.stringCode)) ||
+      `Trade rejected for ${resolved.symbol}`;
+    const err = new Error(message);
+    err.status = 400;
+    err.data = data;
+    throw err;
+  }
+
   return {
     ok: true,
     accountId: id,
-    symbol: sym,
+    requestedSymbol: String(symbol || "").toUpperCase(),
+    symbol: resolved.symbol,
     volume: vol,
     side: actionType === "ORDER_TYPE_SELL" ? "SELL" : "BUY",
-    region: resolvedRegion,
+    region: resolved.region,
+    minVolume: resolved.minVolume,
     result: data,
   };
+}
+
+export async function findExistingAccount({ login, server } = {}) {
+  const userLogin = String(login || "").trim();
+  const userServer = String(server || "").trim();
+  if (!userLogin || !userServer) return null;
+  const { data } = await metaFetch(`${PROVISIONING_BASE}/users/current/accounts`);
+  const list = Array.isArray(data) ? data : [];
+  return (
+    list.find(
+      (account) =>
+        String(account.login || "") === userLogin &&
+        String(account.server || "").toLowerCase() === userServer.toLowerCase()
+    ) || null
+  );
 }
 
 export function sendJson(res, status, payload) {
