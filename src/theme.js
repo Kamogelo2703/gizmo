@@ -71,11 +71,12 @@ export function deriveAppTheme(baseColor = DEFAULT_APP_COLOR) {
   return {
     pink,
     pinkHot: darken(pink, 0.08),
-    magenta: mix(pink, "#ff00aa", 0.25),
+    magenta: mix(pink, lighten(pink, 0.12), 0.45),
     pinkSoft: lighten(pink, 0.16),
     pinkDeep: darken(pink, 0.28),
     pinkDark: darken(pink, 0.55),
-    glow: mix(darken(pink, 0.72), "#12000a", 0.35),
+    // Keep ambient wash in the chosen hue (do not blend toward a pink-black).
+    glow: darken(pink, 0.78),
   };
 }
 
