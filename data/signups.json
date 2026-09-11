@@ -2,7 +2,7 @@
   "signups": [
     {
       "email": "trapgoatkaymow@gmail.com",
-      "status": "pending",
+      "status": "approved",
       "createdAt": 1789112000000
     }
   ]
