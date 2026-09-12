@@ -161,6 +161,11 @@ export default function AdminPortal() {
     writeAdminSession(null);
     setAdminSession(null);
     setDrawerOpen(false);
+    setAdminPage("dashboard");
+    // Stay on /admin so the mentor sign-in/register screen shows — do not close admin.
+    if (typeof window !== "undefined" && !window.location.pathname.includes("/admin")) {
+      window.history.pushState({ apexAdmin: true }, "", "/admin");
+    }
     showToast("Signed out");
   }
 
@@ -363,7 +368,7 @@ export default function AdminPortal() {
         </nav>
         <div className="admin-drawer-footer">
           <button className="admin-nav-item admin-logout" type="button" onClick={logoutAdmin}>
-            <span>Sign out</span>
+            <span>Logout</span>
           </button>
         </div>
       </aside>
@@ -875,6 +880,24 @@ export default function AdminPortal() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="admin-card admin-logout-card">
+              <div className="admin-card-title-row">
+                <h3>Account</h3>
+                <span className="admin-badge">{adminSession.email}</span>
+              </div>
+              <p className="ea-hint">
+                Signed in as {adminSession.username || "mentor"}. Logout returns to the mentor
+                sign-in page and keeps you on /admin.
+              </p>
+              <button
+                className="admin-btn admin-btn-danger admin-btn-block admin-settings-logout"
+                type="button"
+                onClick={logoutAdmin}
+              >
+                Logout
+              </button>
             </div>
           </section>
         )}
