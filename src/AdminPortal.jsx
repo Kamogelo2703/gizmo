@@ -13,8 +13,12 @@ function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
   if (!photo) return false;
   if (photo === "/logo.png") return false;
-  // Uploaded images are stored as data URLs (or remote URLs if ever used).
-  return photo.startsWith("data:image/") || /^https?:\/\//i.test(photo);
+  // Data URLs (just picked), synced API paths, or remote URLs.
+  return (
+    photo.startsWith("data:image/") ||
+    photo.startsWith("/api/licenses/photo") ||
+    /^https?:\/\//i.test(photo)
+  );
 }
 
 function readAdminSession() {
@@ -316,7 +320,7 @@ export default function AdminPortal() {
     event.target.value = "";
   }
 
-  function submitEa(event) {
+  async function submitEa(event) {
     event.preventDefault();
     let symbols = [...draftSymbols];
     if (customSymbol.trim()) {
@@ -339,7 +343,7 @@ export default function AdminPortal() {
       showToast("Add at least one symbol");
       return;
     }
-    upsertEa({
+    const ok = await upsertEa({
       id: editingEaId || undefined,
       name: name.trim(),
       strategy,
@@ -348,6 +352,7 @@ export default function AdminPortal() {
       ownerEmail: adminSession?.email || "",
       ownerId: adminSession?.id || "",
     });
+    if (!ok) return;
     resetForm();
     setAdminPage("manage-ea");
   }
