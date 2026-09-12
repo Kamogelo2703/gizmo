@@ -22,6 +22,7 @@ import {
   markLicenseUsedRemote,
   normalizeLicenseKey,
   licenseKeyVariants,
+  uploadBotPhotoRemote,
 } from "./licensesApi.js";
 import {
   DEFAULT_APP_COLOR,
@@ -425,6 +426,29 @@ export function AppProvider({ children }) {
     try {
       const remote = await fetchLicenses();
       setLicenseKeys((prev) => mergeLicenses(prev, remote));
+
+      // Mentor photo updates sync live onto local EAs/bots (same idea as theme color).
+      const photoByBotId = new Map();
+      remote.forEach((row) => {
+        const id = String(row.botId || row.bot?.id || "").trim();
+        const photo = String(row.bot?.photo || "").trim();
+        if (!id || !photo || photo === "/logo.png") return;
+        photoByBotId.set(id, photo);
+      });
+      if (photoByBotId.size) {
+        setEas((prev) =>
+          prev.map((ea) => {
+            const nextPhoto = photoByBotId.get(ea.id);
+            return nextPhoto && nextPhoto !== ea.photo ? { ...ea, photo: nextPhoto } : ea;
+          })
+        );
+        setBots((prev) =>
+          prev.map((bot) => {
+            const nextPhoto = photoByBotId.get(bot.id);
+            return nextPhoto && nextPhoto !== bot.photo ? { ...bot, photo: nextPhoto } : bot;
+          })
+        );
+      }
       return remote;
     } catch {
       return null;
@@ -449,7 +473,8 @@ export function AppProvider({ children }) {
             bot: entry.bot
               ? {
                   ...entry.bot,
-                  photo: photo.startsWith("data:") ? "/logo.png" : photo || "/logo.png",
+                  // Keep data URLs so the API can persist them; keep API photo paths as-is.
+                  photo: photo || "/logo.png",
                 }
               : undefined,
           });
@@ -565,12 +590,14 @@ export function AppProvider({ children }) {
   }, [hasActiveBot, resolveLockStep]);
 
   const upsertEa = useCallback(
-    ({ id, name, strategy, photo, symbols, ownerEmail = "", ownerId = "" }) => {
+    async ({ id, name, strategy, photo, symbols, ownerEmail = "", ownerId = "" }) => {
       const cleanSymbols = symbols.map(normalizeSymbol).filter(Boolean);
       cleanSymbols.forEach(ensureCatalog);
-      const photoValue = String(photo || "").trim();
+      let photoValue = String(photo || "").trim();
       const hasProfilePhoto =
-        photoValue.startsWith("data:image/") || /^https?:\/\//i.test(photoValue);
+        photoValue.startsWith("data:image/") ||
+        photoValue.startsWith("/api/licenses/photo") ||
+        /^https?:\/\//i.test(photoValue);
       if (!hasProfilePhoto) {
         showToast("Upload a profile picture before creating the bot");
         return null;
@@ -581,6 +608,20 @@ export function AppProvider({ children }) {
           .toLowerCase(),
         ownerId: String(ownerId || "").trim(),
       };
+      const botId =
+        id ||
+        `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+
+      // Upload gallery/camera data URLs so every client can load the mentor picture.
+      if (photoValue.startsWith("data:image/")) {
+        try {
+          photoValue = await uploadBotPhotoRemote(botId, photoValue);
+        } catch (error) {
+          showToast(error.message || "Could not sync bot picture");
+          return null;
+        }
+      }
+
       if (id) {
         setEas((prev) =>
           prev.map((ea) =>
@@ -602,12 +643,28 @@ export function AppProvider({ children }) {
             bot.id === id ? { ...bot, name, photo: photoValue, active: true } : bot
           )
         );
+        // Keep unused/used license snapshots on this device pointed at the new picture.
+        setLicenseKeys((prev) =>
+          prev.map((row) => {
+            const rowBotId = String(row.botId || row.bot?.id || "").trim();
+            if (rowBotId !== id) return row;
+            return {
+              ...row,
+              botName: name || row.botName,
+              bot: {
+                ...(row.bot || { id, name, strategy: "scalper", symbols: [] }),
+                id,
+                name: name || row.bot?.name || row.botName || "Bot",
+                photo: photoValue,
+              },
+            };
+          })
+        );
         showToast(`${name} profile updated`);
       } else {
-        const newId = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
         setEas((prev) => [
           {
-            id: newId,
+            id: botId,
             name,
             strategy,
             photo: photoValue,
@@ -619,7 +676,7 @@ export function AppProvider({ children }) {
         setBots((prev) => [
           ...prev.map((b) => ({ ...b, selected: false })),
           {
-            id: newId,
+            id: botId,
             name,
             photo: photoValue,
             active: true,
@@ -732,10 +789,7 @@ export function AppProvider({ children }) {
         bot: {
           id: bot.id,
           name: bot.name,
-          photo:
-            String(bot.photo || ea?.photo || "").startsWith("data:")
-              ? "/logo.png"
-              : bot.photo || ea?.photo || "/logo.png",
+          photo: bot.photo || ea?.photo || "/logo.png",
           strategy: ea?.strategy || "scalper",
           symbols: Array.isArray(ea?.symbols) ? ea.symbols : [],
         },
@@ -758,12 +812,26 @@ export function AppProvider({ children }) {
           ...entry,
           bot: {
             ...entry.bot,
-            photo: String(entry.bot.photo || "").startsWith("data:")
-              ? "/logo.png"
-              : entry.bot.photo,
+            // Send real photo (data URL or API path). API persists data URLs.
+            photo: entry.bot.photo || "/logo.png",
           },
         });
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        if (remote) {
+          setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+          const syncedPhoto = remote.bot?.photo;
+          if (syncedPhoto && syncedPhoto !== "/logo.png") {
+            setEas((prev) =>
+              prev.map((item) =>
+                item.id === bot.id ? { ...item, photo: syncedPhoto } : item
+              )
+            );
+            setBots((prev) =>
+              prev.map((item) =>
+                item.id === bot.id ? { ...item, photo: syncedPhoto } : item
+              )
+            );
+          }
+        }
         showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {

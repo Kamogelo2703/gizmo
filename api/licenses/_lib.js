@@ -87,6 +87,126 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
+function safePhotoId(botId) {
+  return (
+    String(botId || "bot")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "bot"
+  );
+}
+
+function parseDataImage(dataUrl) {
+  const raw = String(dataUrl || "");
+  const match = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return null;
+  return { mime: match[1], base64: match[2] };
+}
+
+export function botPhotoApiPath(botId, version = Date.now()) {
+  const id = safePhotoId(botId);
+  return `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=${encodeURIComponent(version)}`;
+}
+
+/** Upload a data-URL bot photo to GitHub and return a stable API path for clients. */
+export async function persistBotPhoto(botId, photo) {
+  const value = String(photo || "").trim();
+  if (!value) return "/logo.png";
+  if (value === "/logo.png") return value;
+  if (value.startsWith("/api/licenses/photo")) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const parsed = parseDataImage(value);
+  if (!parsed) return "/logo.png";
+
+  const id = safePhotoId(botId);
+  const ext = parsed.mime.includes("png") ? "png" : "jpg";
+  const filePath = `data/ea-photos/${id}.${ext}`;
+  const token = requireToken();
+
+  let sha = null;
+  try {
+    const existing = await ghFetch(
+      `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
+      { token, cache: "no-store" }
+    );
+    sha = existing?.sha || null;
+  } catch (error) {
+    if (error.status !== 404) {
+      console.warn("ea photo lookup failed", error.message);
+    }
+  }
+
+  try {
+    await ghFetch(`${API}/contents/${filePath}`, {
+      method: "PUT",
+      token,
+      body: {
+        message: `chore: sync EA photo ${id}`,
+        content: parsed.base64,
+        branch: BRANCH,
+        ...(sha ? { sha } : {}),
+      },
+    });
+    return botPhotoApiPath(id);
+  } catch (error) {
+    console.warn("ea photo upload failed", error.message);
+    return "/logo.png";
+  }
+}
+
+export async function readBotPhoto(botId) {
+  const id = safePhotoId(botId);
+  for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+    const filePath = `data/ea-photos/${id}.${ext}`;
+    try {
+      const file = await ghFetch(
+        `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
+        { cache: "no-store" }
+      );
+      const base64 = String(file.content || "").replace(/\n/g, "");
+      if (!base64) continue;
+      const mime =
+        ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      return { mime, buffer: Buffer.from(base64, "base64") };
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+  }
+  return null;
+}
+
+/** Rewrite bot.photo on every license that belongs to this EA. */
+export async function syncBotPhotoToLicenses(botId, photoPath) {
+  const id = String(botId || "").trim();
+  const photo = String(photoPath || "").trim();
+  if (!id || !photo) return [];
+
+  let updated = [];
+  await mutateStore((licenses) => {
+    updated = [];
+    return licenses.map((row) => {
+      const rowBotId = String(row.botId || row.bot?.id || "").trim();
+      if (rowBotId !== id) return row;
+      const next = {
+        ...row,
+        botName: row.botName || row.bot?.name || "Bot",
+        bot: {
+          ...(row.bot || { id, name: row.botName || "Bot", strategy: "scalper", symbols: [] }),
+          id,
+          photo,
+        },
+      };
+      updated.push(next);
+      return next;
+    });
+  }, `ea photo sync: ${id}`);
+
+  return updated;
+}
+
 function normalizeLicense(row) {
   const key = normalizeLicenseKey(row?.key);
   if (!key) return null;
@@ -227,10 +347,13 @@ export async function createLicense(payload = {}) {
     throw err;
   }
 
+  const rawPhoto = String(payload.bot?.photo || payload.photo || "/logo.png").trim();
+  const photo = await persistBotPhoto(botId, rawPhoto);
+
   const bot = {
     id: botId,
     name: botName,
-    photo: String(payload.bot?.photo || payload.photo || "/logo.png"),
+    photo,
     strategy: String(payload.bot?.strategy || payload.strategy || "scalper"),
     symbols: Array.isArray(payload.bot?.symbols)
       ? payload.bot.symbols
@@ -243,11 +366,26 @@ export async function createLicense(payload = {}) {
   await mutateStore((licenses) => {
     const existing = licenses.find((row) => row.key === key);
     if (existing) {
+      const prevBot = existing.bot || null;
+      const prevPhoto = String(prevBot?.photo || "");
+      const shouldReplacePhoto =
+        Boolean(bot?.photo) &&
+        bot.photo !== "/logo.png" &&
+        (prevPhoto === "/logo.png" ||
+          !prevPhoto ||
+          prevPhoto.startsWith("data:") ||
+          prevPhoto.startsWith("/api/licenses/photo"));
       result = {
         ...existing,
         clientEmail: existing.clientEmail || clientEmail,
         clientName: existing.clientName || clientName,
-        bot: existing.bot || bot,
+        bot: prevBot
+          ? {
+              ...prevBot,
+              ...bot,
+              photo: shouldReplacePhoto ? bot.photo : prevBot.photo || bot.photo,
+            }
+          : bot,
       };
       const idx = licenses.findIndex((row) => row.key === key);
       licenses[idx] = result;
