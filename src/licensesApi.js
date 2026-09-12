@@ -70,6 +70,10 @@ export function normalizeLicense(row) {
     botName: String(row?.botName || bot?.name || "Bot").trim() || "Bot",
     clientEmail,
     clientName,
+    mentorEmail: String(row?.mentorEmail || row?.ownerEmail || "")
+      .trim()
+      .toLowerCase(),
+    mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,

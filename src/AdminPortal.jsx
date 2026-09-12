@@ -135,8 +135,8 @@ export default function AdminPortal() {
   }, [editingEaId, eas]);
 
   useEffect(() => {
-    if (!licenseBotId && bots[0]) setLicenseBotId(bots[0].id);
-  }, [bots, licenseBotId]);
+    if (!licenseBotId && eas[0]) setLicenseBotId(eas[0].id);
+  }, [eas, licenseBotId]);
 
   useEffect(() => {
     if (!adminOpen) return undefined;
@@ -177,6 +177,22 @@ export default function AdminPortal() {
       showToast(error.message || "Could not refresh mentors");
     }
   }
+
+  useEffect(() => {
+    if (!adminSession) return;
+    const isSuper =
+      String(adminSession.role || "").toLowerCase() === "superadmin";
+    const mentorPages = new Set([
+      "dashboard",
+      "manage-ea",
+      "licenses",
+      "profile",
+      "settings",
+    ]);
+    if (!isSuper && !mentorPages.has(adminPage)) {
+      setAdminPage("dashboard");
+    }
+  }, [adminSession, adminPage, setAdminPage]);
 
   if (!adminOpen) return null;
 
@@ -329,6 +345,8 @@ export default function AdminPortal() {
       strategy,
       photo,
       symbols,
+      ownerEmail: adminSession?.email || "",
+      ownerId: adminSession?.id || "",
     });
     resetForm();
     setAdminPage("manage-ea");
@@ -340,17 +358,61 @@ export default function AdminPortal() {
     showToast(`Editing ${ea.name}`);
   }
 
-  const nav = [
-    ["dashboard", "Dashboard"],
-    ["mentors", "Mentors"],
-    ["clients", "Clients"],
-    ["top-mentors", "Top Mentors"],
-    ["activate", "Activate Accounts"],
-    ["emails", "Send Emails"],
-    ["manage-ea", "Manage EA"],
-    ["licenses", "License Keys"],
-    ["settings", "Settings"],
-  ];
+  const isSuperAdmin =
+    String(adminSession?.role || "").toLowerCase() === "superadmin";
+  const mentorEmail = String(adminSession?.email || "")
+    .trim()
+    .toLowerCase();
+  const mentorId = String(adminSession?.id || "").trim();
+
+  const myEas = isSuperAdmin
+    ? eas
+    : eas.filter((ea) => {
+        const owner = String(ea.ownerEmail || "").toLowerCase();
+        const ownerId = String(ea.ownerId || "");
+        return owner === mentorEmail || (mentorId && ownerId === mentorId);
+      });
+
+  const eaIds = new Set(myEas.map((ea) => ea.id));
+  const myLicenses = isSuperAdmin
+    ? licenseKeys
+    : licenseKeys.filter((row) => {
+        const owner = String(row.mentorEmail || "").toLowerCase();
+        const ownerId = String(row.mentorId || "");
+        if (owner === mentorEmail || (mentorId && ownerId === mentorId)) return true;
+        return eaIds.has(row.botId);
+      });
+
+  const usedKeys = myLicenses.filter((k) => k.used);
+  const availableKeys = myLicenses.filter((k) => !k.used);
+  const activeBotIds = new Set(bots.filter((b) => b.active).map((b) => b.id));
+  const activeKeys = myLicenses.filter((k) => k.used && activeBotIds.has(k.botId));
+  const deactivatedKeys = myLicenses.filter(
+    (k) => k.used && !activeBotIds.has(k.botId)
+  );
+  const recentKeys = [...myLicenses]
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 8);
+
+  const nav = isSuperAdmin
+    ? [
+        ["dashboard", "Dashboard"],
+        ["mentors", "Mentors"],
+        ["clients", "Clients"],
+        ["top-mentors", "Top Mentors"],
+        ["activate", "Activate Accounts"],
+        ["emails", "Send Emails"],
+        ["manage-ea", "Manage EAs"],
+        ["licenses", "License Keys"],
+        ["settings", "Settings"],
+      ]
+    : [
+        ["dashboard", "Dashboard"],
+        ["manage-ea", "Manage EAs"],
+        ["licenses", "License Keys"],
+        ["profile", "Profile"],
+        ["settings", "Settings"],
+      ];
 
   return (
     <div className="admin-portal">
@@ -363,7 +425,7 @@ export default function AdminPortal() {
         >
           ☰
         </button>
-        <h1 className="admin-topbar-title">Admin Portal</h1>
+        <h1 className="admin-topbar-title">{isSuperAdmin ? "Admin Portal" : "Mentor Portal"}</h1>
         <span className="admin-topbar-spacer" aria-hidden="true" />
       </header>
 
@@ -405,26 +467,81 @@ export default function AdminPortal() {
       <div className="admin-content">
         {adminPage === "dashboard" && (
           <section className="admin-page is-active">
-            <h2 className="admin-h1">Admin Dashboard</h2>
-            <p className="admin-sub">Manage mentors and system settings</p>
-            <div className="admin-stat-stack">
-              <article className="admin-stat-card">
-                <p className="admin-stat-label">Total Mentors</p>
-                <p className="admin-stat-value">{mentors.length}</p>
-              </article>
-              <article className="admin-stat-card">
-                <p className="admin-stat-label">Pending Approval</p>
-                <p className="admin-stat-value is-warn">{pendingMentors.length}</p>
-              </article>
-              <article className="admin-stat-card">
-                <p className="admin-stat-label">Approved Mentors</p>
-                <p className="admin-stat-value is-ok">{approvedMentors.length}</p>
-              </article>
-            </div>
+            {isSuperAdmin ? (
+              <>
+                <h2 className="admin-h1">Admin Dashboard</h2>
+                <p className="admin-sub">Manage mentors and system settings</p>
+                <div className="admin-stat-stack">
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Total Mentors</p>
+                    <p className="admin-stat-value">{mentors.length}</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Pending Approval</p>
+                    <p className="admin-stat-value is-warn">{pendingMentors.length}</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Approved Mentors</p>
+                    <p className="admin-stat-value is-ok">{approvedMentors.length}</p>
+                  </article>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="admin-h1">Dashboard</h2>
+                <p className="admin-sub">
+                  Your EAs, license keys, and live activations.
+                </p>
+                <div className="admin-stat-stack">
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Used license keys</p>
+                    <p className="admin-stat-value">{usedKeys.length}</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Available</p>
+                    <p className="admin-stat-value is-ok">{availableKeys.length}</p>
+                    <p className="admin-card-meta">Unlimited generation</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Active</p>
+                    <p className="admin-stat-value is-ok">{activeKeys.length}</p>
+                    <p className="admin-card-meta">Keys working on connected bots</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Deactivated license keys</p>
+                    <p className="admin-stat-value is-warn">{deactivatedKeys.length}</p>
+                  </article>
+                  <article className="admin-stat-card">
+                    <p className="admin-stat-label">Total EAs</p>
+                    <p className="admin-stat-value">{myEas.length}</p>
+                  </article>
+                </div>
+                <div className="admin-card" style={{ marginTop: 14 }}>
+                  <div className="admin-card-title-row">
+                    <h3 className="admin-card-title">Recent keys</h3>
+                    <span className="admin-badge">{recentKeys.length}</span>
+                  </div>
+                  {recentKeys.length === 0 ? (
+                    <p className="admin-empty">No license keys yet</p>
+                  ) : (
+                    recentKeys.map((entry) => (
+                      <div className="license-row" key={`${entry.key}-${entry.createdAt}`}>
+                        <strong>{entry.key}</strong>
+                        <span>
+                          {entry.clientName ? `${entry.clientName} · ` : ""}
+                          {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
+                          {entry.used ? "Used" : "Available"}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </section>
         )}
 
-        {adminPage === "clients" && (
+        {isSuperAdmin && adminPage === "clients" && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">Client Management</h2>
             <p className="admin-sub">Manage client access and payment bypasses</p>
@@ -464,7 +581,7 @@ export default function AdminPortal() {
           </section>
         )}
 
-        {adminPage === "activate" && (
+        {isSuperAdmin && adminPage === "activate" && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">Activate Accounts</h2>
             <p className="admin-sub">
@@ -678,13 +795,13 @@ export default function AdminPortal() {
             <div className="admin-card">
               <div className="admin-card-title-row">
                 <h3>Your EAs</h3>
-                <span className="admin-badge">{eas.length}</span>
+                <span className="admin-badge">{myEas.length}</span>
               </div>
               <div className="ea-list">
-                {eas.length === 0 ? (
+                {myEas.length === 0 ? (
                   <p className="admin-empty">No EAs yet — create one above</p>
                 ) : (
-                  eas.map((ea) => {
+                  myEas.map((ea) => {
                     const bot = bots.find((b) => b.id === ea.id);
                     const isLive = Boolean(bot?.active);
                     return (
@@ -743,6 +860,8 @@ export default function AdminPortal() {
                   const key = await generateLicense(licenseBotId, {
                     clientName: licenseClientName,
                     clientEmail: licenseClientEmail,
+                    mentorEmail: adminSession.email,
+                    mentorId: adminSession.id,
                   });
                   if (key) {
                     setLatestKey(key);
@@ -791,15 +910,14 @@ export default function AdminPortal() {
                     onChange={(e) => setLicenseBotId(e.target.value)}
                     required
                   >
-                    {bots.length === 0 ? (
+                    {myEas.length === 0 ? (
                       <option value="" disabled>
-                        No bots yet
+                        No EAs yet
                       </option>
                     ) : (
-                      bots.map((b) => (
+                      myEas.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
-                          {b.active ? "" : " (removed)"}
                         </option>
                       ))
                     )}
@@ -824,12 +942,12 @@ export default function AdminPortal() {
             <div className="admin-card" style={{ marginTop: 14 }}>
               <div className="admin-card-title-row">
                 <h3>Generated keys</h3>
-                <span className="admin-badge">{licenseKeys.length}</span>
+                <span className="admin-badge">{myLicenses.length}</span>
               </div>
-              {licenseKeys.length === 0 ? (
+              {myLicenses.length === 0 ? (
                 <p className="admin-empty">No license keys yet</p>
               ) : (
-                [...licenseKeys].reverse().map((entry) => (
+                [...myLicenses].reverse().map((entry) => (
                   <div
                     className={`license-row${entry.used ? " is-used" : ""}`}
                     key={`${entry.key}-${entry.createdAt}`}
@@ -843,6 +961,25 @@ export default function AdminPortal() {
                   </div>
                 ))
               )}
+            </div>
+          </section>
+        )}
+
+        
+        {adminPage === "profile" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Profile</h2>
+            <p className="admin-sub">Your mentor account details</p>
+            <div className="admin-card">
+              <div className="admin-card-title-row">
+                <h3>Account</h3>
+                <span className="admin-badge is-approved">{adminSession.status || "approved"}</span>
+              </div>
+              <p className="admin-card-meta"><strong>Username:</strong> {adminSession.username || "—"}</p>
+              <p className="admin-card-meta"><strong>Email:</strong> {adminSession.email}</p>
+              <p className="admin-card-meta"><strong>Role:</strong> Mentor</p>
+              <p className="admin-card-meta"><strong>EAs:</strong> {myEas.length}</p>
+              <p className="admin-card-meta"><strong>License keys:</strong> {myLicenses.length}</p>
             </div>
           </section>
         )}
@@ -931,7 +1068,7 @@ export default function AdminPortal() {
           </section>
         )}
 
-        {adminPage === "mentors" && (
+        {isSuperAdmin && adminPage === "mentors" && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">Mentor Management</h2>
             <p className="admin-sub">
@@ -1031,7 +1168,7 @@ export default function AdminPortal() {
           </section>
         )}
 
-        {["top-mentors", "emails"].includes(adminPage) && (
+        {isSuperAdmin && ["top-mentors", "emails"].includes(adminPage) && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">
               {adminPage === "top-mentors" ? "Top Mentors" : "Email Management"}

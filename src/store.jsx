@@ -154,6 +154,10 @@ function stripHeavyPhotos(payload) {
     ...payload,
     eas: (payload.eas || []).map((ea) => ({
       ...ea,
+      ownerEmail: String(ea.ownerEmail || ea.mentorEmail || "")
+        .trim()
+        .toLowerCase(),
+      ownerId: String(ea.ownerId || ea.mentorId || "").trim(),
       photo:
         typeof ea.photo === "string" && ea.photo.startsWith("data:")
           ? "/logo.png"
@@ -561,7 +565,7 @@ export function AppProvider({ children }) {
   }, [hasActiveBot, resolveLockStep]);
 
   const upsertEa = useCallback(
-    ({ id, name, strategy, photo, symbols }) => {
+    ({ id, name, strategy, photo, symbols, ownerEmail = "", ownerId = "" }) => {
       const cleanSymbols = symbols.map(normalizeSymbol).filter(Boolean);
       cleanSymbols.forEach(ensureCatalog);
       const photoValue = String(photo || "").trim();
@@ -571,11 +575,25 @@ export function AppProvider({ children }) {
         showToast("Upload a profile picture before creating the bot");
         return null;
       }
+      const owner = {
+        ownerEmail: String(ownerEmail || "")
+          .trim()
+          .toLowerCase(),
+        ownerId: String(ownerId || "").trim(),
+      };
       if (id) {
         setEas((prev) =>
           prev.map((ea) =>
             ea.id === id
-              ? { ...ea, name, strategy, photo: photoValue, symbols: cleanSymbols }
+              ? {
+                  ...ea,
+                  name,
+                  strategy,
+                  photo: photoValue,
+                  symbols: cleanSymbols,
+                  ownerEmail: owner.ownerEmail || ea.ownerEmail || "",
+                  ownerId: owner.ownerId || ea.ownerId || "",
+                }
               : ea
           )
         );
@@ -594,6 +612,7 @@ export function AppProvider({ children }) {
             strategy,
             photo: photoValue,
             symbols: cleanSymbols,
+            ...owner,
           },
           ...prev,
         ]);
@@ -672,7 +691,10 @@ export function AppProvider({ children }) {
   );
 
   const generateLicense = useCallback(
-    async (botId, { clientEmail = "", clientName = "" } = {}) => {
+    async (
+      botId,
+      { clientEmail = "", clientName = "", mentorEmail = "", mentorId = "" } = {}
+    ) => {
       const bot = bots.find((b) => b.id === botId);
       if (!bot) {
         showToast("Select a bot");
@@ -691,12 +713,19 @@ export function AppProvider({ children }) {
 
       const ea = eas.find((item) => item.id === botId);
       const key = randomLicenseKey();
+      const ownerEmail =
+        String(mentorEmail || ea?.ownerEmail || "")
+          .trim()
+          .toLowerCase() || "";
+      const ownerId = String(mentorId || ea?.ownerId || "").trim();
       const entry = {
         key,
         botId: bot.id,
         botName: bot.name,
         clientEmail: email,
         clientName: name,
+        mentorEmail: ownerEmail,
+        mentorId: ownerId,
         used: false,
         createdAt: Date.now(),
         usedAt: null,
