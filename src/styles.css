@@ -1713,6 +1713,12 @@ button {
   margin-top: 12px;
 }
 
+.admin-stat-card .admin-card-meta {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
 .admin-content {
   flex: 1;
   overflow: auto;
