@@ -29,22 +29,51 @@
   box-sizing: border-box;
 }
 
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   background:
     radial-gradient(1200px 800px at 50% -10%, var(--accent-glow) 0%, transparent 58%),
     linear-gradient(180deg, #050505 0%, #000 100%);
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Block horizontal touch pans on the document itself. */
+  touch-action: pan-y;
 }
 
 body {
   min-height: 100dvh;
   display: grid;
   place-items: center;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
+/* Stop the document from rubber-banding sideways while admin is open. */
+body:has(.phone.is-admin-open) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 button {
@@ -58,14 +87,30 @@ button {
 
 .phone {
   position: relative;
-  width: min(100vw, var(--shell-max));
+  /* Prefer 100% over 100vw — vw includes scrollbar gutters and causes side shift. */
+  width: min(100%, var(--shell-max));
+  max-width: 100%;
   min-height: 100dvh;
   height: auto;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   background: #000;
   display: flex;
   flex-direction: column;
   isolation: isolate;
+  /* Keep wide glow/beam effects inside the shell. */
+  contain: paint;
+}
+
+/* Admin fills the shell; scroll only inside admin content, not the whole page sideways. */
+.phone.is-admin-open {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 @media (min-width: 480px) {
@@ -81,6 +126,12 @@ button {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06),
       0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+
+  .phone.is-admin-open {
+    height: min(1100px, calc(100dvh - 40px));
+    max-height: min(1100px, calc(100dvh - 40px));
+    overflow: hidden;
   }
 }
 
@@ -191,11 +242,12 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-width: 100%;
+  overflow-x: clip;
   opacity: 1;
-  transform: translateX(0);
-  transition:
-    opacity 0.28s ease,
-    transform 0.28s ease;
+  /* Fade only — horizontal slide made the whole app feel like it swipes sideways. */
+  transform: none;
+  transition: opacity 0.22s ease;
 }
 
 .iface-layer[hidden] {
@@ -204,13 +256,11 @@ button {
 
 .iface-layer.is-leaving {
   opacity: 0;
-  transform: translateX(-18px);
   pointer-events: none;
 }
 
 .iface-layer.is-entering {
   opacity: 0;
-  transform: translateX(18px);
 }
 
 .phone[data-interface="v2"] {
@@ -243,8 +293,12 @@ button {
   flex-direction: column;
   justify-content: space-between;
   padding: 20px 20px 28px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   gap: 28px;
+  max-width: 100%;
 }
 
 .hero {
@@ -677,7 +731,9 @@ button {
   position: relative;
   z-index: 1;
   max-height: min(88%, 820px);
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
   padding: 16px 18px calc(20px + var(--safe-bottom));
   border-radius: 28px 28px 0 0;
   background:
@@ -1074,7 +1130,9 @@ button {
   display: flex;
   flex-direction: column;
   padding: 18px 16px 24px;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
 }
 
 .mt-panel {
@@ -1200,7 +1258,9 @@ button {
   flex-direction: column;
   gap: 8px;
   max-height: min(42vh, 360px);
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
   padding-right: 2px;
 }
 
@@ -1382,7 +1442,9 @@ button {
   display: flex;
   flex-direction: column;
   padding: 18px 14px 20px;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
 }
 
 /* Hide home ambient glow on scanner for cleaner look */
@@ -1408,6 +1470,9 @@ button {
   color: #111827;
   font-family: var(--font-body);
   overflow: hidden;
+  overscroll-behavior: contain;
+  /* Ensure flex children can shrink so .admin-content actually scrolls. */
+  min-height: 0;
 }
 
 .admin-portal-auth {
@@ -1418,11 +1483,15 @@ button {
 
 .admin-auth {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 20px calc(32px + var(--safe-bottom));
+  padding: 28px 20px calc(56px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1657,7 +1726,9 @@ button {
 
 .admin-nav {
   flex: 1;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
@@ -1721,9 +1792,20 @@ button {
 
 .admin-content {
   flex: 1;
-  overflow: auto;
-  padding: 18px 16px calc(24px + var(--safe-bottom));
+  min-height: 0; /* required for overflow scrolling inside a flex column */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 18px 16px calc(88px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
+}
+
+/* Extra room so the last card/button is never clipped under the home indicator. */
+.admin-content::after {
+  content: "";
+  display: block;
+  height: 28px;
 }
 
 .admin-page[hidden] {
@@ -2843,7 +2925,9 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
   padding: 8px 18px 18px;
   position: relative;
   z-index: 1;
