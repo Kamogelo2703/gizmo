@@ -672,8 +672,8 @@ export function AppProvider({ children }) {
         `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
       // Upload gallery/camera data URLs. If GitHub is down the API returns a data
-      // URL; if it returns only a photo path, keep the original bytes so license
-      // generation can still embed the picture for clients.
+      // URL; if upload fails entirely, still keep the local picture so licenses
+      // can embed it for clients.
       if (photoValue.startsWith("data:image/")) {
         const originalDataUrl = photoValue;
         try {
@@ -682,17 +682,14 @@ export function AppProvider({ children }) {
             photoValue = uploaded;
           } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
             photoValue = originalDataUrl;
-          } else if (
-            String(uploaded || "").startsWith("http") ||
-            String(uploaded || "").startsWith("/api/")
-          ) {
+          } else if (isRealProfilePhoto(uploaded)) {
             photoValue = uploaded;
           } else {
             photoValue = originalDataUrl;
           }
-        } catch (error) {
-          showToast(error.message || "Could not sync bot picture");
-          return null;
+        } catch {
+          photoValue = originalDataUrl;
+          showToast("Picture saved on this device — license keys will carry it");
         }
       }
 

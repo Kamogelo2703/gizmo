@@ -340,11 +340,10 @@ export default function AdminPortal() {
           showToast("Picture ready");
           return;
         }
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, max, max);
-        // Center-crop to a square so the circle avatar can fill edge-to-edge.
+        // Center-crop to a square with no letterboxing so object-fit:cover
+        // fills the circle edge-to-edge (no white bars).
         ctx.drawImage(img, sx, sy, side, side, 0, 0, max, max);
-        setPhoto(canvas.toDataURL("image/jpeg", 0.72));
+        setPhoto(canvas.toDataURL("image/jpeg", 0.82));
         setPhotoUploaded(true);
         showToast("Picture ready");
       };
@@ -849,7 +848,9 @@ export default function AdminPortal() {
                     const isLive = Boolean(bot?.active);
                     return (
                     <div className="ea-item" key={ea.id}>
-                      <img src={ea.photo || "/logo.png"} alt="" width="40" height="40" />
+                      <span className="ea-avatar">
+                        <img src={ea.photo || "/logo.png"} alt="" />
+                      </span>
                       <div className="ea-meta">
                         <strong>{ea.name}</strong>
                         <span>
