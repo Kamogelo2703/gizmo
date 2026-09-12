@@ -29,6 +29,52 @@
   box-sizing: border-box;
 }
 
+/* Whole app: never allow sideways page swipe / rubber-band. */
+html,
+body,
+#root,
+.phone {
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
+.phone,
+.stage,
+.v2-stage,
+.view,
+.view.is-active,
+.v2-view,
+.v2-view.is-active,
+.iface-layer,
+.pairs-sheet,
+.pairs-panel,
+.view-metatrader,
+.v2-view-metatrader,
+.admin-portal,
+.admin-content,
+.admin-nav,
+.admin-auth,
+.app-lock,
+.app-lock-content,
+.cover-step,
+.paypal-panel,
+.paypal-buttons,
+.cs-stage {
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
+.phone img,
+.phone video,
+.phone canvas,
+.phone iframe {
+  max-width: 100%;
+}
+
 html {
   width: 100%;
   max-width: 100%;
@@ -105,7 +151,8 @@ button {
 }
 
 .phone.is-locked {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
   overscroll-behavior: none;
   touch-action: pan-y;
 }
@@ -728,7 +775,11 @@ button {
   position: relative;
   z-index: 1;
   max-height: min(88%, 820px);
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   padding: 16px 18px calc(20px + var(--safe-bottom));
   border-radius: 28px 28px 0 0;
   background:
@@ -1125,7 +1176,11 @@ button {
   display: flex;
   flex-direction: column;
   padding: 18px 16px 24px;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 .mt-panel {
@@ -1251,7 +1306,11 @@ button {
   flex-direction: column;
   gap: 8px;
   max-height: min(42vh, 360px);
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   padding-right: 2px;
 }
 
@@ -1433,7 +1492,11 @@ button {
   display: flex;
   flex-direction: column;
   padding: 18px 14px 20px;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 /* Hide home ambient glow on scanner for cleaner look */
@@ -1455,6 +1518,10 @@ button {
   z-index: 60;
   display: flex;
   flex-direction: column;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   background: #f3f4f6;
   color: #111827;
   font-family: var(--font-body);
@@ -1469,7 +1536,11 @@ button {
 
 .admin-auth {
   flex: 1;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1708,7 +1779,11 @@ button {
 
 .admin-nav {
   flex: 1;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
@@ -1772,7 +1847,11 @@ button {
 
 .admin-content {
   flex: 1;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   padding: 18px 16px calc(24px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
 }
@@ -2949,6 +3028,10 @@ button {
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   animation: v2-fade 0.32s ease both;
 }
 
@@ -3720,6 +3803,11 @@ button {
 
 .cs-stage {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   border-radius: 24px;
   padding: 12px;
   background:
