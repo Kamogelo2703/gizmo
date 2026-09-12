@@ -212,6 +212,10 @@ export function AppProvider({ children }) {
   );
   const [coverEmail, setCoverEmail] = useState(saved?.coverEmail || "");
   const [signups, setSignups] = useState(saved?.signups || []);
+  const signupsRef = useRef(signups);
+  useEffect(() => {
+    signupsRef.current = signups;
+  }, [signups]);
   const [eas, setEas] = useState(saved?.eas || []);
   const [bots, setBots] = useState(saved?.bots || []);
   const [licenseKeys, setLicenseKeys] = useState(saved?.licenseKeys || []);
@@ -400,6 +404,19 @@ export function AppProvider({ children }) {
 
   const refreshSignups = useCallback(async () => {
     try {
+      // Re-push any local pending rows that never reached the shared store
+      // (e.g. earlier GitHub auth outages), so admin pending can catch up.
+      const localPending = (Array.isArray(signupsRef.current) ? signupsRef.current : []).filter(
+        (s) => s?.status === "pending" && s?.email
+      );
+      for (const row of localPending) {
+        try {
+          await submitSignup(row.email);
+        } catch {
+          // keep trying on the next refresh
+        }
+      }
+
       const remote = await fetchSignups();
       let merged = remote;
       setSignups((prev) => {
