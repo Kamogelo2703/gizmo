@@ -55,6 +55,7 @@ export default function AdminPortal() {
     refreshSignups,
     eas,
     upsertEa,
+    claimEaOwner,
     deleteEa,
     editingEaId,
     setEditingEaId,
@@ -365,13 +366,64 @@ export default function AdminPortal() {
     .toLowerCase();
   const mentorId = String(adminSession?.id || "").trim();
 
-  const myEas = isSuperAdmin
-    ? eas
-    : eas.filter((ea) => {
+  // License-linked bot ids for this mentor (keeps EAs visible after approval).
+  const mentorLicenseBotIds = useMemo(() => {
+    const ids = new Set();
+    for (const row of licenseKeys || []) {
+      const owner = String(row.mentorEmail || "").toLowerCase();
+      const ownerId = String(row.mentorId || "");
+      if (owner === mentorEmail || (mentorId && ownerId === mentorId)) {
+        const botId = String(row.botId || row.bot?.id || "").trim();
+        if (botId) ids.add(botId);
+      }
+    }
+    return ids;
+  }, [licenseKeys, mentorEmail, mentorId]);
+
+  const myEas = useMemo(() => {
+    if (isSuperAdmin) return eas;
+    return eas.filter((ea) => {
+      const owner = String(ea.ownerEmail || "").toLowerCase();
+      const ownerId = String(ea.ownerId || "");
+      if (owner === mentorEmail || (mentorId && ownerId === mentorId)) return true;
+      // Legacy EAs created before ownership fields — still show to the logged-in mentor.
+      if (!owner && !ownerId) return true;
+      // EAs this mentor already issued licenses for.
+      if (mentorLicenseBotIds.has(ea.id)) return true;
+      return false;
+    });
+  }, [eas, isSuperAdmin, mentorEmail, mentorId, mentorLicenseBotIds]);
+
+  // Claim unowned / license-linked EAs so they stop "vanishing" after mentor approval.
+  useEffect(() => {
+    if (!adminSession || isSuperAdmin || !mentorEmail) return;
+    const todo = eas.filter((ea) => {
+      const owner = String(ea.ownerEmail || "").toLowerCase();
+      const ownerId = String(ea.ownerId || "");
+      if (owner || ownerId) return false;
+      return true; // unowned
+    }).concat(
+      eas.filter((ea) => {
         const owner = String(ea.ownerEmail || "").toLowerCase();
-        const ownerId = String(ea.ownerId || "");
-        return owner === mentorEmail || (mentorId && ownerId === mentorId);
-      });
+        return !owner && mentorLicenseBotIds.has(ea.id);
+      })
+    );
+    // de-dupe
+    const seen = new Set();
+    for (const ea of todo) {
+      if (seen.has(ea.id)) continue;
+      seen.add(ea.id);
+      claimEaOwner(ea.id, mentorEmail, mentorId);
+    }
+  }, [
+    adminSession,
+    isSuperAdmin,
+    mentorEmail,
+    mentorId,
+    eas,
+    mentorLicenseBotIds,
+    claimEaOwner,
+  ]);
 
   const eaIds = new Set(myEas.map((ea) => ea.id));
   const myLicenses = isSuperAdmin
