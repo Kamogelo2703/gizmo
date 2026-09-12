@@ -1,6 +1,11 @@
 {
   "signups": [
     {
+      "email": "twenty67slam@icloud.com",
+      "status": "pending",
+      "createdAt": 1789213768916
+    },
+    {
       "email": "mukundimukhuba8@gmail.com",
       "status": "approved",
       "createdAt": 1789113235905
