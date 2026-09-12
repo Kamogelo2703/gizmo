@@ -161,12 +161,73 @@ function readLocalBotPhoto(id) {
   return null;
 }
 
-/** Upload a data-URL bot photo (GitHub + local fallback) and return a stable API path. */
+function dataUrlFromPhoto(photo) {
+  if (!photo?.buffer?.length) return null;
+  const mime = photo.mime || "image/jpeg";
+  return `data:${mime};base64,${photo.buffer.toString("base64")}`;
+}
+
+/** Cap embedded license photos so licenses.json stays usable. */
+function shrinkDataUrl(dataUrl, maxChars = 60_000) {
+  const value = String(dataUrl || "");
+  if (!value.startsWith("data:image/") || value.length <= maxChars) return value;
+  // Already over budget — keep a truncated marker so callers fall back cleanly.
+  return "/logo.png";
+}
+
+async function githubPhotoExists(botId) {
+  const id = safePhotoId(botId);
+  for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+    const filePath = `data/ea-photos/${id}.${ext}`;
+    try {
+      await ghFetch(`${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`, {
+        cache: "no-store",
+      });
+      return true;
+    } catch (error) {
+      if (error.status !== 404) return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve a photo value that works across devices.
+ * Prefer a durable API path when GitHub has the file; otherwise embed a data URL
+ * on the license so clients are not stuck with a 404 `/api/licenses/photo` link.
+ */
+export async function resolveEmbeddablePhoto(botId, photo) {
+  const value = String(photo || "").trim();
+  if (!value) return "/logo.png";
+  if (value === "/logo.png") return value;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  if (value.startsWith("data:image/")) {
+    return persistBotPhoto(botId, value);
+  }
+
+  if (value.startsWith("/api/licenses/photo")) {
+    if (await githubPhotoExists(botId)) return value;
+    const local = await readBotPhoto(botId);
+    const embedded = shrinkDataUrl(dataUrlFromPhoto(local));
+    return embedded || value;
+  }
+
+  return value;
+}
+
+/**
+ * Upload a data-URL bot photo (GitHub + local fallback).
+ * Returns an API path when GitHub has the bytes; otherwise returns the data URL
+ * so license payloads still carry the image across phones.
+ */
 export async function persistBotPhoto(botId, photo) {
   const value = String(photo || "").trim();
   if (!value) return "/logo.png";
   if (value === "/logo.png") return value;
-  if (value.startsWith("/api/licenses/photo")) return value;
+  if (value.startsWith("/api/licenses/photo")) {
+    return resolveEmbeddablePhoto(botId, value);
+  }
   if (/^https?:\/\//i.test(value)) return value;
 
   const parsed = parseDataImage(value);
@@ -203,12 +264,12 @@ export async function persistBotPhoto(botId, photo) {
         ...(sha ? { sha } : {}),
       },
     });
+    return botPhotoApiPath(id);
   } catch (error) {
     console.warn("ea photo upload failed", error.message);
-    // Local/memory copy already written — clients on this host can still load it.
+    // GitHub unavailable — embed the image so license activation still shows it.
+    return shrinkDataUrl(`data:${parsed.mime};base64,${parsed.base64}`) || "/logo.png";
   }
-
-  return botPhotoApiPath(id);
 }
 
 export async function readBotPhoto(botId) {
@@ -507,7 +568,8 @@ export async function createLicense(payload = {}) {
   }
 
   const rawPhoto = String(payload.bot?.photo || payload.photo || "/logo.png").trim();
-  const photo = await persistBotPhoto(botId, rawPhoto);
+  // Prefer an embeddable photo (data URL) when GitHub file storage is down.
+  const photo = await resolveEmbeddablePhoto(botId, rawPhoto);
 
   const bot = {
     id: botId,

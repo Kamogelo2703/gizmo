@@ -173,6 +173,14 @@ function pickProfilePhoto(...candidates) {
   return "/logo.png";
 }
 
+/** Keep modest data-URL avatars so profile photos survive reload without GitHub. */
+function persistablePhoto(value) {
+  const photo = String(value || "").trim();
+  if (!photo) return "/logo.png";
+  if (photo.startsWith("data:image/") && photo.length > 60_000) return "/logo.png";
+  return photo;
+}
+
 function stripHeavyPhotos(payload) {
   return {
     ...payload,
@@ -182,19 +190,46 @@ function stripHeavyPhotos(payload) {
         .trim()
         .toLowerCase(),
       ownerId: String(ea.ownerId || ea.mentorId || "").trim(),
-      photo:
-        typeof ea.photo === "string" && ea.photo.startsWith("data:")
-          ? "/logo.png"
-          : ea.photo || "/logo.png",
+      photo: persistablePhoto(ea.photo),
     })),
     bots: (payload.bots || []).map((bot) => ({
       ...bot,
-      photo:
-        typeof bot.photo === "string" && bot.photo.startsWith("data:")
-          ? "/logo.png"
-          : bot.photo || "/logo.png",
+      photo: persistablePhoto(bot.photo),
+    })),
+    licenseKeys: (payload.licenseKeys || []).map((row) => ({
+      ...row,
+      bot: row.bot
+        ? {
+            ...row.bot,
+            photo: persistablePhoto(row.bot.photo),
+          }
+        : row.bot,
     })),
   };
+}
+
+/** Turn an API photo URL into a data URL so the license JSON carries the image. */
+async function materializePhotoForLicense(photo) {
+  const value = String(photo || "").trim();
+  if (!value || value === "/logo.png") return "/logo.png";
+  if (value.startsWith("data:image/")) return value;
+  if (!value.startsWith("/api/licenses/photo") && !/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  try {
+    const response = await fetch(value, { cache: "no-store" });
+    if (!response.ok) return value;
+    const blob = await response.blob();
+    if (!blob || !String(blob.type || "").startsWith("image/")) return value;
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || value));
+      reader.onerror = () => resolve(value);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return value;
+  }
 }
 
 function saveState(payload) {
@@ -636,10 +671,25 @@ export function AppProvider({ children }) {
         id ||
         `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
-      // Upload gallery/camera data URLs so every client can load the mentor picture.
+      // Upload gallery/camera data URLs. If GitHub is down the API returns a data
+      // URL; if it returns only a photo path, keep the original bytes so license
+      // generation can still embed the picture for clients.
       if (photoValue.startsWith("data:image/")) {
+        const originalDataUrl = photoValue;
         try {
-          photoValue = await uploadBotPhotoRemote(botId, photoValue);
+          const uploaded = await uploadBotPhotoRemote(botId, photoValue);
+          if (String(uploaded || "").startsWith("data:image/")) {
+            photoValue = uploaded;
+          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
+            photoValue = originalDataUrl;
+          } else if (
+            String(uploaded || "").startsWith("http") ||
+            String(uploaded || "").startsWith("/api/")
+          ) {
+            photoValue = uploaded;
+          } else {
+            photoValue = originalDataUrl;
+          }
         } catch (error) {
           showToast(error.message || "Could not sync bot picture");
           return null;
@@ -799,13 +849,27 @@ export function AppProvider({ children }) {
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
 
+      // Always put real image bytes on the license (data URL) so the client app
+      // can show the profile even when GitHub photo files / API paths 404.
       let photo = String(bot.photo || ea?.photo || "/logo.png").trim() || "/logo.png";
+      const originalPhoto = photo;
       if (photo.startsWith("data:image/")) {
         try {
-          photo = await uploadBotPhotoRemote(bot.id, photo);
+          const uploaded = await uploadBotPhotoRemote(bot.id, photo);
+          // Prefer embedded data URL when upload falls back; keep original bytes
+          // if the API only returned a path that may not exist on other devices.
+          if (String(uploaded || "").startsWith("data:image/")) {
+            photo = uploaded;
+          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
+            photo = originalPhoto;
+          } else if (isRealProfilePhoto(uploaded)) {
+            photo = uploaded;
+          }
         } catch {
-          // createLicenseRemote/persistBotPhoto will still try below
+          // Keep the local data URL — createLicenseRemote will embed it.
         }
+      } else {
+        photo = await materializePhotoForLicense(photo);
       }
 
       const entry = {

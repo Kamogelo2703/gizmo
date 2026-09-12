@@ -116,11 +116,29 @@ export function mergeLicenses(localList = [], remoteList = []) {
           : null
         : row.usedAt || prev.usedAt || null,
       updatedAt: Math.max(prev.updatedAt || 0, row.updatedAt || 0),
-      bot: row.bot || prev.bot || null,
+      bot: preferLicenseBot(row.bot, prev.bot),
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),
     });
   });
   return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function photoRank(photo) {
+  const value = String(photo || "").trim();
+  if (!value || value === "/logo.png") return 0;
+  if (value.startsWith("data:image/")) return 3;
+  if (value.startsWith("/api/licenses/photo")) return 2;
+  if (/^https?:\/\//i.test(value)) return 2;
+  return 1;
+}
+
+function preferLicenseBot(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  const rankA = photoRank(a.photo);
+  const rankB = photoRank(b.photo);
+  if (rankA === rankB) return { ...b, ...a, photo: a.photo || b.photo };
+  return rankA > rankB ? { ...b, ...a, photo: a.photo } : { ...a, ...b, photo: b.photo };
 }
 
 export async function fetchLicenses() {
