@@ -13,8 +13,12 @@ function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
   if (!photo) return false;
   if (photo === "/logo.png") return false;
-  // Uploaded images are stored as data URLs (or remote URLs if ever used).
-  return photo.startsWith("data:image/") || /^https?:\/\//i.test(photo);
+  // Data URLs (just picked), synced API paths, or remote URLs.
+  return (
+    photo.startsWith("data:image/") ||
+    photo.startsWith("/api/licenses/photo") ||
+    /^https?:\/\//i.test(photo)
+  );
 }
 
 function readAdminSession() {
@@ -318,12 +322,12 @@ export default function AdminPortal() {
       const img = new Image();
       img.onload = () => {
         const max = 256;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const width = Math.max(1, Math.round(img.width * scale));
-        const height = Math.max(1, Math.round(img.height * scale));
+        const side = Math.min(img.width, img.height);
+        const sx = Math.max(0, Math.round((img.width - side) / 2));
+        const sy = Math.max(0, Math.round((img.height - side) / 2));
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = max;
+        canvas.height = max;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           if (!dataUrl.startsWith("data:image/")) {
@@ -336,10 +340,10 @@ export default function AdminPortal() {
           showToast("Picture ready");
           return;
         }
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        setPhoto(canvas.toDataURL("image/jpeg", 0.72));
+        // Center-crop to a square with no letterboxing so object-fit:cover
+        // fills the circle edge-to-edge (no white bars).
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, max, max);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.82));
         setPhotoUploaded(true);
         showToast("Picture ready");
       };
@@ -354,7 +358,7 @@ export default function AdminPortal() {
     event.target.value = "";
   }
 
-  function submitEa(event) {
+  async function submitEa(event) {
     event.preventDefault();
     let symbols = [...draftSymbols];
     if (customSymbol.trim()) {
@@ -377,7 +381,7 @@ export default function AdminPortal() {
       showToast("Add at least one symbol");
       return;
     }
-    upsertEa({
+    const ok = await upsertEa({
       id: editingEaId || undefined,
       name: name.trim(),
       strategy,
@@ -386,6 +390,7 @@ export default function AdminPortal() {
       ownerEmail: adminSession?.email || "",
       ownerId: adminSession?.id || "",
     });
+    if (!ok) return;
     resetForm();
     setAdminPage("manage-ea");
   }
@@ -843,7 +848,9 @@ export default function AdminPortal() {
                     const isLive = Boolean(bot?.active);
                     return (
                     <div className="ea-item" key={ea.id}>
-                      <img src={ea.photo || "/logo.png"} alt="" width="40" height="40" />
+                      <span className="ea-avatar">
+                        <img src={ea.photo || "/logo.png"} alt="" />
+                      </span>
                       <div className="ea-meta">
                         <strong>{ea.name}</strong>
                         <span>

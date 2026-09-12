@@ -23,6 +23,7 @@ import {
   markLicenseUsedRemote,
   normalizeLicenseKey,
   licenseKeyVariants,
+  uploadBotPhotoRemote,
 } from "./licensesApi.js";
 import {
   DEFAULT_APP_COLOR,
@@ -150,6 +151,36 @@ function loadState() {
   }
 }
 
+function isRealProfilePhoto(value) {
+  const photo = String(value || "").trim();
+  if (!photo || photo === "/logo.png") return false;
+  return (
+    photo.startsWith("data:image/") ||
+    photo.startsWith("/api/licenses/photo") ||
+    /^https?:\/\//i.test(photo)
+  );
+}
+
+/** Prefer a real uploaded/synced photo over the placeholder logo. */
+function pickProfilePhoto(...candidates) {
+  for (const value of candidates) {
+    if (isRealProfilePhoto(value)) return String(value).trim();
+  }
+  for (const value of candidates) {
+    const photo = String(value || "").trim();
+    if (photo) return photo;
+  }
+  return "/logo.png";
+}
+
+/** Keep modest data-URL avatars so profile photos survive reload without GitHub. */
+function persistablePhoto(value) {
+  const photo = String(value || "").trim();
+  if (!photo) return "/logo.png";
+  if (photo.startsWith("data:image/") && photo.length > 60_000) return "/logo.png";
+  return photo;
+}
+
 function stripHeavyPhotos(payload) {
   return {
     ...payload,
@@ -159,19 +190,46 @@ function stripHeavyPhotos(payload) {
         .trim()
         .toLowerCase(),
       ownerId: String(ea.ownerId || ea.mentorId || "").trim(),
-      photo:
-        typeof ea.photo === "string" && ea.photo.startsWith("data:")
-          ? "/logo.png"
-          : ea.photo || "/logo.png",
+      photo: persistablePhoto(ea.photo),
     })),
     bots: (payload.bots || []).map((bot) => ({
       ...bot,
-      photo:
-        typeof bot.photo === "string" && bot.photo.startsWith("data:")
-          ? "/logo.png"
-          : bot.photo || "/logo.png",
+      photo: persistablePhoto(bot.photo),
+    })),
+    licenseKeys: (payload.licenseKeys || []).map((row) => ({
+      ...row,
+      bot: row.bot
+        ? {
+            ...row.bot,
+            photo: persistablePhoto(row.bot.photo),
+          }
+        : row.bot,
     })),
   };
+}
+
+/** Turn an API photo URL into a data URL so the license JSON carries the image. */
+async function materializePhotoForLicense(photo) {
+  const value = String(photo || "").trim();
+  if (!value || value === "/logo.png") return "/logo.png";
+  if (value.startsWith("data:image/")) return value;
+  if (!value.startsWith("/api/licenses/photo") && !/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  try {
+    const response = await fetch(value, { cache: "no-store" });
+    if (!response.ok) return value;
+    const blob = await response.blob();
+    if (!blob || !String(blob.type || "").startsWith("image/")) return value;
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || value));
+      reader.onerror = () => resolve(value);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return value;
+  }
 }
 
 function saveState(payload) {
@@ -426,6 +484,29 @@ export function AppProvider({ children }) {
     try {
       const remote = await fetchLicenses();
       setLicenseKeys((prev) => mergeLicenses(prev, remote));
+
+      // Mentor photo updates sync live onto local EAs/bots.
+      const photoByBotId = new Map();
+      remote.forEach((row) => {
+        const id = String(row.botId || row.bot?.id || "").trim();
+        const photo = String(row.bot?.photo || "").trim();
+        if (!id || !photo || photo === "/logo.png") return;
+        photoByBotId.set(id, photo);
+      });
+      if (photoByBotId.size) {
+        setEas((prev) =>
+          prev.map((ea) => {
+            const nextPhoto = photoByBotId.get(ea.id);
+            return nextPhoto && nextPhoto !== ea.photo ? { ...ea, photo: nextPhoto } : ea;
+          })
+        );
+        setBots((prev) =>
+          prev.map((bot) => {
+            const nextPhoto = photoByBotId.get(bot.id);
+            return nextPhoto && nextPhoto !== bot.photo ? { ...bot, photo: nextPhoto } : bot;
+          })
+        );
+      }
       return remote;
     } catch {
       return null;
@@ -450,7 +531,8 @@ export function AppProvider({ children }) {
             bot: entry.bot
               ? {
                   ...entry.bot,
-                  photo: photo.startsWith("data:") ? "/logo.png" : photo || "/logo.png",
+                  // Keep data URLs so the API can persist them; keep API photo paths as-is.
+                  photo: photo || "/logo.png",
                 }
               : undefined,
           });
@@ -567,12 +649,14 @@ export function AppProvider({ children }) {
   }, [hasActiveBot, resolveLockStep]);
 
   const upsertEa = useCallback(
-    ({ id, name, strategy, photo, symbols, ownerEmail = "", ownerId = "" }) => {
+    async ({ id, name, strategy, photo, symbols, ownerEmail = "", ownerId = "" }) => {
       const cleanSymbols = symbols.map(normalizeSymbol).filter(Boolean);
       cleanSymbols.forEach(ensureCatalog);
-      const photoValue = String(photo || "").trim();
+      let photoValue = String(photo || "").trim();
       const hasProfilePhoto =
-        photoValue.startsWith("data:image/") || /^https?:\/\//i.test(photoValue);
+        photoValue.startsWith("data:image/") ||
+        photoValue.startsWith("/api/licenses/photo") ||
+        /^https?:\/\//i.test(photoValue);
       if (!hasProfilePhoto) {
         showToast("Upload a profile picture before creating the bot");
         return null;
@@ -583,6 +667,32 @@ export function AppProvider({ children }) {
           .toLowerCase(),
         ownerId: String(ownerId || "").trim(),
       };
+      const botId =
+        id ||
+        `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+
+      // Upload gallery/camera data URLs. If GitHub is down the API returns a data
+      // URL; if upload fails entirely, still keep the local picture so licenses
+      // can embed it for clients.
+      if (photoValue.startsWith("data:image/")) {
+        const originalDataUrl = photoValue;
+        try {
+          const uploaded = await uploadBotPhotoRemote(botId, photoValue);
+          if (String(uploaded || "").startsWith("data:image/")) {
+            photoValue = uploaded;
+          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
+            photoValue = originalDataUrl;
+          } else if (isRealProfilePhoto(uploaded)) {
+            photoValue = uploaded;
+          } else {
+            photoValue = originalDataUrl;
+          }
+        } catch {
+          photoValue = originalDataUrl;
+          showToast("Picture saved on this device — license keys will carry it");
+        }
+      }
+
       if (id) {
         setEas((prev) =>
           prev.map((ea) =>
@@ -604,12 +714,27 @@ export function AppProvider({ children }) {
             bot.id === id ? { ...bot, name, photo: photoValue, active: true } : bot
           )
         );
+        setLicenseKeys((prev) =>
+          prev.map((row) => {
+            const rowBotId = String(row.botId || row.bot?.id || "").trim();
+            if (rowBotId !== id) return row;
+            return {
+              ...row,
+              botName: name || row.botName,
+              bot: {
+                ...(row.bot || { id, name, strategy: "scalper", symbols: [] }),
+                id,
+                name: name || row.bot?.name || row.botName || "Bot",
+                photo: photoValue,
+              },
+            };
+          })
+        );
         showToast(`${name} profile updated`);
       } else {
-        const newId = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
         setEas((prev) => [
           {
-            id: newId,
+            id: botId,
             name,
             strategy,
             photo: photoValue,
@@ -621,7 +746,7 @@ export function AppProvider({ children }) {
         setBots((prev) => [
           ...prev.map((b) => ({ ...b, selected: false })),
           {
-            id: newId,
+            id: botId,
             name,
             photo: photoValue,
             active: true,
@@ -720,6 +845,30 @@ export function AppProvider({ children }) {
           .trim()
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
+
+      // Always put real image bytes on the license (data URL) so the client app
+      // can show the profile even when GitHub photo files / API paths 404.
+      let photo = String(bot.photo || ea?.photo || "/logo.png").trim() || "/logo.png";
+      const originalPhoto = photo;
+      if (photo.startsWith("data:image/")) {
+        try {
+          const uploaded = await uploadBotPhotoRemote(bot.id, photo);
+          // Prefer embedded data URL when upload falls back; keep original bytes
+          // if the API only returned a path that may not exist on other devices.
+          if (String(uploaded || "").startsWith("data:image/")) {
+            photo = uploaded;
+          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
+            photo = originalPhoto;
+          } else if (isRealProfilePhoto(uploaded)) {
+            photo = uploaded;
+          }
+        } catch {
+          // Keep the local data URL — createLicenseRemote will embed it.
+        }
+      } else {
+        photo = await materializePhotoForLicense(photo);
+      }
+
       const entry = {
         key,
         botId: bot.id,
@@ -735,10 +884,7 @@ export function AppProvider({ children }) {
         bot: {
           id: bot.id,
           name: bot.name,
-          photo:
-            String(bot.photo || ea?.photo || "").startsWith("data:")
-              ? "/logo.png"
-              : bot.photo || ea?.photo || "/logo.png",
+          photo,
           strategy: ea?.strategy || "scalper",
           symbols: Array.isArray(ea?.symbols) ? ea.symbols : [],
         },
@@ -761,12 +907,25 @@ export function AppProvider({ children }) {
           ...entry,
           bot: {
             ...entry.bot,
-            photo: String(entry.bot.photo || "").startsWith("data:")
-              ? "/logo.png"
-              : entry.bot.photo,
+            photo: entry.bot.photo || "/logo.png",
           },
         });
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        if (remote) {
+          setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+          const syncedPhoto = remote.bot?.photo;
+          if (syncedPhoto && syncedPhoto !== "/logo.png") {
+            setEas((prev) =>
+              prev.map((item) =>
+                item.id === bot.id ? { ...item, photo: syncedPhoto } : item
+              )
+            );
+            setBots((prev) =>
+              prev.map((item) =>
+                item.id === bot.id ? { ...item, photo: syncedPhoto } : item
+              )
+            );
+          }
+        }
         showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {
@@ -872,7 +1031,8 @@ export function AppProvider({ children }) {
               ? {
                   ...ea,
                   name: snapshot.name || ea.name,
-                  photo: snapshot.photo || ea.photo,
+                  // Don't let a logo placeholder from an old key wipe an existing picture.
+                  photo: pickProfilePhoto(snapshot.photo, ea.photo),
                   strategy: snapshot.strategy || ea.strategy,
                   symbols:
                     Array.isArray(snapshot.symbols) && snapshot.symbols.length
@@ -886,7 +1046,7 @@ export function AppProvider({ children }) {
           {
             id: snapshot.id,
             name: snapshot.name || entry.botName || "Bot",
-            photo: snapshot.photo || "/logo.png",
+            photo: pickProfilePhoto(snapshot.photo),
             strategy: snapshot.strategy || "scalper",
             symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
           },
@@ -902,7 +1062,7 @@ export function AppProvider({ children }) {
               ? {
                   ...b,
                   name: snapshot.name || b.name,
-                  photo: snapshot.photo || b.photo,
+                  photo: pickProfilePhoto(snapshot.photo, b.photo),
                   active: true,
                   selected: true,
                 }
@@ -914,7 +1074,7 @@ export function AppProvider({ children }) {
           {
             id: snapshot.id,
             name: snapshot.name || entry.botName || "Bot",
-            photo: snapshot.photo || "/logo.png",
+            photo: pickProfilePhoto(snapshot.photo),
             active: true,
             selected: true,
           },
