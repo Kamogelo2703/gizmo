@@ -1,9 +1,15 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
 const FILE_PATH = process.env.LICENSES_FILE_PATH || "data/licenses.json";
 const API = `https://api.github.com/repos/${REPO}`;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_FILE = path.resolve(__dirname, "../../data/licenses.json");
+let memoryLicenses = null;
 
 export function normalizeLicenseKey(key) {
   return String(key || "")
@@ -134,33 +140,75 @@ function decodeContent(file) {
   }
 }
 
+function readLocalStore() {
+  if (Array.isArray(memoryLicenses)) {
+    return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })) };
+  }
+  try {
+    if (fs.existsSync(LOCAL_FILE)) {
+      const raw = fs.readFileSync(LOCAL_FILE, "utf8");
+      const decoded = decodeContent({ content: Buffer.from(raw, "utf8").toString("base64"), sha: "local" });
+      memoryLicenses = decoded.licenses;
+      return {
+        sha: "local",
+        licenses: decoded.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })),
+      };
+    }
+  } catch {
+    // ignore
+  }
+  memoryLicenses = [];
+  return { sha: "local", licenses: [] };
+}
+
+function writeLocalStore(licenses) {
+  const next = licenses.map(normalizeLicense).filter(Boolean);
+  memoryLicenses = next;
+  try {
+    fs.mkdirSync(path.dirname(LOCAL_FILE), { recursive: true });
+    fs.writeFileSync(
+      LOCAL_FILE,
+      JSON.stringify(
+        {
+          licenses: next.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+        },
+        null,
+        2
+      ) + "\n",
+      "utf8"
+    );
+  } catch {
+    // memory still holds rows for this process
+  }
+  return next;
+}
+
 async function readStore() {
   try {
     const file = await ghFetch(
       `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
       { cache: "no-store" }
     );
-    return decodeContent(file);
+    const store = decodeContent(file);
+    memoryLicenses = store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }));
+    return store;
   } catch (error) {
     if (error.status === 404) {
       return { sha: null, licenses: [] };
     }
-    throw error;
+    console.warn("licenses github read failed; using local fallback", error.message);
+    return { ...readLocalStore(), remote: false };
   }
 }
 
 async function writeStore(licenses, sha, message) {
+  const normalized = licenses
+    .map(normalizeLicense)
+    .filter(Boolean)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
   const content = Buffer.from(
-    JSON.stringify(
-      {
-        licenses: licenses
-          .map(normalizeLicense)
-          .filter(Boolean)
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-      },
-      null,
-      2
-    ) + "\n",
+    JSON.stringify({ licenses: normalized }, null, 2) + "\n",
     "utf8"
   ).toString("base64");
 
@@ -169,12 +217,21 @@ async function writeStore(licenses, sha, message) {
     content,
     branch: BRANCH,
   };
-  if (sha) body.sha = sha;
+  if (sha && sha !== "local") body.sha = sha;
 
-  return ghFetch(`${API}/contents/${FILE_PATH}`, {
-    method: "PUT",
-    body,
-  });
+  try {
+    const result = await ghFetch(`${API}/contents/${FILE_PATH}`, {
+      method: "PUT",
+      body,
+    });
+    memoryLicenses = normalized.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }));
+    return result;
+  } catch (error) {
+    writeLocalStore(normalized);
+    if (error.status === 409 || error.status === 422) throw error;
+    console.warn("licenses github write failed; saved locally", error.message);
+    return { local: true, licenses: normalized };
+  }
 }
 
 async function mutateStore(mutator, message) {

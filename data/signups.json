@@ -1,6 +1,16 @@
 {
   "signups": [
     {
+      "email": "client-live-test@example.com",
+      "status": "pending",
+      "createdAt": 1789224020669
+    },
+    {
+      "email": "pending-test-1789222538293@example.com",
+      "status": "pending",
+      "createdAt": 1789223979529
+    },
+    {
       "email": "twenty67slam@icloud.com",
       "status": "approved",
       "createdAt": 1789213768916
