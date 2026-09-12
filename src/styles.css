@@ -1705,6 +1705,14 @@ button {
   color: #b91c1c;
 }
 
+.admin-logout-card {
+  margin-top: 14px;
+}
+
+.admin-settings-logout {
+  margin-top: 12px;
+}
+
 .admin-content {
   flex: 1;
   overflow: auto;
