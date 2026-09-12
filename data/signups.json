@@ -1,11 +1,6 @@
 {
   "signups": [
     {
-      "email": "pending-test-1789222538293@example.com",
-      "status": "pending",
-      "createdAt": 1789222538440
-    },
-    {
       "email": "twenty67slam@icloud.com",
       "status": "approved",
       "createdAt": 1789213768916
