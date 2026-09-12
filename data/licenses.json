@@ -1,6 +1,27 @@
 {
   "licenses": [
     {
+      "key": "APEX-TEST-MTYC1OGD",
+      "botId": "photo-lic-mtyc1ogd",
+      "botName": "Photo Sync Bot",
+      "clientEmail": "photosync-test@example.com",
+      "clientName": "Photo Tester",
+      "mentorEmail": "",
+      "mentorId": "",
+      "used": false,
+      "createdAt": 1789214382697,
+      "usedAt": null,
+      "bot": {
+        "id": "photo-lic-mtyc1ogd",
+        "name": "Photo Sync Bot",
+        "photo": "/api/licenses/photo?botId=photo-lic-mtyc1ogd",
+        "strategy": "scalper",
+        "symbols": [
+          "XAUUSD"
+        ]
+      }
+    },
+    {
       "key": "APEX-UM4C-3TMD",
       "botId": "zeta-scalper-ai-mtybr0x3",
       "botName": "ZETA SCALPER AI",
