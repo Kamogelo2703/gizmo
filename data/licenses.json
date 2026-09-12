@@ -1,6 +1,27 @@
 {
   "licenses": [
     {
+      "key": "APEX-PH2-MTYC20X5",
+      "botId": "photo-lic2-mtyc20x5",
+      "botName": "Photo Sync Bot 2",
+      "clientEmail": "photosync2@example.com",
+      "clientName": "Photo Tester 2",
+      "mentorEmail": "",
+      "mentorId": "",
+      "used": false,
+      "createdAt": 1789214399010,
+      "usedAt": null,
+      "bot": {
+        "id": "photo-lic2-mtyc20x5",
+        "name": "Photo Sync Bot 2",
+        "photo": "/api/licenses/photo?botId=photo-lic2-mtyc20x5",
+        "strategy": "scalper",
+        "symbols": [
+          "XAUUSD"
+        ]
+      }
+    },
+    {
       "key": "APEX-TEST-MTYC1OGD",
       "botId": "photo-lic-mtyc1ogd",
       "botName": "Photo Sync Bot",
