@@ -32,7 +32,8 @@
 html {
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior-x: none;
 }
 
@@ -41,7 +42,7 @@ body {
   margin: 0;
   min-height: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
   overscroll-behavior-x: none;
   background:
     radial-gradient(1200px 800px at 50% -10%, var(--accent-glow) 0%, transparent 58%),
@@ -49,25 +50,28 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  /* Block horizontal touch pans on the document itself. */
-  touch-action: pan-y;
 }
 
 body {
   min-height: 100dvh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   width: 100%;
   max-width: 100%;
   position: relative;
+  overflow-x: hidden;
+  overflow-y: hidden; /* scroll happens inside .phone, not the page */
 }
 
 #root {
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
-  overscroll-behavior-x: none;
-  touch-action: pan-y;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
 }
 
 /* Stop the document from rubber-banding sideways while admin is open. */
@@ -90,19 +94,17 @@ button {
   /* Prefer 100% over 100vw — vw includes scrollbar gutters and causes side shift. */
   width: min(100%, var(--shell-max));
   max-width: 100%;
-  min-height: 100dvh;
-  height: auto;
-  overflow-x: clip;
-  overflow-y: auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  /* Clip sideways; vertical scroll happens in .stage / .admin-content. */
+  overflow: hidden;
   overscroll-behavior-x: none;
-  overscroll-behavior-y: contain;
   touch-action: pan-y;
   background: #000;
   display: flex;
   flex-direction: column;
   isolation: isolate;
-  /* Keep wide glow/beam effects inside the shell. */
-  contain: paint;
 }
 
 /* Admin fills the shell; scroll only inside admin content, not the whole page sideways. */
@@ -116,12 +118,13 @@ button {
 @media (min-width: 480px) {
   body {
     padding: 28px 12px;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .phone {
-    min-height: min(1100px, calc(100dvh - 40px));
     height: min(1100px, calc(100dvh - 40px));
-    max-height: none;
+    max-height: min(1100px, calc(100dvh - 40px));
     border-radius: 36px;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06),
@@ -185,6 +188,7 @@ button {
 }
 
 .top {
+  flex-shrink: 0;
   padding: calc(22px + env(safe-area-inset-top, 0px)) 22px 0;
   min-height: 56px;
   display: flex;
@@ -243,7 +247,7 @@ button {
   flex-direction: column;
   min-height: 0;
   max-width: 100%;
-  overflow-x: clip;
+  overflow: hidden;
   opacity: 1;
   /* Fade only — horizontal slide made the whole app feel like it swipes sideways. */
   transform: none;
@@ -293,9 +297,12 @@ button {
   flex-direction: column;
   justify-content: space-between;
   padding: 20px 20px 28px;
+  min-height: 0; /* critical: allow flex child to shrink so overflow-y can scroll */
   overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
   touch-action: pan-y;
   gap: 28px;
   max-width: 100%;
@@ -647,6 +654,7 @@ button {
 }
 
 .tabbar {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
@@ -2727,8 +2735,13 @@ button {
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   padding: 28px 22px calc(28px + var(--safe-bottom, 0px));
   background:
     radial-gradient(
@@ -2925,9 +2938,12 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   padding: 8px 18px 18px;
   position: relative;
   z-index: 1;
@@ -3153,6 +3169,7 @@ button {
 .v2-tabbar {
   position: relative;
   z-index: 2;
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
