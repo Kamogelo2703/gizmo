@@ -52,6 +52,7 @@ export default function CoverLock() {
       return;
     }
     const key = await requestSignup(email);
+    if (!key) return;
     const current = getSignup(key) || { email: key, status: "pending" };
     if (current?.status === "approved") {
       setLockStep("license");

@@ -23,6 +23,7 @@ import {
   normalizeLicenseKey,
   licenseKeyVariants,
 } from "./licensesApi.js";
+import { getOrCreateDeviceId } from "./deviceId.js";
 import {
   DEFAULT_APP_COLOR,
   applyAppTheme,
@@ -471,6 +472,28 @@ export function AppProvider({ children }) {
   const requestSignup = useCallback(
     async (email) => {
       const key = normalizeEmail(email);
+      if (!key || !key.includes("@")) {
+        showToast("Enter a valid email");
+        return null;
+      }
+
+      // Email already activated on another phone cannot be reused here.
+      try {
+        const deviceId = getOrCreateDeviceId();
+        const byEmail = await fetchLicensesByEmail(key);
+        if (byEmail.length) setLicenseKeys((prev) => mergeLicenses(prev, byEmail));
+        const lockedElsewhere = byEmail.some((row) => {
+          const bound = String(row.deviceId || "").trim();
+          return Boolean(row.used && bound && bound !== deviceId);
+        });
+        if (lockedElsewhere) {
+          showToast("This email is locked to another device");
+          return null;
+        }
+      } catch {
+        // If lookup fails, continue — activateLicense still enforces the lock.
+      }
+
       setCoverEmail(key);
       setSignups((prev) => {
         const existing = prev.find((s) => s.email === key);
@@ -729,6 +752,8 @@ export function AppProvider({ children }) {
         used: false,
         createdAt: Date.now(),
         usedAt: null,
+        deviceId: null,
+        boundAt: null,
         bot: {
           id: bot.id,
           name: bot.name,
@@ -844,9 +869,28 @@ export function AppProvider({ children }) {
         showToast("This key has no client email — generate a new key with email + name");
         return false;
       }
-      if (entry.used) {
-        showToast("License key already used");
+
+      const deviceId = getOrCreateDeviceId();
+      const boundDevice = String(entry.deviceId || "").trim();
+      if (entry.used && boundDevice && boundDevice !== deviceId) {
+        showToast("License and email are locked to another device");
         return false;
+      }
+
+      // Confirm with the shared store first so another phone cannot sneak in.
+      let remote = null;
+      try {
+        remote = await markLicenseUsedRemote(entry.key || key, {
+          deviceId,
+          email: accountEmail,
+        });
+      } catch (error) {
+        showToast(error.message || "Could not lock license to this device");
+        return false;
+      }
+      if (remote) {
+        entry = remote;
+        setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
       }
 
       const snapshot = entry.bot || {
@@ -914,15 +958,16 @@ export function AppProvider({ children }) {
       });
 
       setLicenseKeys((prev) =>
-        mergeLicenses(prev, [{ ...entry, used: true, usedAt: Date.now() }])
+        mergeLicenses(prev, [
+          {
+            ...entry,
+            used: true,
+            usedAt: entry.usedAt || Date.now(),
+            deviceId,
+            boundAt: entry.boundAt || Date.now(),
+          },
+        ])
       );
-
-      try {
-        const remote = await markLicenseUsedRemote(entry.key || key);
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
-      } catch (error) {
-        showToast(error.message || "Could not sync license use");
-      }
 
       showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
       return true;
