@@ -64,6 +64,7 @@ export function normalizeLicense(row) {
     .trim()
     .toLowerCase();
   const clientName = String(row?.clientName || row?.name || "").trim();
+  const deviceId = String(row?.deviceId || "").trim() || null;
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -77,6 +78,8 @@ export function normalizeLicense(row) {
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    deviceId,
+    boundAt: row?.boundAt ? Number(row.boundAt) : deviceId ? Number(row?.usedAt) || null : null,
     bot: bot
       ? {
           id: String(bot.id || row.botId || "").trim(),
@@ -108,6 +111,8 @@ export function mergeLicenses(localList = [], remoteList = []) {
       clientName: row.clientName || prev.clientName || "",
       used: Boolean(prev.used || row.used),
       usedAt: row.usedAt || prev.usedAt || null,
+      deviceId: row.deviceId || prev.deviceId || null,
+      boundAt: row.boundAt || prev.boundAt || null,
       bot: row.bot || prev.bot || null,
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),
     });
@@ -155,10 +160,16 @@ export async function createLicenseRemote(payload) {
   return normalizeLicense(data?.license);
 }
 
-export async function markLicenseUsedRemote(key) {
+export async function markLicenseUsedRemote(key, { deviceId = "", email = "" } = {}) {
   const data = await apiFetch("", {
     method: "PATCH",
-    body: { key: normalizeLicenseKey(key) },
+    body: {
+      key: normalizeLicenseKey(key),
+      deviceId: String(deviceId || "").trim(),
+      email: String(email || "")
+        .trim()
+        .toLowerCase(),
+    },
   });
   return normalizeLicense(data?.license);
 }

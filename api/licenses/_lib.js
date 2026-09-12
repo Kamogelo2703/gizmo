@@ -93,6 +93,7 @@ function normalizeLicense(row) {
   const bot = row?.bot && typeof row.bot === "object" ? row.bot : null;
   const clientEmail = normalizeEmail(row?.clientEmail || row?.email || "");
   const clientName = String(row?.clientName || row?.name || "").trim();
+  const deviceId = String(row?.deviceId || "").trim() || null;
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -104,6 +105,8 @@ function normalizeLicense(row) {
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    deviceId,
+    boundAt: row?.boundAt ? Number(row.boundAt) : deviceId ? Number(row?.usedAt) || null : null,
     bot: bot
       ? {
           id: String(bot.id || row.botId || "").trim(),
@@ -264,6 +267,8 @@ export async function createLicense(payload = {}) {
       used: false,
       createdAt: Number(payload.createdAt) || Date.now(),
       usedAt: null,
+      deviceId: null,
+      boundAt: null,
       bot,
     };
     return [result, ...licenses];
@@ -272,13 +277,24 @@ export async function createLicense(payload = {}) {
   return result;
 }
 
-export async function markLicenseUsed(rawKey) {
+/**
+ * Bind email+key to the first device that activates.
+ * Same device can re-open; any other device is rejected.
+ */
+export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}) {
   const variants = licenseKeyVariants(rawKey);
   if (!variants.length) {
     const err = new Error("License key is required");
     err.status = 400;
     throw err;
   }
+  const claimDevice = String(deviceId || "").trim();
+  if (!claimDevice) {
+    const err = new Error("Device id is required");
+    err.status = 400;
+    throw err;
+  }
+  const claimEmail = normalizeEmail(email);
 
   let result = null;
   await mutateStore((licenses) => {
@@ -288,14 +304,47 @@ export async function markLicenseUsed(rawKey) {
       err.status = 404;
       throw err;
     }
-    if (licenses[idx].used) {
-      result = licenses[idx];
+    const row = licenses[idx];
+    const licenseEmail = normalizeEmail(row.clientEmail);
+    if (claimEmail && licenseEmail && claimEmail !== licenseEmail) {
+      const err = new Error(`This key is for ${licenseEmail}, not ${claimEmail}`);
+      err.status = 403;
+      throw err;
+    }
+    if (!licenseEmail) {
+      const err = new Error("This key has no client email");
+      err.status = 400;
+      throw err;
+    }
+
+    const boundDevice = String(row.deviceId || "").trim();
+    if (row.used && boundDevice && boundDevice !== claimDevice) {
+      const err = new Error("License and email are locked to another device");
+      err.status = 403;
+      throw err;
+    }
+
+    // Same device re-open, or legacy used key with no device yet → claim/keep.
+    if (row.used && (!boundDevice || boundDevice === claimDevice)) {
+      const next = {
+        ...row,
+        used: true,
+        usedAt: row.usedAt || Date.now(),
+        deviceId: boundDevice || claimDevice,
+        boundAt: row.boundAt || Date.now(),
+      };
+      licenses[idx] = next;
+      result = next;
       return licenses;
     }
+
+    const now = Date.now();
     licenses[idx] = {
-      ...licenses[idx],
+      ...row,
       used: true,
-      usedAt: Date.now(),
+      usedAt: now,
+      deviceId: claimDevice,
+      boundAt: now,
     };
     result = licenses[idx];
     return licenses;
