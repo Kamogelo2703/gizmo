@@ -33,6 +33,9 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
   background:
     radial-gradient(1200px 800px at 50% -10%, var(--accent-glow) 0%, transparent 58%),
     linear-gradient(180deg, #050505 0%, #000 100%);
@@ -45,6 +48,20 @@ body {
   min-height: 100dvh;
   display: grid;
   place-items: center;
+  /* Keep the shell centered without allowing page-level sideways drag. */
+  width: 100%;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Stop the document from rubber-banding sideways while admin is open. */
+body:has(.phone.is-admin-open) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 button {
@@ -58,14 +75,27 @@ button {
 
 .phone {
   position: relative;
-  width: min(100vw, var(--shell-max));
+  /* Prefer 100% over 100vw — vw includes scrollbar gutters and causes side shift. */
+  width: min(100%, var(--shell-max));
+  max-width: 100%;
   min-height: 100dvh;
   height: auto;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   background: #000;
   display: flex;
   flex-direction: column;
   isolation: isolate;
+}
+
+/* Admin fills the shell; scroll only inside admin content, not the whole page sideways. */
+.phone.is-admin-open {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 @media (min-width: 480px) {
@@ -81,6 +111,12 @@ button {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06),
       0 30px 80px rgba(0, 0, 0, 0.65);
+  }
+
+  .phone.is-admin-open {
+    height: min(1100px, calc(100dvh - 40px));
+    max-height: min(1100px, calc(100dvh - 40px));
+    overflow: hidden;
   }
 }
 
@@ -191,6 +227,8 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   opacity: 1;
   transform: translateX(0);
   transition:
@@ -243,8 +281,12 @@ button {
   flex-direction: column;
   justify-content: space-between;
   padding: 20px 20px 28px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   gap: 28px;
+  max-width: 100%;
 }
 
 .hero {
@@ -1408,6 +1450,9 @@ button {
   color: #111827;
   font-family: var(--font-body);
   overflow: hidden;
+  overscroll-behavior: contain;
+  /* Ensure flex children can shrink so .admin-content actually scrolls. */
+  min-height: 0;
 }
 
 .admin-portal-auth {
@@ -1418,11 +1463,15 @@ button {
 
 .admin-auth {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 20px calc(32px + var(--safe-bottom));
+  padding: 28px 20px calc(56px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1721,9 +1770,20 @@ button {
 
 .admin-content {
   flex: 1;
-  overflow: auto;
-  padding: 18px 16px calc(24px + var(--safe-bottom));
+  min-height: 0; /* required for overflow scrolling inside a flex column */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 18px 16px calc(88px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
+}
+
+/* Extra room so the last card/button is never clipped under the home indicator. */
+.admin-content::after {
+  content: "";
+  display: block;
+  height: 28px;
 }
 
 .admin-page[hidden] {
