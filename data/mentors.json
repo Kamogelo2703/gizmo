@@ -1,3 +1,26 @@
 {
-  "mentors": []
+  "mentors": [
+    {
+      "id": "e7adfe27-f723-4a89-ac05-6565d9b0f411",
+      "username": "Pending Mentor",
+      "email": "pending.mentor.1789212420008@example.com",
+      "contact": "+27123456789",
+      "role": "mentor",
+      "status": "pending",
+      "passwordHash": "5de477b58657cd84e6da04873b9eeb98f72b5ae95e1bc4990a1841a015dedb57",
+      "salt": "f2956a3549168f3ff205365fb81a1a93",
+      "createdAt": 1789212420184
+    },
+    {
+      "id": "super-admin",
+      "username": "APEX EA",
+      "email": "trapgoatkaymow22@icloud.com",
+      "contact": "",
+      "role": "superadmin",
+      "status": "approved",
+      "passwordHash": "0b6343036fa2ac8bbd43802de8beaf58ad66fae68f5511935788e588c88034fc",
+      "salt": "44280e01673c89fe5391b04c1c44b95f",
+      "createdAt": 1789212420184
+    }
+  ]
 }
