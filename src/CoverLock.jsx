@@ -154,8 +154,12 @@ export default function CoverLock() {
       showToast("Already approved — enter your license key");
       return;
     }
-    setLockStep("pay");
-    showToast("Continue with PayPal for lifetime access");
+    setLockStep("pending");
+    showToast(
+      current?.status === "declined"
+        ? "Resubmitted — waiting for super admin"
+        : "Submitted — waiting for super admin approval"
+    );
   }
 
   async function checkStatus() {
@@ -177,13 +181,12 @@ export default function CoverLock() {
       return;
     }
     if (current.status === "declined") {
-      await requestSignup(current.email);
-      setLockStep("pay");
-      showToast("Resubmitted — pay to unlock lifetime access");
+      setLockStep("pending");
+      showToast("Still declined — ask super admin or resubmit with another email");
       return;
     }
-    setLockStep("pay");
-    showToast("Payment still needed for lifetime access");
+    setLockStep("pending");
+    showToast("Still pending — wait for super admin approval");
   }
 
   function submitLicense(event) {
@@ -203,8 +206,8 @@ export default function CoverLock() {
           <section className="cover-step is-active">
             <h2 className="app-lock-title cover-title">Unlock ApexEA</h2>
             <p className="app-lock-sub">
-              Enter your email, then pay once for lifetime access. After payment
-              your account is approved automatically.
+              Enter your email to request access. A super admin will approve or
+              decline your account before you can activate a license key.
             </p>
             <form className="app-lock-form" onSubmit={submitEmail}>
               <label className="ea-field">
@@ -221,7 +224,7 @@ export default function CoverLock() {
                 />
               </label>
               <button className="admin-btn admin-btn-solid admin-btn-block" type="submit">
-                Get Lifetime Access — $35.60
+                Request Access
               </button>
             </form>
           </section>
@@ -276,8 +279,8 @@ export default function CoverLock() {
             </h2>
             <p className="app-lock-sub">
               {declined
-                ? `${coverEmail || "Your account"} was declined. You can change email or pay again for lifetime access.`
-                : `${coverEmail} is pending. Pay for lifetime access to get approved instantly, or wait for a super admin.`}
+                ? `${coverEmail || "Your account"} was declined by a super admin. Change email to request again.`
+                : `${coverEmail} is pending. A super admin must approve or decline this account.`}
             </p>
             <div className="pending-status-card">
               <span className={`admin-badge ${declined ? "is-declined" : "is-pending"}`}>
@@ -288,17 +291,17 @@ export default function CoverLock() {
             <button
               className="admin-btn admin-btn-solid admin-btn-block"
               type="button"
-              onClick={() => setLockStep("pay")}
+              onClick={checkStatus}
             >
-              Pay $35.60 for lifetime access
+              Check approval status
             </button>
             <button
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
-              onClick={checkStatus}
+              onClick={() => setLockStep("pay")}
               style={{ marginTop: 10 }}
             >
-              Check approval status
+              Or pay $35.60 for instant access
             </button>
             <button
               className="cover-back"
