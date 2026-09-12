@@ -558,8 +558,8 @@ export function AppProvider({ children }) {
       setLockStep("license");
       return;
     }
-    // Pending/declined clients go to PayPal for $35.60 lifetime access.
-    setLockStep("pay");
+    // Pending / declined clients wait on the pending screen for super admin.
+    setLockStep("pending");
   }, [coverEmail, getSignup]);
 
   useEffect(() => {
@@ -782,11 +782,11 @@ export function AppProvider({ children }) {
       const accountEmail = normalizeEmail(coverEmail);
       const signup = getSignup(accountEmail);
       if (!signup || signup.status !== "approved") {
-        setLockStep("pay");
+        setLockStep("pending");
         showToast(
           signup?.status === "declined"
-            ? "Access was declined — pay for lifetime access"
-            : "Pay for lifetime access before activating a license"
+            ? "Access was declined by super admin"
+            : "Account must be approved by super admin first"
         );
         return false;
       }
