@@ -756,6 +756,8 @@ export function AppProvider({ children }) {
       try {
         const remote = await createLicenseRemote({
           ...entry,
+          used: false,
+          usedAt: null,
           bot: {
             ...entry.bot,
             photo: String(entry.bot.photo || "").startsWith("data:")
@@ -763,12 +765,23 @@ export function AppProvider({ children }) {
               : entry.bot.photo,
           },
         });
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        if (remote) {
+          setLicenseKeys((prev) =>
+            mergeLicenses(prev, [{ ...remote, used: false, usedAt: null }])
+          );
+        }
         showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {
-        showToast(error.message || "Could not sync license key");
-        return null;
+        // Keep the local key so generate still returns a usable code + copy works.
+        setLicenseKeys((prev) =>
+          mergeLicenses(prev, [{ ...entry, used: false, usedAt: null }])
+        );
+        showToast(
+          error.message ||
+            "Key created on this phone — sync failed, try Generate again if client sees Invalid"
+        );
+        return key;
       }
     },
     [bots, eas, showToast]
