@@ -173,13 +173,34 @@ function stripHeavyPhotos(payload) {
   };
 }
 
-function saveState(payload) {
-  const raw = JSON.stringify(payload);
+function saveState(payload, { allowEmptyEas = false } = {}) {
+  let next = payload;
+  // Never blank mentor EAs by accident — refuse empty writes while a backup still has them.
+  if (!allowEmptyEas && eaCount(next) === 0) {
+    try {
+      const backup = parseState(localStorage.getItem(BACKUP_KEY));
+      if (eaCount(backup) > 0) {
+        next = {
+          ...next,
+          eas: backup.eas,
+          bots: Array.isArray(next.bots) && next.bots.length
+            ? next.bots
+            : Array.isArray(backup.bots)
+              ? backup.bots
+              : [],
+        };
+      }
+    } catch {
+      // keep payload as-is
+    }
+  }
+  const raw = JSON.stringify(next);
   localStorage.setItem(STORAGE_KEY, raw);
   // Keep the last non-empty EA snapshot so an empty overwrite can be recovered.
-  if (eaCount(payload) > 0) {
+  if (eaCount(next) > 0) {
     localStorage.setItem(BACKUP_KEY, raw);
   }
+  return next;
 }
 
 function clearEaBackup() {
@@ -187,6 +208,14 @@ function clearEaBackup() {
     localStorage.removeItem(BACKUP_KEY);
   } catch {
     // ignore
+  }
+}
+
+function readEaBackup() {
+  try {
+    return parseState(localStorage.getItem(BACKUP_KEY));
+  } catch {
+    return null;
   }
 }
 
@@ -367,6 +396,17 @@ export function AppProvider({ children }) {
     showToast,
   ]);
 
+  // If React state lost EAs but backup still has them, restore immediately.
+  useEffect(() => {
+    if (eas.length > 0) return;
+    const backup = readEaBackup();
+    if (!backup || eaCount(backup) === 0) return;
+    setEas(backup.eas);
+    if (Array.isArray(backup.bots) && backup.bots.length) {
+      setBots((prev) => (prev.length ? prev : backup.bots));
+    }
+  }, [eas.length]);
+
   const hasActiveBot = useMemo(
     () => bots.some((b) => b.active),
     [bots]
@@ -425,6 +465,57 @@ export function AppProvider({ children }) {
     try {
       const remote = await fetchLicenses();
       setLicenseKeys((prev) => mergeLicenses(prev, remote));
+
+      // Rebuild missing mentor EAs from license bot snapshots so approved
+      // mentors keep their bots even if local state was wiped.
+      if (Array.isArray(remote) && remote.length) {
+        setEas((prev) => {
+          const map = new Map(prev.map((ea) => [ea.id, { ...ea }]));
+          let changed = false;
+          for (const row of remote) {
+            const bot = row?.bot && typeof row.bot === "object" ? row.bot : null;
+            const botId = String(bot?.id || row?.botId || "").trim();
+            if (!botId) continue;
+            const mentorEmail = String(row.mentorEmail || row.ownerEmail || "")
+              .trim()
+              .toLowerCase();
+            const mentorId = String(row.mentorId || row.ownerId || "").trim();
+            const existing = map.get(botId);
+            if (!existing) {
+              map.set(botId, {
+                id: botId,
+                name: String(bot?.name || row.botName || "Bot"),
+                photo: String(bot?.photo || "/logo.png"),
+                strategy: String(bot?.strategy || "scalper"),
+                symbols: Array.isArray(bot?.symbols) ? bot.symbols : [],
+                ownerEmail: mentorEmail,
+                ownerId: mentorId,
+              });
+              changed = true;
+              continue;
+            }
+            const next = { ...existing };
+            if (!next.ownerEmail && mentorEmail) {
+              next.ownerEmail = mentorEmail;
+              changed = true;
+            }
+            if (!next.ownerId && mentorId) {
+              next.ownerId = mentorId;
+              changed = true;
+            }
+            if ((!next.photo || next.photo === "/logo.png") && bot?.photo) {
+              next.photo = bot.photo;
+              changed = true;
+            }
+            if ((!Array.isArray(next.symbols) || next.symbols.length === 0) && Array.isArray(bot?.symbols) && bot.symbols.length) {
+              next.symbols = bot.symbols;
+              changed = true;
+            }
+            map.set(botId, next);
+          }
+          return changed ? Array.from(map.values()) : prev;
+        });
+      }
       return remote;
     } catch {
       return null;
@@ -664,7 +755,36 @@ export function AppProvider({ children }) {
     showToast(`${current.name} removed — restore with a license key`);
   }, [bots, showToast]);
 
+  const claimEaOwner = useCallback((eaId, ownerEmail = "", ownerId = "") => {
+    const email = String(ownerEmail || "").trim().toLowerCase();
+    const id = String(ownerId || "").trim();
+    if (!eaId || !email) return false;
+    let claimed = false;
+    setEas((prev) => {
+      let changed = false;
+      const next = prev.map((ea) => {
+        if (ea.id !== eaId) return ea;
+        const owner = String(ea.ownerEmail || "").trim().toLowerCase();
+        const existingId = String(ea.ownerId || "").trim();
+        if (owner || existingId) {
+          // Already owned — only no-op (do not steal from another mentor).
+          return ea;
+        }
+        changed = true;
+        claimed = true;
+        return {
+          ...ea,
+          ownerEmail: email,
+          ownerId: id,
+        };
+      });
+      return changed ? next : prev;
+    });
+    return claimed;
+  }, []);
+
   const deleteEa = useCallback(
+
     (eaId) => {
       const ea = eas.find((e) => e.id === eaId);
       const ok = window.confirm(
@@ -870,6 +990,14 @@ export function AppProvider({ children }) {
                     Array.isArray(snapshot.symbols) && snapshot.symbols.length
                       ? snapshot.symbols
                       : ea.symbols,
+                  ownerEmail:
+                    ea.ownerEmail ||
+                    String(entry.mentorEmail || entry.ownerEmail || "")
+                      .trim()
+                      .toLowerCase(),
+                  ownerId:
+                    ea.ownerId ||
+                    String(entry.mentorId || entry.ownerId || "").trim(),
                 }
               : ea
           );
@@ -881,6 +1009,8 @@ export function AppProvider({ children }) {
             photo: snapshot.photo || "/logo.png",
             strategy: snapshot.strategy || "scalper",
             symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
+            ownerEmail: String(entry.mentorEmail || entry.ownerEmail || "").trim().toLowerCase(),
+            ownerId: String(entry.mentorId || entry.ownerId || "").trim(),
           },
           ...prev,
         ];
@@ -976,6 +1106,7 @@ export function AppProvider({ children }) {
     getSignup,
     eas,
     upsertEa,
+    claimEaOwner,
     deleteEa,
     editingEaId,
     setEditingEaId,
