@@ -11,9 +11,13 @@ const API = `https://api.github.com/repos/${REPO}`;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_FILE = path.resolve(__dirname, "../../data/licenses.json");
 const TMP_FILE = path.join("/tmp", "apexea-licenses.json");
+const BUNDLED_PHOTO_DIR = path.resolve(__dirname, "../../data/ea-photos");
+const TMP_PHOTO_DIR = path.join("/tmp", "apexea-ea-photos");
 
 /** In-process fallback when GitHub auth fails (expired ghs_ token, etc.). */
 let memoryLicenses = null;
+/** botId → { mime, buffer } when GitHub photo upload/read is unavailable. */
+const memoryPhotos = new Map();
 
 export function normalizeLicenseKey(key) {
   return String(key || "")
@@ -95,6 +99,175 @@ function normalizeEmail(email) {
   return String(email || "")
     .trim()
     .toLowerCase();
+}
+
+function safePhotoId(botId) {
+  return (
+    String(botId || "bot")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "bot"
+  );
+}
+
+function parseDataImage(dataUrl) {
+  const raw = String(dataUrl || "");
+  const match = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return null;
+  return { mime: match[1], base64: match[2] };
+}
+
+export function botPhotoApiPath(botId, version = Date.now()) {
+  const id = safePhotoId(botId);
+  return `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=${encodeURIComponent(version)}`;
+}
+
+function writeLocalBotPhoto(id, ext, buffer, mime) {
+  memoryPhotos.set(id, { mime, buffer });
+  for (const dir of [TMP_PHOTO_DIR, BUNDLED_PHOTO_DIR]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${id}.${ext}`), buffer);
+      break;
+    } catch {
+      // /tmp usually works on Vercel when the repo tree is read-only
+    }
+  }
+}
+
+function readLocalBotPhoto(id) {
+  if (memoryPhotos.has(id)) {
+    return memoryPhotos.get(id);
+  }
+  for (const dir of [TMP_PHOTO_DIR, BUNDLED_PHOTO_DIR]) {
+    for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+      const filePath = path.join(dir, `${id}.${ext}`);
+      try {
+        if (!fs.existsSync(filePath)) continue;
+        const buffer = fs.readFileSync(filePath);
+        if (!buffer?.length) continue;
+        const mime =
+          ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+        const photo = { mime, buffer };
+        memoryPhotos.set(id, photo);
+        return photo;
+      } catch {
+        // try next
+      }
+    }
+  }
+  return null;
+}
+
+/** Upload a data-URL bot photo (GitHub + local fallback) and return a stable API path. */
+export async function persistBotPhoto(botId, photo) {
+  const value = String(photo || "").trim();
+  if (!value) return "/logo.png";
+  if (value === "/logo.png") return value;
+  if (value.startsWith("/api/licenses/photo")) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const parsed = parseDataImage(value);
+  if (!parsed) return "/logo.png";
+
+  const id = safePhotoId(botId);
+  const ext = parsed.mime.includes("png") ? "png" : "jpg";
+  const buffer = Buffer.from(parsed.base64, "base64");
+  writeLocalBotPhoto(id, ext, buffer, parsed.mime);
+
+  const filePath = `data/ea-photos/${id}.${ext}`;
+  try {
+    const token = requireToken();
+    let sha = null;
+    try {
+      const existing = await ghFetch(
+        `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
+        { token, cache: "no-store" }
+      );
+      sha = existing?.sha || null;
+    } catch (error) {
+      if (error.status !== 404) {
+        console.warn("ea photo lookup failed", error.message);
+      }
+    }
+
+    await ghFetch(`${API}/contents/${filePath}`, {
+      method: "PUT",
+      token,
+      body: {
+        message: `chore: sync EA photo ${id}`,
+        content: parsed.base64,
+        branch: BRANCH,
+        ...(sha ? { sha } : {}),
+      },
+    });
+  } catch (error) {
+    console.warn("ea photo upload failed", error.message);
+    // Local/memory copy already written — clients on this host can still load it.
+  }
+
+  return botPhotoApiPath(id);
+}
+
+export async function readBotPhoto(botId) {
+  const id = safePhotoId(botId);
+  const local = readLocalBotPhoto(id);
+  if (local) return local;
+
+  for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+    const filePath = `data/ea-photos/${id}.${ext}`;
+    try {
+      const file = await ghFetch(
+        `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
+        { cache: "no-store" }
+      );
+      const base64 = String(file.content || "").replace(/\n/g, "");
+      if (!base64) continue;
+      const mime =
+        ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      const photo = { mime, buffer: Buffer.from(base64, "base64") };
+      memoryPhotos.set(id, photo);
+      return photo;
+    } catch (error) {
+      if (error.status !== 404) {
+        console.warn("ea photo read failed", error.message);
+        break;
+      }
+    }
+  }
+  return null;
+}
+
+/** Rewrite bot.photo on every license that belongs to this EA. */
+export async function syncBotPhotoToLicenses(botId, photoPath) {
+  const id = String(botId || "").trim();
+  const photo = String(photoPath || "").trim();
+  if (!id || !photo) return [];
+
+  let updated = [];
+  await mutateStore((licenses) => {
+    updated = [];
+    return licenses.map((row) => {
+      const rowBotId = String(row.botId || row.bot?.id || "").trim();
+      if (rowBotId !== id) return row;
+      const next = {
+        ...row,
+        botName: row.botName || row.bot?.name || "Bot",
+        updatedAt: Date.now(),
+        bot: {
+          ...(row.bot || { id, name: row.botName || "Bot", strategy: "scalper", symbols: [] }),
+          id,
+          photo,
+        },
+      };
+      updated.push(next);
+      return next;
+    });
+  }, `ea photo sync: ${id}`);
+
+  return updated;
 }
 
 function normalizeLicense(row) {
@@ -333,10 +506,13 @@ export async function createLicense(payload = {}) {
     throw err;
   }
 
+  const rawPhoto = String(payload.bot?.photo || payload.photo || "/logo.png").trim();
+  const photo = await persistBotPhoto(botId, rawPhoto);
+
   const bot = {
     id: botId,
     name: botName,
-    photo: String(payload.bot?.photo || payload.photo || "/logo.png"),
+    photo,
     strategy: String(payload.bot?.strategy || payload.strategy || "scalper"),
     symbols: Array.isArray(payload.bot?.symbols)
       ? payload.bot.symbols
@@ -349,11 +525,26 @@ export async function createLicense(payload = {}) {
   await mutateStore((licenses) => {
     const existing = licenses.find((row) => row.key === key);
     if (existing) {
+      const prevBot = existing.bot || null;
+      const prevPhoto = String(prevBot?.photo || "");
+      const shouldReplacePhoto =
+        Boolean(bot?.photo) &&
+        bot.photo !== "/logo.png" &&
+        (prevPhoto === "/logo.png" ||
+          !prevPhoto ||
+          prevPhoto.startsWith("data:") ||
+          prevPhoto.startsWith("/api/licenses/photo"));
       result = {
         ...existing,
         clientEmail: existing.clientEmail || clientEmail,
         clientName: existing.clientName || clientName,
-        bot: existing.bot || bot,
+        bot: prevBot
+          ? {
+              ...prevBot,
+              ...bot,
+              photo: shouldReplacePhoto ? bot.photo : prevBot.photo || bot.photo,
+            }
+          : bot,
       };
       const idx = licenses.findIndex((row) => row.key === key);
       licenses[idx] = result;
