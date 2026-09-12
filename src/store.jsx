@@ -424,6 +424,7 @@ export function AppProvider({ children }) {
   const refreshLicenses = useCallback(async () => {
     try {
       const remote = await fetchLicenses();
+      // Remote list last so shared used/unused status wins over sticky local state.
       setLicenseKeys((prev) => mergeLicenses(prev, remote));
       return remote;
     } catch {
@@ -740,7 +741,10 @@ export function AppProvider({ children }) {
           symbols: Array.isArray(ea?.symbols) ? ea.symbols : [],
         },
       };
-      setLicenseKeys((prev) => mergeLicenses(prev, [entry]));
+      // Always start Available — never inherit a stale used flag.
+      setLicenseKeys((prev) =>
+        mergeLicenses(prev, [{ ...entry, used: false, usedAt: null }])
+      );
 
       // Keep signup list in sync — license email is approved for activation.
       try {
@@ -756,6 +760,8 @@ export function AppProvider({ children }) {
       try {
         const remote = await createLicenseRemote({
           ...entry,
+          used: false,
+          usedAt: null,
           bot: {
             ...entry.bot,
             photo: String(entry.bot.photo || "").startsWith("data:")
@@ -763,12 +769,20 @@ export function AppProvider({ children }) {
               : entry.bot.photo,
           },
         });
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        if (remote) {
+          setLicenseKeys((prev) =>
+            mergeLicenses(prev, [{ ...remote, used: false, usedAt: null }])
+          );
+        }
         showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {
+        // Keep the local Available key so mentors still see what they generated.
+        setLicenseKeys((prev) =>
+          mergeLicenses(prev, [{ ...entry, used: false, usedAt: null }])
+        );
         showToast(error.message || "Could not sync license key");
-        return null;
+        return key;
       }
     },
     [bots, eas, showToast]
@@ -913,16 +927,25 @@ export function AppProvider({ children }) {
         ];
       });
 
-      setLicenseKeys((prev) =>
-        mergeLicenses(prev, [{ ...entry, used: true, usedAt: Date.now() }])
-      );
-
+      // Mark used on the shared store first. Only then update local — otherwise a
+      // failed sync left keys stuck as "Used" while still unused for clients.
+      let remote = null;
       try {
-        const remote = await markLicenseUsedRemote(entry.key || key);
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        remote = await markLicenseUsedRemote(entry.key || key);
       } catch (error) {
-        showToast(error.message || "Could not sync license use");
+        showToast(error.message || "Could not lock license key — try again");
+        return false;
       }
+
+      setLicenseKeys((prev) =>
+        mergeLicenses(prev, [
+          {
+            ...(remote || entry),
+            used: true,
+            usedAt: (remote && remote.usedAt) || Date.now(),
+          },
+        ])
+      );
 
       showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
       return true;

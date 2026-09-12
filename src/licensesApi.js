@@ -101,13 +101,15 @@ export function mergeLicenses(localList = [], remoteList = []) {
       map.set(row.key, row);
       return;
     }
+    // Last write wins for `used` so a fresh unused remote key is not stuck
+    // behind a stale local used:true (and new keys stay Available).
     map.set(row.key, {
       ...prev,
       ...row,
       clientEmail: row.clientEmail || prev.clientEmail || "",
       clientName: row.clientName || prev.clientName || "",
-      used: Boolean(prev.used || row.used),
-      usedAt: row.usedAt || prev.usedAt || null,
+      used: Boolean(row.used),
+      usedAt: row.used ? row.usedAt || prev.usedAt || null : null,
       bot: row.bot || prev.bot || null,
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),
     });
