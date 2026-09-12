@@ -471,33 +471,40 @@ export function AppProvider({ children }) {
   const requestSignup = useCallback(
     async (email) => {
       const key = normalizeEmail(email);
+      let localSignup = { email: key, status: "pending", createdAt: Date.now() };
       setCoverEmail(key);
       setSignups((prev) => {
         const existing = prev.find((s) => s.email === key);
         if (existing) {
           if (existing.status === "declined") {
-            return prev.map((s) =>
-              s.email === key
-                ? { ...s, status: "pending", createdAt: Date.now() }
-                : s
-            );
+            localSignup = { ...existing, status: "pending", createdAt: Date.now() };
+            return prev.map((s) => (s.email === key ? localSignup : s));
           }
+          localSignup = existing;
           return prev;
         }
-        return [...prev, { email: key, status: "pending", createdAt: Date.now() }];
+        return [...prev, localSignup];
       });
 
       try {
         const remote = await submitSignup(key);
         if (remote) {
-          setSignups((prev) => mergeSignups(prev, [remote]));
-        } else {
-          await refreshSignups();
+          localSignup = {
+            email: key,
+            status: String(remote.status || localSignup.status || "pending").toLowerCase(),
+            createdAt: Number(remote.createdAt) || localSignup.createdAt || Date.now(),
+          };
+          setSignups((prev) => mergeSignups(prev, [localSignup]));
+          return localSignup;
         }
+        const merged = await refreshSignups();
+        const fromRemote =
+          Array.isArray(merged) ? merged.find((s) => s.email === key) : null;
+        return fromRemote || localSignup;
       } catch (error) {
         showToast(error.message || "Could not sync signup to server");
+        return localSignup;
       }
-      return key;
     },
     [refreshSignups, showToast]
   );
@@ -549,15 +556,22 @@ export function AppProvider({ children }) {
 
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
-    if (!signup) {
-      setLockStep("cover");
-      return;
-    }
-    if (signup.status === "approved") {
-      setLockStep("license");
-      return;
-    }
-    setLockStep("pending");
+    // Never yank the user backwards while they are typing email/license.
+    // Only advance (cover → pending/license) or keep the current step stable.
+    setLockStep((prev) => {
+      if (!coverEmail) return "cover";
+      if (!signup) {
+        // Keep pending/license if signup list is briefly empty during a refresh.
+        if (prev === "pending" || prev === "license") return prev;
+        return "cover";
+      }
+      if (signup.status === "approved") return "license";
+      if (signup.status === "declined") return "pending";
+      // pending signup: allow cover → pending, but do not kick license → pending
+      // unless the user explicitly went back.
+      if (prev === "license") return prev;
+      return "pending";
+    });
   }, [coverEmail, getSignup]);
 
   useEffect(() => {
@@ -777,9 +791,23 @@ export function AppProvider({ children }) {
   const activateLicense = useCallback(
     async (rawKey) => {
       const accountEmail = normalizeEmail(coverEmail);
-      const signup = getSignup(accountEmail);
+      let signup = getSignup(accountEmail);
+      // Signup list can lag right after email submit — refresh once before bouncing back.
       if (!signup || signup.status !== "approved") {
-        setLockStep("pending");
+        try {
+          const merged = await refreshSignups();
+          if (Array.isArray(merged)) {
+            signup = merged.find((s) => s.email === accountEmail) || signup;
+          }
+        } catch {
+          // keep local signup
+        }
+      }
+      if (!signup || signup.status !== "approved") {
+        // Stay on license if we still believe they should be there; only go pending when known.
+        if (signup && signup.status !== "approved") {
+          setLockStep("pending");
+        }
         showToast(
           signup?.status === "declined"
             ? "Access was declined"
@@ -844,10 +872,6 @@ export function AppProvider({ children }) {
         showToast("This key has no client email — generate a new key with email + name");
         return false;
       }
-      if (entry.used) {
-        showToast("License key already used");
-        return false;
-      }
 
       const snapshot = entry.bot || {
         id: entry.botId,
@@ -857,61 +881,75 @@ export function AppProvider({ children }) {
         symbols: [],
       };
 
-      setEas((prev) => {
-        if (prev.some((ea) => ea.id === snapshot.id)) {
-          return prev.map((ea) =>
-            ea.id === snapshot.id
-              ? {
-                  ...ea,
-                  name: snapshot.name || ea.name,
-                  photo: snapshot.photo || ea.photo,
-                  strategy: snapshot.strategy || ea.strategy,
-                  symbols:
-                    Array.isArray(snapshot.symbols) && snapshot.symbols.length
-                      ? snapshot.symbols
-                      : ea.symbols,
-                }
-              : ea
-          );
-        }
-        return [
-          {
-            id: snapshot.id,
-            name: snapshot.name || entry.botName || "Bot",
-            photo: snapshot.photo || "/logo.png",
-            strategy: snapshot.strategy || "scalper",
-            symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
-          },
-          ...prev,
-        ];
-      });
+      const applyBot = () => {
+        setEas((prev) => {
+          if (prev.some((ea) => ea.id === snapshot.id)) {
+            return prev.map((ea) =>
+              ea.id === snapshot.id
+                ? {
+                    ...ea,
+                    name: snapshot.name || ea.name,
+                    photo: snapshot.photo || ea.photo,
+                    strategy: snapshot.strategy || ea.strategy,
+                    symbols:
+                      Array.isArray(snapshot.symbols) && snapshot.symbols.length
+                        ? snapshot.symbols
+                        : ea.symbols,
+                  }
+                : ea
+            );
+          }
+          return [
+            {
+              id: snapshot.id,
+              name: snapshot.name || entry.botName || "Bot",
+              photo: snapshot.photo || "/logo.png",
+              strategy: snapshot.strategy || "scalper",
+              symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
+            },
+            ...prev,
+          ];
+        });
 
-      setBots((prev) => {
-        const exists = prev.some((b) => b.id === snapshot.id);
-        if (exists) {
-          return prev.map((b) =>
-            b.id === snapshot.id
-              ? {
-                  ...b,
-                  name: snapshot.name || b.name,
-                  photo: snapshot.photo || b.photo,
-                  active: true,
-                  selected: true,
-                }
-              : { ...b, selected: false }
-          );
-        }
-        return [
-          ...prev.map((b) => ({ ...b, selected: false })),
-          {
-            id: snapshot.id,
-            name: snapshot.name || entry.botName || "Bot",
-            photo: snapshot.photo || "/logo.png",
-            active: true,
-            selected: true,
-          },
-        ];
-      });
+        setBots((prev) => {
+          const exists = prev.some((b) => b.id === snapshot.id);
+          if (exists) {
+            return prev.map((b) =>
+              b.id === snapshot.id
+                ? {
+                    ...b,
+                    name: snapshot.name || b.name,
+                    photo: snapshot.photo || b.photo,
+                    active: true,
+                    selected: true,
+                  }
+                : { ...b, selected: false }
+            );
+          }
+          return [
+            ...prev.map((b) => ({ ...b, selected: false })),
+            {
+              id: snapshot.id,
+              name: snapshot.name || entry.botName || "Bot",
+              photo: snapshot.photo || "/logo.png",
+              active: true,
+              selected: true,
+            },
+          ];
+        });
+      };
+
+      // Same email + already-used key: restore this device instead of kicking the user back.
+      if (entry.used) {
+        applyBot();
+        setLicenseKeys((prev) => mergeLicenses(prev, [entry]));
+        showToast(
+          `${snapshot.name || entry.botName || "Bot"} restored for ${accountEmail}`
+        );
+        return true;
+      }
+
+      applyBot();
 
       setLicenseKeys((prev) =>
         mergeLicenses(prev, [{ ...entry, used: true, usedAt: Date.now() }])
@@ -927,7 +965,7 @@ export function AppProvider({ children }) {
       showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
       return true;
     },
-    [coverEmail, getSignup, licenseKeys, showToast]
+    [coverEmail, getSignup, licenseKeys, refreshSignups, showToast]
   );
 
   const saveSymbolMeta = useCallback((symbol, meta) => {
