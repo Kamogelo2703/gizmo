@@ -495,7 +495,10 @@ export function AppProvider({ children }) {
           await refreshSignups();
         }
       } catch (error) {
-        showToast(error.message || "Could not sync signup to server");
+        showToast(
+          error.message ||
+            "Signup saved on this phone, but pending list sync failed — try again"
+        );
       }
       return key;
     },
