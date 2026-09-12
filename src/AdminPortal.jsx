@@ -692,7 +692,6 @@ export default function AdminPortal() {
                     id="ea-photo-react"
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     hidden
                     onChange={onPhotoChange}
                   />
