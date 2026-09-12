@@ -770,8 +770,13 @@ export function AppProvider({ children }) {
         showToast(`License ready for ${name} · ${email}`);
         return remote?.key || key;
       } catch (error) {
-        showToast(error.message || "Could not sync license key");
-        return null;
+        // Keep the local key so mentors can still copy/share it when GitHub sync fails.
+        showToast(
+          error.message === "Bad credentials"
+            ? `License created locally for ${name} — copy it now (server sync needs a fresh GitHub token)`
+            : `License created for ${name} — copy it now (sync pending: ${error.message || "offline"})`
+        );
+        return key;
       }
     },
     [bots, eas, showToast]
@@ -834,13 +839,13 @@ export function AppProvider({ children }) {
       }
 
       if (!entry) {
-        showToast("Invalid license key");
+        showToast("Invalid license key — ask your mentor to generate a new one");
         return false;
       }
 
       const licenseEmail = normalizeEmail(entry.clientEmail);
       if (licenseEmail && licenseEmail !== accountEmail) {
-        showToast(`This key is for ${licenseEmail}, not ${accountEmail}`);
+        showToast(`This key is bound to ${licenseEmail}, not ${accountEmail}`);
         return false;
       }
       if (!licenseEmail) {
