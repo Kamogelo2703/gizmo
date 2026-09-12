@@ -9,6 +9,7 @@ import {
 } from './api/metaapi/_handlers.js'
 import signupsHandler from './api/signups/index.js'
 import licensesHandler from './api/licenses/index.js'
+import licensesPhotoHandler from './api/licenses/photo.js'
 import mentorsHandler from './api/mentors/index.js'
 import chartSymbolHandler from './api/chart/symbol.js'
 
@@ -23,6 +24,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/signups' || url.pathname === '/api/signups/') {
             req.url = `${url.pathname}${url.search}`
             return signupsHandler(req, res)
+          }
+
+          if (url.pathname === '/api/licenses/photo') {
+            req.url = `${url.pathname}${url.search}`
+            return licensesPhotoHandler(req, res)
           }
 
           if (url.pathname === '/api/licenses' || url.pathname === '/api/licenses/') {

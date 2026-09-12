@@ -155,6 +155,14 @@ export async function createLicenseRemote(payload) {
   return normalizeLicense(data?.license);
 }
 
+export async function uploadBotPhotoRemote(botId, photo) {
+  const data = await apiFetch("/photo", {
+    method: "POST",
+    body: { botId, photo },
+  });
+  return String(data?.photo || "/logo.png");
+}
+
 export async function markLicenseUsedRemote(key) {
   const data = await apiFetch("", {
     method: "PATCH",
