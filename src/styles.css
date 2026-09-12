@@ -2751,7 +2751,117 @@ button {
 }
 
 .license-row.is-used {
-  opacity: 0.6;
+  opacity: 0.72;
+}
+
+.license-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-btn-sm {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  border-radius: 10px;
+}
+
+.admin-btn-ghost {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.admin-btn-ghost:hover {
+  color: #111827;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.license-side-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.license-side-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(17, 24, 39, 0.45);
+  cursor: pointer;
+}
+
+.license-side-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 340px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px calc(20px + var(--safe-bottom, 0px));
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.12);
+  animation: license-side-in 0.22s ease;
+}
+
+@keyframes license-side-in {
+  from {
+    transform: translateX(18px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.license-side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.license-side-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.license-side-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.license-side-copy {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.license-side-key {
+  display: block;
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  user-select: all;
 }
 
 .admin-empty {

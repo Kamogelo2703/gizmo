@@ -61,6 +61,7 @@ export default function AdminPortal() {
     bots,
     licenseKeys,
     generateLicense,
+    deactivateLicense,
     refreshLicenses,
     catalog,
     ensureCatalog,
@@ -84,6 +85,43 @@ export default function AdminPortal() {
   const [licenseClientEmail, setLicenseClientEmail] = useState("");
   const [latestKey, setLatestKey] = useState("");
   const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
+  const [licenseSheetOpen, setLicenseSheetOpen] = useState(false);
+
+  async function copyLicenseKey(key) {
+    const value = String(key || "").trim();
+    if (!value) {
+      showToast("No license key to copy");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast("License key copied");
+    } catch {
+      try {
+        const area = document.createElement("textarea");
+        area.value = value;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.left = "-9999px";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        document.body.removeChild(area);
+        showToast("License key copied");
+      } catch {
+        showToast("Could not copy — select the key manually");
+      }
+    }
+  }
+
+  async function onDeactivateLicense(key) {
+    const result = await deactivateLicense?.(key);
+    if (result) {
+      await refreshLicenses?.();
+      if (latestKey === key) setLicenseSheetOpen(true);
+    }
+  }
+
 
   const pending = useMemo(
     () => signups.filter((s) => s.status === "pending").sort((a, b) => b.createdAt - a.createdAt),
@@ -870,6 +908,7 @@ export default function AdminPortal() {
                         .trim()
                         .toLowerCase(),
                     });
+                    setLicenseSheetOpen(true);
                   }
                   await refreshLicenses?.();
                 }}
@@ -935,6 +974,22 @@ export default function AdminPortal() {
                       Bound to {latestLicenseMeta.name} · {latestLicenseMeta.email}
                     </p>
                   ) : null}
+                  <div className="license-row-actions" style={{ marginTop: 10 }}>
+                    <button
+                      className="admin-btn admin-btn-solid admin-btn-sm"
+                      type="button"
+                      onClick={() => setLicenseSheetOpen(true)}
+                    >
+                      Open copy panel
+                    </button>
+                    <button
+                      className="admin-btn admin-btn-outline admin-btn-sm"
+                      type="button"
+                      onClick={() => copyLicenseKey(latestKey)}
+                    >
+                      Copy key
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -957,6 +1012,29 @@ export default function AdminPortal() {
                       {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
                       {entry.used ? "Used" : "Available"}
                     </span>
+                    <div className="license-row-actions">
+                      <button
+                        className="admin-btn admin-btn-outline admin-btn-sm"
+                        type="button"
+                        onClick={() => {
+                          setLatestKey(entry.key);
+                          setLatestLicenseMeta({
+                            name: entry.clientName || "",
+                            email: entry.clientEmail || "",
+                          });
+                          setLicenseSheetOpen(true);
+                        }}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        className="admin-btn admin-btn-ghost admin-btn-sm"
+                        type="button"
+                        onClick={() => void onDeactivateLicense(entry.key)}
+                      >
+                        {entry.used ? "Deactivate" : "Reset"}
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1179,6 +1257,51 @@ export default function AdminPortal() {
           </section>
         )}
       </div>
+
+      {licenseSheetOpen && latestKey ? (
+        <div className="license-side-sheet" role="dialog" aria-modal="true" aria-label="License key">
+          <button
+            className="license-side-backdrop"
+            type="button"
+            aria-label="Close"
+            onClick={() => setLicenseSheetOpen(false)}
+          />
+          <aside className="license-side-panel">
+            <div className="license-side-header">
+              <h2>License ready</h2>
+              <button
+                className="license-side-close"
+                type="button"
+                aria-label="Close"
+                onClick={() => setLicenseSheetOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="license-side-copy">
+              {latestLicenseMeta
+                ? `For ${latestLicenseMeta.name || "client"} · ${latestLicenseMeta.email || "—"}`
+                : "Copy this key and send it to your client."}
+            </p>
+            <code className="license-side-key">{latestKey}</code>
+            <button
+              className="admin-btn admin-btn-solid admin-btn-block"
+              type="button"
+              onClick={() => copyLicenseKey(latestKey)}
+            >
+              Copy license key
+            </button>
+            <button
+              className="admin-btn admin-btn-outline admin-btn-block"
+              type="button"
+              style={{ marginTop: 8 }}
+              onClick={() => void onDeactivateLicense(latestKey)}
+            >
+              Deactivate key
+            </button>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import {
   createLicense,
+  deactivateLicense,
   findLicense,
   findLicensesByEmail,
   listLicenses,
@@ -51,7 +52,12 @@ export default async function handler(req, res) {
 
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
-      const license = await markLicenseUsed(body.key);
+      const action = String(body.action || "").toLowerCase();
+      const shouldDeactivate =
+        action === "deactivate" || body.used === false || body.deactivate === true;
+      const license = shouldDeactivate
+        ? await deactivateLicense(body.key)
+        : await markLicenseUsed(body.key);
       sendJson(res, 200, { license });
       return;
     }
