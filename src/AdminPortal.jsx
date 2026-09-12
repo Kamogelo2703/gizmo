@@ -98,11 +98,28 @@ export default function AdminPortal() {
     [signups]
   );
   const pendingMentors = useMemo(
-    () => mentors.filter((m) => m.status === "pending").sort((a, b) => b.createdAt - a.createdAt),
+    () =>
+      mentors
+        .filter((m) => String(m.status || "").toLowerCase() === "pending")
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     [mentors]
   );
   const approvedMentors = useMemo(
-    () => mentors.filter((m) => m.status === "approved").sort((a, b) => b.createdAt - a.createdAt),
+    () =>
+      mentors
+        .filter((m) => {
+          const status = String(m.status || "").toLowerCase();
+          const role = String(m.role || "").toLowerCase();
+          return status === "approved" || role === "superadmin";
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+    [mentors]
+  );
+  const declinedMentors = useMemo(
+    () =>
+      mentors
+        .filter((m) => String(m.status || "").toLowerCase() === "declined")
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     [mentors]
   );
 
@@ -142,12 +159,24 @@ export default function AdminPortal() {
       }
     }
     loadMentors();
-    const timer = setInterval(loadMentors, 12000);
+    // Poll faster on Mentors page so new signups show in Pending quickly.
+    const ms = adminPage === "mentors" ? 5000 : 12000;
+    const timer = setInterval(loadMentors, ms);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [adminOpen, adminSession, adminPage]);
+
+  async function refreshMentorsList() {
+    try {
+      const list = await fetchMentors();
+      setMentors(Array.isArray(list) ? list : []);
+      showToast("Mentors refreshed");
+    } catch (error) {
+      showToast(error.message || "Could not refresh mentors");
+    }
+  }
 
   if (!adminOpen) return null;
 
@@ -905,12 +934,22 @@ export default function AdminPortal() {
         {adminPage === "mentors" && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">Mentor Management</h2>
-            <p className="admin-sub">Approve mentor registrations for portal access</p>
+            <p className="admin-sub">
+              Mentor signups land in Pending here until you approve them.
+            </p>
             <div className="admin-card">
               <div className="admin-card-title-row">
                 <h3 className="admin-card-title">Pending</h3>
                 <span className="admin-badge is-pending">{pendingMentors.length}</span>
               </div>
+              <button
+                className="admin-btn admin-btn-sm"
+                type="button"
+                style={{ marginBottom: 10 }}
+                onClick={refreshMentorsList}
+              >
+                Refresh pending
+              </button>
               {pendingMentors.length === 0 ? (
                 <p className="admin-empty">No pending mentors</p>
               ) : (
@@ -919,7 +958,7 @@ export default function AdminPortal() {
                     <div>
                       <strong>{mentor.username}</strong>
                       <p className="admin-card-meta">{mentor.email}</p>
-                      <p className="admin-card-meta">{mentor.contact}</p>
+                      <p className="admin-card-meta">{mentor.contact || "—"}</p>
                     </div>
                     <div className="admin-row-actions">
                       <button
@@ -959,6 +998,32 @@ export default function AdminPortal() {
                       </p>
                     </div>
                     <span className="admin-badge is-approved">{mentor.status}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="admin-card" style={{ marginTop: 14 }}>
+              <div className="admin-card-title-row">
+                <h3 className="admin-card-title">Declined</h3>
+                <span className="admin-badge is-declined">{declinedMentors.length}</span>
+              </div>
+              {declinedMentors.length === 0 ? (
+                <p className="admin-empty">No declined mentors</p>
+              ) : (
+                declinedMentors.map((mentor) => (
+                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                    <div>
+                      <strong>{mentor.username}</strong>
+                      <p className="admin-card-meta">{mentor.email}</p>
+                      <p className="admin-card-meta">{mentor.contact || "—"}</p>
+                    </div>
+                    <button
+                      className="admin-btn admin-btn-solid admin-btn-sm"
+                      type="button"
+                      onClick={() => changeMentorStatus(mentor.email, "approved")}
+                    >
+                      Approve
+                    </button>
                   </div>
                 ))
               )}

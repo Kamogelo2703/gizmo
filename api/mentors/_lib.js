@@ -245,6 +245,9 @@ async function writeStore(mentors, sha, message) {
     });
   } catch (error) {
     writeLocalStore(mentors);
+    // Auth failures must surface — otherwise pending mentors appear saved but vanish
+    // on the next serverless instance.
+    if (error.status === 401 || error.status === 403) throw error;
     return { local: true };
   }
 }
@@ -288,20 +291,24 @@ function ensureSuperAdminRecord(mentors) {
 }
 
 export async function listMentors() {
-  const store = await readStore();
-  const mentors = ensureSuperAdminRecord(store.mentors);
-  // Persist seed quietly when missing/outdated.
-  const seeded = store.mentors.some((m) => m.email === SUPER_ADMIN_EMAIL);
-  const sameHash =
-    seeded &&
-    store.mentors.find((m) => m.email === SUPER_ADMIN_EMAIL)?.passwordHash ===
-      mentors.find((m) => m.email === SUPER_ADMIN_EMAIL)?.passwordHash;
-  if (!seeded || !sameHash) {
-    try {
-      await writeStore(mentors, store.sha, "chore: seed super admin mentor account");
-    } catch {
-      // Non-fatal — login still works via hardcoded super-admin check.
+  // Use mutate path when seeding so a concurrent register cannot be overwritten
+  // by a stale full-file write.
+  let mentors = [];
+  try {
+    const store = await readStore();
+    mentors = ensureSuperAdminRecord(store.mentors);
+    const seeded = store.mentors.some((m) => m.email === SUPER_ADMIN_EMAIL);
+    const sameHash =
+      seeded &&
+      store.mentors.find((m) => m.email === SUPER_ADMIN_EMAIL)?.passwordHash ===
+        mentors.find((m) => m.email === SUPER_ADMIN_EMAIL)?.passwordHash;
+    if (!seeded || !sameHash) {
+      await mutateStore((current) => ensureSuperAdminRecord(current), "chore: seed super admin mentor account");
+      const refreshed = await readStore();
+      mentors = ensureSuperAdminRecord(refreshed.mentors);
     }
+  } catch {
+    mentors = ensureSuperAdminRecord(readLocalStore().mentors);
   }
   return mentors
     .map(publicMentor)
