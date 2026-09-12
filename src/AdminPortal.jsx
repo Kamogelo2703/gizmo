@@ -9,6 +9,34 @@ import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
 
 const ADMIN_SESSION_KEY = "apexea-admin-session";
 
+async function copyTextToClipboard(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to legacy copy
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+
 function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
   if (!photo) return false;
@@ -870,6 +898,12 @@ export default function AdminPortal() {
                         .trim()
                         .toLowerCase(),
                     });
+                    const copied = await copyTextToClipboard(key);
+                    showToast(
+                      copied
+                        ? `License copied · ${key}`
+                        : `License ready · ${key}`
+                    );
                   }
                   await refreshLicenses?.();
                 }}
@@ -930,6 +964,17 @@ export default function AdminPortal() {
                 <div className="license-result">
                   <p>Latest key</p>
                   <code>{latestKey}</code>
+                  <button
+                    className="admin-btn admin-btn-outline admin-btn-block"
+                    type="button"
+                    style={{ marginTop: 10 }}
+                    onClick={async () => {
+                      const copied = await copyTextToClipboard(latestKey);
+                      showToast(copied ? "License key copied" : "Could not copy key");
+                    }}
+                  >
+                    Copy license key
+                  </button>
                   {latestLicenseMeta ? (
                     <p className="ea-hint" style={{ marginTop: 8 }}>
                       Bound to {latestLicenseMeta.name} · {latestLicenseMeta.email}
@@ -957,6 +1002,17 @@ export default function AdminPortal() {
                       {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
                       {entry.used ? "Used" : "Available"}
                     </span>
+                    <button
+                      className="admin-btn admin-btn-outline"
+                      type="button"
+                      style={{ marginTop: 8 }}
+                      onClick={async () => {
+                        const copied = await copyTextToClipboard(entry.key);
+                        showToast(copied ? "License key copied" : "Could not copy key");
+                      }}
+                    >
+                      Copy
+                    </button>
                   </div>
                 ))
               )}

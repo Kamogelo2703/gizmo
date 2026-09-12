@@ -1,9 +1,15 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { FALLBACK_GITHUB_TOKEN } from "./_githubToken.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
 const FILE_PATH = process.env.SIGNUPS_FILE_PATH || "data/signups.json";
 const API = `https://api.github.com/repos/${REPO}`;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_FILE = path.resolve(__dirname, "../../data/signups.json");
+let memorySignups = null;
 
 function normalizeEmail(email) {
   return String(email || "")
@@ -81,44 +87,94 @@ function decodeContent(file) {
   }
 }
 
+function readLocalStore() {
+  if (Array.isArray(memorySignups)) {
+    return { sha: "local", signups: memorySignups.map((s) => ({ ...s })) };
+  }
+  try {
+    if (fs.existsSync(LOCAL_FILE)) {
+      const raw = fs.readFileSync(LOCAL_FILE, "utf8");
+      const decoded = decodeContent({
+        content: Buffer.from(raw, "utf8").toString("base64"),
+        sha: "local",
+      });
+      memorySignups = decoded.signups;
+      return { sha: "local", signups: decoded.signups.map((s) => ({ ...s })) };
+    }
+  } catch {}
+  memorySignups = [];
+  return { sha: "local", signups: [] };
+}
+
+function writeLocalStore(signups) {
+  const next = signups
+    .map((s) => ({
+      email: normalizeEmail(s.email),
+      status: String(s.status || "pending").toLowerCase(),
+      createdAt: Number(s.createdAt) || Date.now(),
+    }))
+    .filter((s) => s.email && s.email.includes("@"));
+  memorySignups = next;
+  try {
+    fs.mkdirSync(path.dirname(LOCAL_FILE), { recursive: true });
+    fs.writeFileSync(
+      LOCAL_FILE,
+      JSON.stringify({ signups: next.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) }, null, 2) + "\n",
+      "utf8"
+    );
+  } catch {}
+  return next;
+}
+
 async function readStore() {
-  // Always read via Contents API — raw.githubusercontent.com is CDN-cached and
-  // can keep returning "pending" long after an approval commit lands on main.
-  const file = await ghFetch(
-    `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
-    { cache: "no-store" }
-  );
-  return decodeContent(file);
+  try {
+    const file = await ghFetch(
+      `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
+      { cache: "no-store" }
+    );
+    const store = decodeContent(file);
+    memorySignups = store.signups.map((s) => ({ ...s }));
+    return store;
+  } catch (error) {
+    if (error.status === 404) return { sha: null, signups: [] };
+    console.warn("signups github read failed; using local fallback", error.message);
+    return { ...readLocalStore(), remote: false };
+  }
 }
 
 async function writeStore(signups, sha, message) {
+  const normalized = signups
+    .map((s) => ({
+      email: normalizeEmail(s.email),
+      status: String(s.status || "pending").toLowerCase(),
+      createdAt: Number(s.createdAt) || Date.now(),
+    }))
+    .filter((s) => s.email && s.email.includes("@"))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
   const content = Buffer.from(
-    JSON.stringify(
-      {
-        signups: signups
-          .map((s) => ({
-            email: normalizeEmail(s.email),
-            status: String(s.status || "pending").toLowerCase(),
-            createdAt: Number(s.createdAt) || Date.now(),
-          }))
-          .filter((s) => s.email && s.email.includes("@"))
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-      },
-      null,
-      2
-    ) + "\n",
+    JSON.stringify({ signups: normalized }, null, 2) + "\n",
     "utf8"
   ).toString("base64");
 
-  return ghFetch(`${API}/contents/${FILE_PATH}`, {
-    method: "PUT",
-    body: {
-      message,
-      content,
-      sha,
-      branch: BRANCH,
-    },
-  });
+  try {
+    const result = await ghFetch(`${API}/contents/${FILE_PATH}`, {
+      method: "PUT",
+      body: {
+        message,
+        content,
+        ...(sha && sha !== "local" ? { sha } : {}),
+        branch: BRANCH,
+      },
+    });
+    memorySignups = normalized.map((s) => ({ ...s }));
+    return result;
+  } catch (error) {
+    writeLocalStore(normalized);
+    if (error.status === 409 || error.status === 422) throw error;
+    console.warn("signups github write failed; saved locally", error.message);
+    return { local: true, signups: normalized };
+  }
 }
 
 async function mutateStore(mutator, message) {
