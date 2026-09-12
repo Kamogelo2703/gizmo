@@ -15,6 +15,7 @@ import {
 } from "./signupsApi.js";
 import {
   createLicenseRemote,
+  deactivateLicenseRemote,
   fetchLicense,
   fetchLicenses,
   fetchLicensesByEmail,
@@ -730,6 +731,7 @@ export function AppProvider({ children }) {
         used: false,
         createdAt: Date.now(),
         usedAt: null,
+        updatedAt: Date.now(),
         bot: {
           id: bot.id,
           name: bot.name,
@@ -915,7 +917,9 @@ export function AppProvider({ children }) {
       });
 
       setLicenseKeys((prev) =>
-        mergeLicenses(prev, [{ ...entry, used: true, usedAt: Date.now() }])
+        mergeLicenses(prev, [
+          { ...entry, used: true, usedAt: Date.now(), updatedAt: Date.now() },
+        ])
       );
 
       try {
@@ -929,6 +933,38 @@ export function AppProvider({ children }) {
       return true;
     },
     [coverEmail, getSignup, licenseKeys, showToast]
+  );
+
+  const deactivateLicense = useCallback(
+    async (rawKey) => {
+      const key = normalizeLicenseKey(rawKey);
+      if (!key) {
+        showToast("Missing license key");
+        return null;
+      }
+      const variants = licenseKeyVariants(key);
+      const local = licenseKeys.find((item) =>
+        variants.includes(normalizeLicenseKey(item.key))
+      );
+      const cleared = {
+        ...(local || { key }),
+        key: local?.key || key,
+        used: false,
+        usedAt: null,
+        updatedAt: Date.now(),
+      };
+      setLicenseKeys((prev) => mergeLicenses(prev, [cleared]));
+      try {
+        const remote = await deactivateLicenseRemote(key);
+        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
+        showToast("License deactivated — available again");
+        return remote || cleared;
+      } catch (error) {
+        showToast(error.message || "Could not deactivate license");
+        return null;
+      }
+    },
+    [licenseKeys, showToast]
   );
 
   const saveSymbolMeta = useCallback((symbol, meta) => {
@@ -988,6 +1024,7 @@ export function AppProvider({ children }) {
     licenseKeys,
     generateLicense,
     activateLicense,
+    deactivateLicense,
     refreshLicenses,
     catalog,
     ensureCatalog,

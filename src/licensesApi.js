@@ -77,6 +77,7 @@ export function normalizeLicense(row) {
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    updatedAt: Number(row?.updatedAt || row?.usedAt || row?.createdAt) || Date.now(),
     bot: bot
       ? {
           id: String(bot.id || row.botId || "").trim(),
@@ -101,13 +102,20 @@ export function mergeLicenses(localList = [], remoteList = []) {
       map.set(row.key, row);
       return;
     }
+    const preferIncoming = (row.updatedAt || 0) >= (prev.updatedAt || 0);
     map.set(row.key, {
       ...prev,
       ...row,
       clientEmail: row.clientEmail || prev.clientEmail || "",
       clientName: row.clientName || prev.clientName || "",
-      used: Boolean(prev.used || row.used),
-      usedAt: row.usedAt || prev.usedAt || null,
+      // Newer updatedAt wins so deactivate (used:false) can stick.
+      used: preferIncoming ? Boolean(row.used) : Boolean(prev.used || row.used),
+      usedAt: preferIncoming
+        ? row.used
+          ? row.usedAt || prev.usedAt || null
+          : null
+        : row.usedAt || prev.usedAt || null,
+      updatedAt: Math.max(prev.updatedAt || 0, row.updatedAt || 0),
       bot: row.bot || prev.bot || null,
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),
     });
@@ -159,6 +167,14 @@ export async function markLicenseUsedRemote(key) {
   const data = await apiFetch("", {
     method: "PATCH",
     body: { key: normalizeLicenseKey(key) },
+  });
+  return normalizeLicense(data?.license);
+}
+
+export async function deactivateLicenseRemote(key) {
+  const data = await apiFetch("", {
+    method: "PATCH",
+    body: { key: normalizeLicenseKey(key), action: "deactivate" },
   });
   return normalizeLicense(data?.license);
 }

@@ -296,10 +296,40 @@ export async function markLicenseUsed(rawKey) {
       ...licenses[idx],
       used: true,
       usedAt: Date.now(),
+      updatedAt: Date.now(),
     };
     result = licenses[idx];
     return licenses;
   }, `license used: ${variants[0]}`);
+
+  return result;
+}
+
+export async function deactivateLicense(rawKey) {
+  const variants = licenseKeyVariants(rawKey);
+  if (!variants.length) {
+    const err = new Error("License key is required");
+    err.status = 400;
+    throw err;
+  }
+
+  let result = null;
+  await mutateStore((licenses) => {
+    const idx = licenses.findIndex((row) => variants.includes(row.key));
+    if (idx < 0) {
+      const err = new Error("Invalid license key");
+      err.status = 404;
+      throw err;
+    }
+    licenses[idx] = {
+      ...licenses[idx],
+      used: false,
+      usedAt: null,
+      updatedAt: Date.now(),
+    };
+    result = licenses[idx];
+    return licenses;
+  }, `license deactivated: ${variants[0]}`);
 
   return result;
 }
