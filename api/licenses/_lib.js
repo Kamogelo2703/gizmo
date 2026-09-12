@@ -1,9 +1,19 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
 const FILE_PATH = process.env.LICENSES_FILE_PATH || "data/licenses.json";
 const API = `https://api.github.com/repos/${REPO}`;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BUNDLED_FILE = path.resolve(__dirname, "../../data/licenses.json");
+const TMP_FILE = path.join("/tmp", "apexea-licenses.json");
+
+/** In-process fallback when GitHub auth fails (expired ghs_ token, etc.). */
+let memoryLicenses = null;
 
 export function normalizeLicenseKey(key) {
   return String(key || "")
@@ -134,29 +144,106 @@ function decodeContent(file) {
   }
 }
 
+function decodeLicensesJson(raw, sha = "local") {
+  try {
+    const parsed = JSON.parse(raw || "{}");
+    const licenses = Array.isArray(parsed?.licenses) ? parsed.licenses : [];
+    return {
+      sha,
+      licenses: licenses.map(normalizeLicense).filter(Boolean),
+    };
+  } catch {
+    return { sha, licenses: [] };
+  }
+}
+
+function mergeLicenseLists(...lists) {
+  const map = new Map();
+  lists.flat().forEach((row) => {
+    const item = normalizeLicense(row);
+    if (!item) return;
+    const prev = map.get(item.key);
+    if (!prev) {
+      map.set(item.key, item);
+      return;
+    }
+    const preferIncoming =
+      (item.updatedAt || item.usedAt || item.createdAt || 0) >=
+      (prev.updatedAt || prev.usedAt || prev.createdAt || 0);
+    map.set(item.key, preferIncoming ? { ...prev, ...item } : { ...item, ...prev });
+  });
+  return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function readLocalStore() {
+  if (Array.isArray(memoryLicenses)) {
+    return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row })), remote: false };
+  }
+
+  const chunks = [];
+  for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const decoded = decodeLicensesJson(fs.readFileSync(filePath, "utf8"), "local");
+        chunks.push(decoded.licenses);
+      }
+    } catch {
+      // try next source
+    }
+  }
+
+  memoryLicenses = mergeLicenseLists(...chunks);
+  return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row })), remote: false };
+}
+
+function writeLocalStore(licenses) {
+  const next = mergeLicenseLists(licenses).map((row) => ({ ...row }));
+  memoryLicenses = next;
+  const payload =
+    JSON.stringify(
+      {
+        licenses: next.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+      },
+      null,
+      2
+    ) + "\n";
+  for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
+    try {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, payload, "utf8");
+      break;
+    } catch {
+      // /tmp usually works on Vercel when the repo tree is read-only
+    }
+  }
+  return next;
+}
+
 async function readStore() {
   try {
     const file = await ghFetch(
       `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
       { cache: "no-store" }
     );
-    return decodeContent(file);
+    const remote = decodeContent(file);
+    // Keep memory warm with the latest remote snapshot.
+    memoryLicenses = remote.licenses.map((row) => ({ ...row }));
+    return { ...remote, remote: true };
   } catch (error) {
     if (error.status === 404) {
-      return { sha: null, licenses: [] };
+      return { sha: null, licenses: [], remote: true };
     }
-    throw error;
+    // Expired / missing GitHub token → use local/memory so create + activate still work.
+    return readLocalStore();
   }
 }
 
 async function writeStore(licenses, sha, message) {
+  const normalized = mergeLicenseLists(licenses);
   const content = Buffer.from(
     JSON.stringify(
       {
-        licenses: licenses
-          .map(normalizeLicense)
-          .filter(Boolean)
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+        licenses: normalized.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
       },
       null,
       2
@@ -169,12 +256,20 @@ async function writeStore(licenses, sha, message) {
     content,
     branch: BRANCH,
   };
-  if (sha) body.sha = sha;
+  if (sha && sha !== "local") body.sha = sha;
 
-  return ghFetch(`${API}/contents/${FILE_PATH}`, {
-    method: "PUT",
-    body,
-  });
+  try {
+    const result = await ghFetch(`${API}/contents/${FILE_PATH}`, {
+      method: "PUT",
+      body,
+    });
+    memoryLicenses = normalized.map((row) => ({ ...row }));
+    return result;
+  } catch (error) {
+    // Always persist locally so mentors can still generate keys when GitHub auth fails.
+    writeLocalStore(normalized);
+    return { local: true };
+  }
 }
 
 async function mutateStore(mutator, message) {
@@ -182,13 +277,24 @@ async function mutateStore(mutator, message) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const store = await readStore();
-      const next = mutator(store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })));
+      const next = mutator(
+        store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }))
+      );
       await writeStore(next, store.sha, message);
-      return next;
+      return mergeLicenseLists(next);
     } catch (error) {
       lastError = error;
       if (error.status === 409 || error.status === 422) continue;
-      throw error;
+      // Last resort: apply mutation purely in local memory.
+      try {
+        const local = readLocalStore();
+        const next = mutator(
+          local.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }))
+        );
+        return writeLocalStore(next);
+      } catch {
+        throw error;
+      }
     }
   }
   throw lastError || new Error("Could not update licenses store");
