@@ -31,7 +31,7 @@ export default function ZetaInterface() {
   function openLicense() {
     const signup = getSignup(coverEmail);
     if (signup?.status === "approved") setLockStep("license");
-    else if (signup) setLockStep("pending");
+    else if (signup) setLockStep("pay");
     else setLockStep("cover");
     if (bots.some((b) => b.active)) {
       showToast("Use Admin → License Keys for activation keys");

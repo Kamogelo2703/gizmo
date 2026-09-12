@@ -11,6 +11,9 @@ import signupsHandler from './api/signups/index.js'
 import licensesHandler from './api/licenses/index.js'
 import mentorsHandler from './api/mentors/index.js'
 import chartSymbolHandler from './api/chart/symbol.js'
+import paypalConfigHandler from './api/paypal/config.js'
+import paypalCreateOrderHandler from './api/paypal/create-order.js'
+import paypalCaptureOrderHandler from './api/paypal/capture-order.js'
 
 function metaApiDevPlugin() {
   return {
@@ -38,6 +41,27 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/chart/symbol' || url.pathname === '/api/chart/symbol/') {
             req.url = `${url.pathname}${url.search}`
             return chartSymbolHandler(req, res)
+          }
+
+          if (url.pathname === '/api/paypal/config' || url.pathname === '/api/paypal/config/') {
+            req.url = `${url.pathname}${url.search}`
+            return paypalConfigHandler(req, res)
+          }
+
+          if (
+            url.pathname === '/api/paypal/create-order' ||
+            url.pathname === '/api/paypal/create-order/'
+          ) {
+            req.url = `${url.pathname}${url.search}`
+            return paypalCreateOrderHandler(req, res)
+          }
+
+          if (
+            url.pathname === '/api/paypal/capture-order' ||
+            url.pathname === '/api/paypal/capture-order/'
+          ) {
+            req.url = `${url.pathname}${url.search}`
+            return paypalCaptureOrderHandler(req, res)
           }
 
           if (!url.pathname.startsWith('/api/metaapi/')) return next()
@@ -85,6 +109,11 @@ export default defineConfig(({ mode }) => {
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || env.OPENAI_API_KEY || ''
   process.env.OPENAI_VISION_MODEL =
     process.env.OPENAI_VISION_MODEL || env.OPENAI_VISION_MODEL || 'gpt-4o-mini'
+  process.env.PAYPAL_CLIENT_ID =
+    process.env.PAYPAL_CLIENT_ID || env.PAYPAL_CLIENT_ID || env.VITE_PAYPAL_CLIENT_ID || ''
+  process.env.PAYPAL_CLIENT_SECRET =
+    process.env.PAYPAL_CLIENT_SECRET || env.PAYPAL_CLIENT_SECRET || ''
+  process.env.PAYPAL_MODE = process.env.PAYPAL_MODE || env.PAYPAL_MODE || 'live'
 
   return {
     plugins: [react(), metaApiDevPlugin()],
