@@ -596,7 +596,19 @@ export default function AdminPortal() {
                 className="admin-btn admin-btn-sm"
                 type="button"
                 style={{ marginBottom: 10 }}
-                onClick={() => refreshSignups?.().then(() => showToast("Pending list refreshed"))}
+                onClick={() =>
+                  refreshSignups?.()
+                    .then((rows) => {
+                      if (rows == null) {
+                        showToast("Could not load pending signups — sync offline");
+                        return;
+                      }
+                      showToast("Pending list refreshed");
+                    })
+                    .catch((error) =>
+                      showToast(error.message || "Could not load pending signups")
+                    )
+                }
               >
                 Refresh pending
               </button>
