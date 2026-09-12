@@ -752,6 +752,8 @@ export function AppProvider({ children }) {
         used: false,
         createdAt: Date.now(),
         usedAt: null,
+        deviceId: null,
+        boundAt: null,
         bot: {
           id: bot.id,
           name: bot.name,
