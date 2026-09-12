@@ -85,26 +85,71 @@ function ensureLocalSuperAdmin(list) {
   return mentors;
 }
 
+function mergeMentorLists(localList = [], remoteList = []) {
+  const map = new Map();
+  // Local first, then remote wins on the same email so GitHub stays source of truth
+  // while still keeping locally registered mentors that are not remote yet.
+  for (const item of [...localList, ...remoteList]) {
+    const email = normalizeEmail(item?.email);
+    if (!email) continue;
+    const prev = map.get(email);
+    map.set(email, {
+      id: item.id || prev?.id || email,
+      username: item.username || prev?.username || "Mentor",
+      email,
+      contact: item.contact || prev?.contact || "",
+      role:
+        String(item.role || prev?.role || "mentor").toLowerCase() === "superadmin"
+          ? "superadmin"
+          : "mentor",
+      status: String(item.status || prev?.status || "pending").toLowerCase(),
+      password: item.password || prev?.password,
+      createdAt: Number(item.createdAt || prev?.createdAt) || Date.now(),
+    });
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+  );
+}
+
+function cacheMentorLocally(mentor) {
+  if (!mentor?.email) return;
+  const mentors = ensureLocalSuperAdmin(readLocalMentors());
+  const key = normalizeEmail(mentor.email);
+  const idx = mentors.findIndex((m) => m.email === key);
+  const next = {
+    id: mentor.id || `local-${Date.now()}`,
+    username: mentor.username || "Mentor",
+    email: key,
+    contact: mentor.contact || "",
+    role: mentor.role || "mentor",
+    status: mentor.status || "pending",
+    password: mentor.password,
+    createdAt: mentor.createdAt || Date.now(),
+  };
+  if (idx >= 0) mentors[idx] = { ...mentors[idx], ...next };
+  else mentors.unshift(next);
+  writeLocalMentors(mentors);
+}
+
 export async function fetchMentors() {
+  const local = ensureLocalSuperAdmin(readLocalMentors());
   try {
     const data = await apiFetch();
     const remote = Array.isArray(data?.mentors) ? data.mentors : [];
-    if (remote.length) {
-      writeLocalMentors(
-        ensureLocalSuperAdmin(
-          remote.map((m) => ({
-            ...m,
-            password:
-              normalizeEmail(m.email) === normalizeEmail(SUPER_ADMIN_EMAIL)
-                ? SUPER_ADMIN_PASSWORD
-                : undefined,
-          }))
-        )
-      );
-    }
-    return remote;
+    const merged = mergeMentorLists(local, remote);
+    writeLocalMentors(
+      merged.map((m) => ({
+        ...m,
+        password:
+          normalizeEmail(m.email) === normalizeEmail(SUPER_ADMIN_EMAIL)
+            ? SUPER_ADMIN_PASSWORD
+            : m.password,
+      }))
+    );
+    return merged.map(publicLocal);
   } catch {
-    return ensureLocalSuperAdmin(readLocalMentors()).map(publicLocal);
+    return local.map(publicLocal);
   }
 }
 
@@ -161,7 +206,9 @@ export async function registerMentorAccount({
 
   try {
     const data = await apiFetch("", { method: "POST", body: payload });
-    return data?.mentor || null;
+    const mentor = data?.mentor || null;
+    if (mentor) cacheMentorLocally({ ...mentor, password });
+    return mentor;
   } catch (error) {
     // If remote says conflict / validation, surface it.
     if (error.status && error.status < 500) throw error;
