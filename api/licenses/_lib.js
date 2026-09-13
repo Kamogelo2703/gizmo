@@ -361,12 +361,14 @@ function normalizeLicense(row) {
   const bot = row?.bot && typeof row.bot === "object" ? row.bot : null;
   const clientEmail = normalizeEmail(row?.clientEmail || row?.email || "");
   const clientName = String(row?.clientName || row?.name || "").trim();
+  const mainText = String(row?.mainText || row?.username || clientName || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
     botName: String(row?.botName || bot?.name || "Bot").trim() || "Bot",
     clientEmail,
     clientName,
+    mainText,
     mentorEmail: normalizeEmail(row?.mentorEmail || row?.ownerEmail || ""),
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     mentorName: String(row?.mentorName || row?.ownerName || "").trim(),
@@ -647,6 +649,9 @@ export async function createLicense(payload = {}) {
         ...existing,
         clientEmail: existing.clientEmail || clientEmail,
         clientName: existing.clientName || clientName,
+        mainText:
+          existing.mainText ||
+          String(payload.mainText || payload.username || clientName || "").trim(),
         mentorEmail:
           existing.mentorEmail ||
           normalizeEmail(payload.mentorEmail || payload.ownerEmail || ""),
@@ -678,6 +683,7 @@ export async function createLicense(payload = {}) {
       botName,
       clientEmail,
       clientName,
+      mainText: String(payload.mainText || payload.username || clientName || "").trim(),
       mentorEmail: normalizeEmail(payload.mentorEmail || payload.ownerEmail || ""),
       mentorId: String(payload.mentorId || payload.ownerId || "").trim(),
       mentorName: String(payload.mentorName || payload.ownerName || "").trim(),

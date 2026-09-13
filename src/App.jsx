@@ -15,6 +15,7 @@ export default function App() {
     openAdmin,
     toast,
     showToast,
+    mainTextDisplay,
   } = useApp();
 
   const hotspotRef = useRef({ count: 0, first: 0 });
@@ -46,7 +47,9 @@ export default function App() {
       <div className="glow glow-soft" aria-hidden="true" />
 
       <header className="top">
-        <p className="username" id="username" />
+        <p className="username" id="username">
+          {mainTextDisplay || ""}
+        </p>
         <button
           className="iface-toggle"
           type="button"
