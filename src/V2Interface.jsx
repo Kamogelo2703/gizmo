@@ -58,9 +58,12 @@ export default function V2Interface() {
               <div className="v2-avatar-wrap">
                 <img
                   className="v2-avatar"
-                  src={activeBot?.photo || "/logo.png"}
+                  src="/zeta-fire-portal.jpg"
                   alt=""
                 />
+                <span className="v2-fire-anim" aria-hidden="true" />
+                <span className="v2-fire-anim v2-fire-anim--glow" aria-hidden="true" />
+                <span className="v2-fire-anim v2-fire-anim--sparks" aria-hidden="true" />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
               {mentorDisplayName ? (
