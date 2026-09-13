@@ -4362,6 +4362,14 @@ button {
   transition: border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
+.cs-stage-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
 .cs-stage.is-running {
   border-color: rgba(var(--pink-soft-rgb), 0.45);
   box-shadow:
@@ -5077,5 +5085,338 @@ button {
 @media (max-width: 380px) {
   .cs-controls {
     grid-template-columns: 1fr;
+  }
+}
+
+/* —— V2 Chart Scanner only (Zeta / default untouched) —— */
+.view-scanner.cs-v2 {
+  gap: 10px;
+  padding: 2px 0 12px;
+}
+
+.view-scanner.cs-v2 .cs-kicker {
+  font-family: var(--font-v2);
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.view-scanner.cs-v2 .cs-title {
+  font-family: var(--font-v2);
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.view-scanner.cs-v2 .cs-scans-left {
+  background: #fff;
+  border: 0;
+  color: #9b0b4a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  font-family: var(--font-v2);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.view-scanner.cs-v2 .cs-mt-pill.is-on {
+  color: #b8ffd4;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.view-scanner.cs-v2 .cs-stage {
+  padding: 10px;
+  border-radius: 22px;
+  gap: 0;
+  background:
+    radial-gradient(90% 80% at 30% 20%, rgba(255, 255, 255, 0.1), transparent 55%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.14), rgba(20, 0, 12, 0.55) 55%, rgba(8, 0, 6, 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.view-scanner.cs-v2 .cs-stage.is-running {
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.28),
+    0 0 28px rgba(255, 90, 170, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Side layout: preview left, Camera/Upload stacked right */
+.view-scanner.cs-v2 .cs-stage-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.view-scanner.cs-v2 .cs-viewport {
+  aspect-ratio: 1 / 1;
+  max-height: min(42vw, 210px);
+  min-height: 148px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 90, 160, 0.16), transparent 58%),
+    #0a0410;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.view-scanner.cs-v2 .cs-stage.has-chart .cs-viewport,
+.view-scanner.cs-v2 .cs-stage:has(.cs-chart) .cs-viewport {
+  aspect-ratio: 1 / 1;
+  max-height: min(42vw, 210px);
+  min-height: 148px;
+  padding: 10px;
+}
+
+.view-scanner.cs-v2 .cs-empty {
+  gap: 10px;
+  padding: 12px 10px;
+}
+
+.view-scanner.cs-v2 .cs-empty-copy {
+  max-width: 11.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.view-scanner.cs-v2 .cs-empty-orb {
+  width: clamp(58px, 18vw, 78px);
+  height: clamp(58px, 18vw, 78px);
+  animation: cs-breathe 3.2s ease-in-out infinite, cs-v2-orb-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes cs-v2-orb-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px rgba(var(--pink-rgb), 0.7),
+      0 0 36px rgba(var(--pink-rgb), 0.4),
+      0 0 56px rgba(var(--pink-soft-rgb), 0.22);
+  }
+  50% {
+    box-shadow:
+      0 0 22px rgba(var(--pink-rgb), 0.9),
+      0 0 48px rgba(var(--pink-hot-rgb), 0.55),
+      0 0 72px rgba(var(--pink-soft-rgb), 0.35);
+  }
+}
+
+.view-scanner.cs-v2 .cs-capture-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+
+.view-scanner.cs-v2 .cs-capture-btn {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 8px 6px;
+  font-family: var(--font-v2);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9b0b4a;
+  background: #fff;
+  border: 0;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.view-scanner.cs-v2 .cs-capture-btn:active {
+  transform: scale(0.96);
+  background: #fff5fa;
+}
+
+.view-scanner.cs-v2 .cs-capture-icon {
+  width: 22px;
+  height: 22px;
+  color: #c2186a;
+}
+
+.view-scanner.cs-v2 .cs-capture-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.view-scanner.cs-v2 .cs-engine {
+  padding: 8px 12px 9px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 80, 150, 0.28));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.view-scanner.cs-v2 .cs-engine.is-open {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.22), rgba(255, 60, 140, 0.38));
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: none;
+}
+
+.view-scanner.cs-v2 .cs-engine-top {
+  margin-bottom: 6px;
+}
+
+.view-scanner.cs-v2 .cs-engine-kicker {
+  font-family: var(--font-v2);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.view-scanner.cs-v2 .cs-engine-status {
+  margin: 1px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.view-scanner.cs-v2 .cs-engine-pct {
+  font-size: 0.75rem;
+}
+
+.view-scanner.cs-v2 .cs-engine-track {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.view-scanner.cs-v2 .cs-engine-log {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+}
+
+.view-scanner.cs-v2 .cs-controls {
+  gap: 8px;
+}
+
+.view-scanner.cs-v2 .cs-field {
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-v2);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.view-scanner.cs-v2 .cs-field select,
+.view-scanner.cs-v2 .cs-lot,
+.view-scanner.cs-v2 .cs-stepper input {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 0;
+  background: #fff;
+  color: #2a0214;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  font-weight: 800;
+}
+
+.view-scanner.cs-v2 .cs-field.is-from-scanner .cs-symbol-auto {
+  border: 0;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.16);
+  color: #9b0b4a;
+}
+
+.view-scanner.cs-v2 .cs-symbol-auto::placeholder {
+  color: rgba(42, 2, 20, 0.4);
+}
+
+.view-scanner.cs-v2 .cs-stepper {
+  grid-template-columns: 34px minmax(48px, 1fr) 34px;
+  gap: 5px;
+}
+
+.view-scanner.cs-v2 .cs-stepper button {
+  height: 42px;
+  border-radius: 12px;
+  background: #fff;
+  border: 0;
+  color: #c2186a;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+}
+
+.view-scanner.cs-v2 .cs-tp-config {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.view-scanner.cs-v2 .cs-tp-ratio {
+  background: #fff;
+  border: 0;
+  color: #2a0214;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.view-scanner.cs-v2 .cs-tp-ratio span {
+  color: rgba(42, 2, 20, 0.55);
+}
+
+.view-scanner.cs-v2 .cs-tp-ratio strong {
+  color: #9b0b4a;
+}
+
+.view-scanner.cs-v2 .cs-run-btn {
+  min-height: 50px;
+  border-radius: 14px;
+  font-family: var(--font-v2);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #fff;
+  color: #9b0b4a;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.view-scanner.cs-v2 .cs-run-btn:disabled {
+  opacity: 0.5;
+  color: rgba(155, 11, 74, 0.55);
+}
+
+.view-scanner.cs-v2 .cs-result {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+@media (max-height: 760px) {
+  .view-scanner.cs-v2 .cs-viewport,
+  .view-scanner.cs-v2 .cs-stage.has-chart .cs-viewport,
+  .view-scanner.cs-v2 .cs-stage:has(.cs-chart) .cs-viewport {
+    max-height: min(38vw, 180px);
+    min-height: 132px;
+  }
+
+  .view-scanner.cs-v2 .cs-stage-main {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+
+  .view-scanner.cs-v2 .cs-empty-orb {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+@media (max-width: 360px) {
+  .view-scanner.cs-v2 .cs-stage-main {
+    grid-template-columns: minmax(0, 1fr) 78px;
+    gap: 8px;
+  }
+
+  .view-scanner.cs-v2 .cs-capture-btn {
+    font-size: 0.56rem;
+    padding: 6px 4px;
   }
 }

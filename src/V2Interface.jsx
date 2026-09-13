@@ -286,7 +286,7 @@ export default function V2Interface() {
 
         {v2View === "scanner" && (
           <section className="v2-view is-active">
-            <ChartScanner />
+            <ChartScanner variant="v2" />
           </section>
         )}
 
