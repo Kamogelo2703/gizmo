@@ -9,6 +9,12 @@ import {
 } from "./chartScanner.js";
 import { buildBotTradeComment, placeTrade } from "./metaApi.js";
 import { useApp } from "./store.jsx";
+import {
+  describeManagementPlan,
+  loadTradeManagement,
+  saveTradeManagement,
+  splitVolumeAcrossTargets,
+} from "./tradeManagement.js";
 
 const SCANS_KEY = "apexea-scans-left";
 const DEFAULT_SCANS = 25;
@@ -94,6 +100,7 @@ export default function ChartScanner() {
   const [fills, setFills] = useState([]);
   const [busy, setBusy] = useState(false);
   const [engineProgress, setEngineProgress] = useState(0);
+  const [tradeManagement, setTradeManagement] = useState(() => loadTradeManagement());
 
   useEffect(() => {
     if (!symbol) return;
@@ -104,7 +111,17 @@ export default function ChartScanner() {
 
   const connected = Boolean(mt5Session?.accountId);
   const engineActive = engineMode === "scanning" || engineMode === "trading";
-  const setupReady = Boolean(signal?.side && signal?.entry != null);
+  const setupReady = Boolean(
+    signal?.side &&
+      signal?.entry != null &&
+      signal?.takeProfit1 != null &&
+      signal?.takeProfit2 != null &&
+      signal?.takeProfit3 != null
+  );
+  const managementPlan = useMemo(
+    () => describeManagementPlan(tradeManagement),
+    [tradeManagement]
+  );
   const activeStepLabel =
     engineMode === "trading"
       ? EXECUTE_ENGINE_STEPS[
@@ -256,8 +273,14 @@ export default function ChartScanner() {
         preferDetectedSymbol: true,
       });
 
-      if (!result?.side || result.entry == null) {
-        throw new Error("Could not build a complete trade setup");
+      if (
+        !result?.side ||
+        result.entry == null ||
+        result.takeProfit1 == null ||
+        result.takeProfit2 == null ||
+        result.takeProfit3 == null
+      ) {
+        throw new Error("Could not build a complete trade setup with TP1/TP2/TP3");
       }
 
       const tradeSymbol = String(result.detectedSymbol || result.symbol || "")
@@ -281,7 +304,7 @@ export default function ChartScanner() {
       setEngineStep(TRADE_ENGINE_STEPS.length - 1);
       setEngineProgress(100);
       pushEngineLog(
-        `Setup ready · ${result.side} ${tradeSymbol} · Entry ${result.entry}`
+        `Setup ready · ${result.side} ${tradeSymbol} · Entry ${result.entry} · TP1 ${result.takeProfit1} · TP2 ${result.takeProfit2} · TP3 ${result.takeProfit3}`
       );
       showToast(`${result.side} ${tradeSymbol} setup ready`);
       await sleep(500);
@@ -311,9 +334,21 @@ export default function ChartScanner() {
     }
   }
 
+  function updateTradeManagement(patch) {
+    setTradeManagement((prev) => saveTradeManagement({ ...prev, ...patch }));
+  }
+
   async function executeTrade() {
     if (!signal?.side || !signal?.symbol) {
       showToast("Scan a chart first to build a setup");
+      return;
+    }
+    if (
+      signal.takeProfit1 == null ||
+      signal.takeProfit2 == null ||
+      signal.takeProfit3 == null
+    ) {
+      showToast("Setup is missing TP1/TP2/TP3");
       return;
     }
     if (!connected) {
@@ -338,6 +373,11 @@ export default function ChartScanner() {
     if (action === "BUY" || action === "SELL") side = action;
 
     const tradeComment = buildBotTradeComment(activeBot?.name);
+    const tpMap = {
+      takeProfit1: signal.takeProfit1,
+      takeProfit2: signal.takeProfit2,
+      takeProfit3: signal.takeProfit3,
+    };
 
     setBusy(true);
     setFills([]);
@@ -349,52 +389,75 @@ export default function ChartScanner() {
 
     try {
       pushEngineLog(
-        `Opening ${tradeCount}× ${side} ${tradeSymbol} @ ${lot} lots · SL ${signal.stopLoss} · TP ${signal.takeProfit}`
+        `Opening ${side} ${tradeSymbol} · SL ${signal.stopLoss} · TP1 ${signal.takeProfit1} · TP2 ${signal.takeProfit2} · TP3 ${signal.takeProfit3}`
       );
+      pushEngineLog(`Partial plan · ${managementPlan.summary}`);
 
       const nextFills = [];
       let lastError = "";
+      let completed = 0;
+      const totalLegs = tradeCount * 3;
+
       for (let i = 0; i < tradeCount; i += 1) {
-        setEngineStep(0);
-        try {
-          const fill = await placeTrade({
-            accountId: mt5Session.accountId,
-            symbol: tradeSymbol,
-            volume: lot,
-            side,
-            stopLoss: signal.stopLoss,
-            takeProfit: signal.takeProfit,
-            region: mt5Session.region || "",
-            comment: tradeComment,
-            source: "chart-scanner",
-          });
-          nextFills.push(fill);
-          pushEngineLog(
-            `Fill ${i + 1}/${tradeCount} · ${fill.side} ${fill.symbol} ${fill.volume} · ${tradeComment}`
-          );
-        } catch (error) {
-          lastError = error.message || "Trade failed";
-          nextFills.push({
-            ok: false,
-            symbol: tradeSymbol,
-            side,
-            volume: lot,
-            error: lastError,
-          });
-          pushEngineLog(`Order ${i + 1} failed · ${lastError}`);
+        const legs = splitVolumeAcrossTargets(lot, tradeManagement);
+        for (const leg of legs) {
+          setEngineStep(0);
+          const takeProfit = tpMap[leg.takeProfitKey];
+          const legComment = `${tradeComment}|${leg.target}`.slice(0, 31);
+          try {
+            const fill = await placeTrade({
+              accountId: mt5Session.accountId,
+              symbol: tradeSymbol,
+              volume: leg.volume,
+              side,
+              stopLoss: signal.stopLoss,
+              takeProfit,
+              region: mt5Session.region || "",
+              comment: legComment,
+              source: "chart-scanner",
+            });
+            nextFills.push({
+              ...fill,
+              target: leg.target,
+              takeProfit,
+              closePercent: leg.closePercent,
+            });
+            pushEngineLog(
+              `${leg.target} fill · ${fill.side} ${fill.symbol} ${fill.volume} → TP ${takeProfit}`
+            );
+          } catch (error) {
+            lastError = error.message || "Trade failed";
+            nextFills.push({
+              ok: false,
+              symbol: tradeSymbol,
+              side,
+              volume: leg.volume,
+              target: leg.target,
+              takeProfit,
+              error: lastError,
+            });
+            pushEngineLog(`${leg.target} failed · ${lastError}`);
+          }
+          completed += 1;
+          setEngineStep(1);
+          setEngineProgress(20 + Math.round((completed / Math.max(1, totalLegs)) * 75));
+          await sleep(220);
         }
-        setEngineStep(1);
-        setEngineProgress(20 + Math.round(((i + 1) / tradeCount) * 75));
-        await sleep(280);
+      }
+
+      if (managementPlan.moveSlToBreakevenAfterTp1) {
+        pushEngineLog(managementPlan.breakevenNote);
+      }
+      if (managementPlan.protectProfitAfterTp2) {
+        pushEngineLog(managementPlan.protectNote);
       }
 
       setFills(nextFills);
       setEngineProgress(100);
       const okCount = nextFills.filter((f) => f.ok !== false).length;
       if (okCount) {
-        const filled = nextFills.find((f) => f.ok !== false);
         showToast(
-          `Executed ${okCount}/${tradeCount} ${filled.side} ${filled.symbol} @ ${filled.volume} · ${tradeComment}`
+          `Executed ${okCount}/${nextFills.length} legs · ${side} ${tradeSymbol} with TP1/TP2/TP3`
         );
       } else {
         showToast(lastError || nextFills[0]?.error || "No trades filled");
@@ -602,6 +665,73 @@ export default function ChartScanner() {
         </label>
       </div>
 
+      <div className="cs-tp-config" aria-label="Take-profit close percentages">
+        <p className="cs-tp-config-label">TP close plan</p>
+        <div className="cs-tp-config-row">
+          <label>
+            <span>TP1%</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={tradeManagement.tp1ClosePercent}
+              disabled={busy}
+              onChange={(e) =>
+                updateTradeManagement({ tp1ClosePercent: Number(e.target.value) })
+              }
+            />
+          </label>
+          <label>
+            <span>TP2%</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={tradeManagement.tp2ClosePercent}
+              disabled={busy}
+              onChange={(e) =>
+                updateTradeManagement({ tp2ClosePercent: Number(e.target.value) })
+              }
+            />
+          </label>
+          <label>
+            <span>TP3%</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={tradeManagement.tp3ClosePercent}
+              disabled={busy}
+              onChange={(e) =>
+                updateTradeManagement({ tp3ClosePercent: Number(e.target.value) })
+              }
+            />
+          </label>
+        </div>
+        <label className="cs-tp-toggle">
+          <input
+            type="checkbox"
+            checked={tradeManagement.moveSlToBreakevenAfterTp1}
+            disabled={busy}
+            onChange={(e) =>
+              updateTradeManagement({ moveSlToBreakevenAfterTp1: e.target.checked })
+            }
+          />
+          <span>Move SL to breakeven after TP1</span>
+        </label>
+        <label className="cs-tp-toggle">
+          <input
+            type="checkbox"
+            checked={tradeManagement.protectProfitAfterTp2}
+            disabled={busy}
+            onChange={(e) =>
+              updateTradeManagement({ protectProfitAfterTp2: e.target.checked })
+            }
+          />
+          <span>Protect profit after TP2</span>
+        </label>
+      </div>
+
       {detectionMessage &&
       !detectingSymbol &&
       detectionStatus !== CHART_DETECTION_STATUS.SYMBOL_DETECTED &&
@@ -657,41 +787,56 @@ export default function ChartScanner() {
 
       {setupReady && !engineActive ? (
         <div className={`cs-result cs-result--${String(signal.side).toLowerCase()}`}>
+          <p className="cs-result-kicker">Trade Signal</p>
           <strong>
             {signal.side} {signal.symbol}
           </strong>
-          <span>
-            {signal.confidence}% confidence · {signal.timeframe || "M15"}
+          <span className="cs-result-meta">
+            Confidence {signal.confidence}% · {signal.timeframe || "M15"}
           </span>
+
           <div className="cs-setup-grid">
             <span>
               <em>Entry</em>
               {formatSetupPrice(signal.entry)}
             </span>
             <span>
-              <em>SL</em>
+              <em>Stop Loss</em>
               {formatSetupPrice(signal.stopLoss)}
             </span>
-            <span>
-              <em>TP</em>
-              {formatSetupPrice(signal.takeProfit)}
+            <span className="cs-tp cs-tp--1">
+              <em>TP1 · {managementPlan.tp1ClosePercent}%</em>
+              {formatSetupPrice(signal.takeProfit1)}
+            </span>
+            <span className="cs-tp cs-tp--2">
+              <em>TP2 · {managementPlan.tp2ClosePercent}%</em>
+              {formatSetupPrice(signal.takeProfit2)}
+            </span>
+            <span className="cs-tp cs-tp--3">
+              <em>TP3 · {managementPlan.tp3ClosePercent}%</em>
+              {formatSetupPrice(signal.takeProfit3)}
             </span>
             <span>
-              <em>R:R</em>
+              <em>Risk / Reward</em>
               {signal.riskReward || "—"}
             </span>
           </div>
+
           <span className="cs-setup-analysis">
             {signal.analysis || signal.reasons?.[0] || "Setup from chart structure"}
           </span>
+          <span className="cs-setup-plan">{managementPlan.summary}</span>
+
           {fills.length ? (
             <span>
-              {fills.filter((f) => f.ok !== false).length}/{fills.length} filled
-              {fills.some((f) => f.ok === false)
-                ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
-                : fills[0]?.volume
-                  ? ` · lot ${fills[0].volume}`
-                  : ""}
+              {fills.filter((f) => f.ok !== false).length}/{fills.length} legs filled
+              {fills
+                .filter((f) => f.ok !== false && f.target)
+                .map((f) => ` · ${f.target}`)
+                .join("") ||
+                (fills.some((f) => f.ok === false)
+                  ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
+                  : "")}
             </span>
           ) : (
             <span className="cs-setup-wait">Waiting for Execute Trade</span>

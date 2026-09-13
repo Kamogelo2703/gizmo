@@ -4701,6 +4701,64 @@ button {
   margin: 0;
 }
 
+.cs-tp-config {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cs-tp-config-label {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cs-tp-config-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cs-tp-config-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cs-tp-config-row input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  padding: 0 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.cs-tp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cs-tp-toggle input {
+  accent-color: var(--pink-hot, #ff2d8a);
+}
+
 .cs-detection-status {
   display: grid;
   gap: 4px;
@@ -4760,18 +4818,31 @@ button {
 
 .cs-result {
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 14px 14px 12px;
   border-radius: 14px;
   text-align: left;
   font-size: 0.88rem;
+}
+
+.cs-result-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cs-result-meta {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .cs-setup-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 10px;
-  margin: 4px 0 2px;
+  margin: 2px 0 2px;
 }
 
 .cs-setup-grid span {
@@ -4794,9 +4865,31 @@ button {
   color: rgba(255, 255, 255, 0.55);
 }
 
+.cs-tp--1 {
+  border-color: rgba(255, 120, 190, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 120, 190, 0.12);
+}
+
+.cs-tp--2 {
+  border-color: rgba(255, 80, 170, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 80, 170, 0.16);
+}
+
+.cs-tp--3 {
+  border-color: rgba(255, 40, 140, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 40, 140, 0.22);
+  background: rgba(255, 40, 140, 0.1);
+}
+
 .cs-setup-analysis {
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.35;
+}
+
+.cs-setup-plan {
+  color: rgba(255, 180, 220, 0.82);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .cs-setup-wait {

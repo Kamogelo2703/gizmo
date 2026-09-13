@@ -81,39 +81,62 @@ function formatRiskReward(entry, stopLoss, takeProfit) {
   return `1:${(reward / risk).toFixed(1)}`;
 }
 
+/**
+ * Always produce Entry, SL, TP1, TP2, TP3 with correct directional order.
+ * BUY:  SL < Entry < TP1 < TP2 < TP3
+ * SELL: SL > Entry > TP1 > TP2 > TP3
+ */
 function ensureCompleteSetup(partial = {}) {
   const side = String(partial.side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let entry = toFiniteNumber(partial.entry);
   let stopLoss = toFiniteNumber(partial.stopLoss);
-  let takeProfit = toFiniteNumber(partial.takeProfit);
+  let takeProfit1 = toFiniteNumber(
+    partial.takeProfit1 ?? partial.tp1 ?? partial.takeProfit
+  );
+  let takeProfit2 = toFiniteNumber(partial.takeProfit2 ?? partial.tp2);
+  let takeProfit3 = toFiniteNumber(partial.takeProfit3 ?? partial.tp3);
 
   if (entry == null) entry = 1;
   const magnitude = Math.max(
     Math.abs(entry) * 0.0025,
-    entry >= 100 ? 1 : entry >= 10 ? 0.05 : 0.0015
+    entry >= 1000 ? 3 : entry >= 100 ? 1 : entry >= 10 ? 0.05 : 0.0015
   );
 
   if (side === "BUY") {
     if (stopLoss == null || !(stopLoss < entry)) stopLoss = entry - magnitude;
-    if (takeProfit == null || !(takeProfit > entry)) {
-      takeProfit = entry + Math.abs(entry - stopLoss) * 2;
+    const risk = Math.abs(entry - stopLoss);
+    if (takeProfit1 == null || !(takeProfit1 > entry)) takeProfit1 = entry + risk * 1.0;
+    if (takeProfit2 == null || !(takeProfit2 > takeProfit1)) takeProfit2 = entry + risk * 1.8;
+    if (takeProfit3 == null || !(takeProfit3 > takeProfit2)) takeProfit3 = entry + risk * 2.8;
+    if (!(entry < takeProfit1 && takeProfit1 < takeProfit2 && takeProfit2 < takeProfit3)) {
+      takeProfit1 = entry + risk * 1.0;
+      takeProfit2 = entry + risk * 1.8;
+      takeProfit3 = entry + risk * 2.8;
     }
   } else {
     if (stopLoss == null || !(stopLoss > entry)) stopLoss = entry + magnitude;
-    if (takeProfit == null || !(takeProfit < entry)) {
-      takeProfit = entry - Math.abs(stopLoss - entry) * 2;
+    const risk = Math.abs(stopLoss - entry);
+    if (takeProfit1 == null || !(takeProfit1 < entry)) takeProfit1 = entry - risk * 1.0;
+    if (takeProfit2 == null || !(takeProfit2 < takeProfit1)) takeProfit2 = entry - risk * 1.8;
+    if (takeProfit3 == null || !(takeProfit3 < takeProfit2)) takeProfit3 = entry - risk * 2.8;
+    if (!(entry > takeProfit1 && takeProfit1 > takeProfit2 && takeProfit2 > takeProfit3)) {
+      takeProfit1 = entry - risk * 1.0;
+      takeProfit2 = entry - risk * 1.8;
+      takeProfit3 = entry - risk * 2.8;
     }
   }
 
   entry = formatPrice(entry);
   stopLoss = formatPrice(stopLoss);
-  takeProfit = formatPrice(takeProfit);
+  takeProfit1 = formatPrice(takeProfit1);
+  takeProfit2 = formatPrice(takeProfit2);
+  takeProfit3 = formatPrice(takeProfit3);
 
   const analysis =
     String(partial.analysis || "").trim() ||
     (side === "BUY"
-      ? "Bullish structure supports a BUY setup"
-      : "Bearish structure supports a SELL setup");
+      ? "Bullish structure supports a BUY setup toward higher resistance"
+      : "Bearish structure supports a SELL setup toward lower support");
 
   return {
     ...partial,
@@ -123,10 +146,13 @@ function ensureCompleteSetup(partial = {}) {
     confidence: Math.max(55, Math.min(95, Math.round(Number(partial.confidence) || 70))),
     entry,
     stopLoss,
-    takeProfit,
+    takeProfit1,
+    takeProfit2,
+    takeProfit3,
+    takeProfit: takeProfit3,
     riskReward:
       String(partial.riskReward || "").trim() ||
-      formatRiskReward(entry, stopLoss, takeProfit),
+      formatRiskReward(entry, stopLoss, takeProfit2),
     timeframe: String(partial.timeframe || "M15").trim().toUpperCase() || "M15",
     analysis,
     reasons: Array.isArray(partial.reasons) && partial.reasons.length
@@ -436,7 +462,7 @@ export const TRADE_ENGINE_STEPS = [
   { id: "structure", label: "Reading market structure" },
   { id: "bias", label: "Detecting directional bias" },
   { id: "signal", label: "Building entry signal" },
-  { id: "levels", label: "Calculating entry, SL and TP" },
+  { id: "levels", label: "Calculating entry, SL, TP1, TP2 and TP3" },
   { id: "ready", label: "Trade setup ready" },
 ];
 

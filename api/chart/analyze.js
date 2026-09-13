@@ -57,7 +57,7 @@ function formatPrice(value, digits = 5) {
   return Number(n.toFixed(d));
 }
 
-function formatRiskReward(entry, stopLoss, takeProfit, side) {
+function formatRiskReward(entry, stopLoss, takeProfit) {
   const e = toFiniteNumber(entry);
   const sl = toFiniteNumber(stopLoss);
   const tp = toFiniteNumber(takeProfit);
@@ -65,33 +65,58 @@ function formatRiskReward(entry, stopLoss, takeProfit, side) {
   const risk = Math.abs(e - sl);
   const reward = Math.abs(tp - e);
   if (risk <= 0 || reward <= 0) return "1:2";
-  const ratio = reward / risk;
-  const dir = String(side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
-  if (dir === "BUY" && !(sl < e && tp > e)) return `1:${ratio.toFixed(1)}`;
-  if (dir === "SELL" && !(sl > e && tp < e)) return `1:${ratio.toFixed(1)}`;
-  return `1:${ratio.toFixed(1)}`;
+  return `1:${(reward / risk).toFixed(1)}`;
 }
 
-function ensureDirectionalLevels({ side, entry, stopLoss, takeProfit }) {
+/**
+ * Ensure Entry / SL / TP1 / TP2 / TP3 are complete and correctly ordered.
+ * BUY:  SL < Entry < TP1 < TP2 < TP3
+ * SELL: SL > Entry > TP1 > TP2 > TP3
+ */
+function ensureMultiTpLevels({
+  side,
+  entry,
+  stopLoss,
+  takeProfit1,
+  takeProfit2,
+  takeProfit3,
+  takeProfit,
+}) {
   const dir = String(side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let e = toFiniteNumber(entry);
   let sl = toFiniteNumber(stopLoss);
-  let tp = toFiniteNumber(takeProfit);
+  let tp1 = toFiniteNumber(takeProfit1 ?? takeProfit);
+  let tp2 = toFiniteNumber(takeProfit2);
+  let tp3 = toFiniteNumber(takeProfit3);
 
   if (e == null) e = 1;
-  const magnitude = Math.max(Math.abs(e) * 0.0025, e >= 100 ? 1 : e >= 10 ? 0.05 : 0.0015);
+  const riskMag = Math.max(
+    Math.abs(e) * 0.0025,
+    e >= 1000 ? 3 : e >= 100 ? 1 : e >= 10 ? 0.05 : 0.0015
+  );
 
   if (dir === "BUY") {
-    if (sl == null || !(sl < e)) sl = e - magnitude;
-    if (tp == null || !(tp > e)) {
-      const risk = Math.abs(e - sl);
-      tp = e + risk * 2;
+    if (sl == null || !(sl < e)) sl = e - riskMag;
+    const risk = Math.abs(e - sl);
+    if (tp1 == null || !(tp1 > e)) tp1 = e + risk * 1.0;
+    if (tp2 == null || !(tp2 > tp1)) tp2 = e + risk * 1.8;
+    if (tp3 == null || !(tp3 > tp2)) tp3 = e + risk * 2.8;
+    // Force strict ascending order.
+    if (!(e < tp1 && tp1 < tp2 && tp2 < tp3)) {
+      tp1 = e + risk * 1.0;
+      tp2 = e + risk * 1.8;
+      tp3 = e + risk * 2.8;
     }
   } else {
-    if (sl == null || !(sl > e)) sl = e + magnitude;
-    if (tp == null || !(tp < e)) {
-      const risk = Math.abs(sl - e);
-      tp = e - risk * 2;
+    if (sl == null || !(sl > e)) sl = e + riskMag;
+    const risk = Math.abs(sl - e);
+    if (tp1 == null || !(tp1 < e)) tp1 = e - risk * 1.0;
+    if (tp2 == null || !(tp2 < tp1)) tp2 = e - risk * 1.8;
+    if (tp3 == null || !(tp3 < tp2)) tp3 = e - risk * 2.8;
+    if (!(e > tp1 && tp1 > tp2 && tp2 > tp3)) {
+      tp1 = e - risk * 1.0;
+      tp2 = e - risk * 1.8;
+      tp3 = e - risk * 2.8;
     }
   }
 
@@ -99,7 +124,11 @@ function ensureDirectionalLevels({ side, entry, stopLoss, takeProfit }) {
     side: dir,
     entry: formatPrice(e),
     stopLoss: formatPrice(sl),
-    takeProfit: formatPrice(tp),
+    takeProfit1: formatPrice(tp1),
+    takeProfit2: formatPrice(tp2),
+    takeProfit3: formatPrice(tp3),
+    // Back-compat alias = furthest target
+    takeProfit: formatPrice(tp3),
   };
 }
 
@@ -122,6 +151,9 @@ function buildNoChartResult() {
     confidence: 0,
     entry: null,
     stopLoss: null,
+    takeProfit1: null,
+    takeProfit2: null,
+    takeProfit3: null,
     takeProfit: null,
     riskReward: null,
     timeframe: null,
@@ -148,10 +180,13 @@ function normalizeSetup(parsed = {}, { catalog = [], hintSymbol = "" } = {}) {
   let symbol = resolveCatalogSymbol(parsed?.symbol || "", catalog);
   if (!symbol) symbol = resolveCatalogSymbol(hintSymbol, catalog);
 
-  const levels = ensureDirectionalLevels({
+  const levels = ensureMultiTpLevels({
     side: parsed?.side || parsed?.direction,
     entry: parsed?.entry ?? parsed?.entryPrice,
     stopLoss: parsed?.stopLoss ?? parsed?.sl,
+    takeProfit1: parsed?.takeProfit1 ?? parsed?.tp1,
+    takeProfit2: parsed?.takeProfit2 ?? parsed?.tp2,
+    takeProfit3: parsed?.takeProfit3 ?? parsed?.tp3,
     takeProfit: parsed?.takeProfit ?? parsed?.tp,
   });
 
@@ -176,9 +211,10 @@ function normalizeSetup(parsed = {}, { catalog = [], hintSymbol = "" } = {}) {
     ? parsed.reasons.map((r) => String(r)).filter(Boolean).slice(0, 4)
     : [analysis];
 
+  // R:R measured to TP2 (balanced target) for display.
   const riskReward =
     String(parsed?.riskReward || parsed?.rr || "").trim() ||
-    formatRiskReward(levels.entry, levels.stopLoss, levels.takeProfit, levels.side);
+    formatRiskReward(levels.entry, levels.stopLoss, levels.takeProfit2);
 
   return {
     status: "setup_ready",
@@ -188,7 +224,10 @@ function normalizeSetup(parsed = {}, { catalog = [], hintSymbol = "" } = {}) {
     confidence,
     entry: levels.entry,
     stopLoss: levels.stopLoss,
-    takeProfit: levels.takeProfit,
+    takeProfit1: levels.takeProfit1,
+    takeProfit2: levels.takeProfit2,
+    takeProfit3: levels.takeProfit3,
+    takeProfit: levels.takeProfit3,
     riskReward,
     timeframe,
     analysis,
@@ -233,7 +272,7 @@ export async function analyzeChartSetupWithOpenAI({
     body: JSON.stringify({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4o-mini",
       temperature: 0,
-      max_tokens: 420,
+      max_tokens: 520,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -242,19 +281,23 @@ export async function analyzeChartSetupWithOpenAI({
             "You are a strict trading-chart analyst. Return JSON only with schema: " +
             '{"isChart":boolean,"chartConfidence":0-100,"status":"no_chart"|"setup_ready",' +
             '"symbol":string|null,"side":"BUY"|"SELL","confidence":0-100,' +
-            '"entry":number,"stopLoss":number,"takeProfit":number,"riskReward":string,' +
-            '"timeframe":string,"analysis":string,"reasons":string[]}. ' +
+            '"entry":number,"stopLoss":number,' +
+            '"takeProfit1":number,"takeProfit2":number,"takeProfit3":number,' +
+            '"riskReward":string,"timeframe":string,"analysis":string,"reasons":string[]}. ' +
             "FIRST decide if the image is a genuine financial trading chart " +
             "(candlesticks/OHLC, price axis, grid, trading platform layout). " +
             "Photographs, people, buildings, cars, landscapes, websites, and random screenshots are NOT charts. " +
             "Text resembling a symbol alone is NOT a chart. " +
             "If not a chart: status=no_chart, isChart=false, and leave trade fields null. " +
-            "If it IS a chart: ALWAYS return a complete trade setup. NEVER say incomplete. " +
-            "ALWAYS provide side (BUY or SELL), confidence, entry, stopLoss, takeProfit, riskReward, timeframe, and analysis. " +
-            "Read the instrument from the chart header when visible. Use price axis levels for Entry/SL/TP. " +
-            "Analyze structure, momentum, support/resistance, and candle behavior. " +
-            "If the setup is imperfect, still choose the strongest available BUY or SELL and compute reasonable levels (prefer about 1:2 R:R). " +
-            "Do not omit Entry, SL, or TP for a valid chart.",
+            "If it IS a chart: ALWAYS return a COMPLETE trade setup with THREE take-profit levels. NEVER say incomplete. " +
+            "ALWAYS provide side, confidence, entry, stopLoss, takeProfit1, takeProfit2, takeProfit3, riskReward, timeframe, and analysis. " +
+            "TP1 = nearest realistic target; TP2 = next logical target; TP3 = furthest reasonable target from chart structure. " +
+            "Base TP levels on visible support/resistance, swing highs/lows, momentum, and price axis levels — never invent random prices. " +
+            "BUY must satisfy: stopLoss < entry < takeProfit1 < takeProfit2 < takeProfit3. " +
+            "SELL must satisfy: stopLoss > entry > takeProfit1 > takeProfit2 > takeProfit3. " +
+            "Read the instrument from the chart header when visible. " +
+            "If the setup is imperfect, still choose the strongest available BUY or SELL and compute reasonable multi-TP levels. " +
+            "Do not omit Entry, SL, TP1, TP2, or TP3 for a valid chart.",
         },
         {
           role: "user",
@@ -262,7 +305,7 @@ export async function analyzeChartSetupWithOpenAI({
             {
               type: "text",
               text:
-                "Validate whether this is a trading chart. If yes, generate a complete trade setup." +
+                "Validate whether this is a trading chart. If yes, generate a complete trade setup with Entry, SL, TP1, TP2, and TP3." +
                 (hintSymbol ? ` Detected symbol hint: ${normalizeSymbol(hintSymbol)}.` : "") +
                 (catalogHint ? ` Known symbols: ${catalogHint}.` : ""),
             },
