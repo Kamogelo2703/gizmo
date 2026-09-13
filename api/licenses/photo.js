@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       }
       res.statusCode = 200;
       res.setHeader("Content-Type", photo.mime || "image/jpeg");
-      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
+      // v= cache-busts; keep TTL short so profile changes show quickly.
+      res.setHeader("Cache-Control", "public, max-age=5, must-revalidate");
       res.end(photo.buffer);
       return;
     }

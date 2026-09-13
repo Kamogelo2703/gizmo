@@ -119,7 +119,10 @@ export default function CoverLock() {
     };
   }, [lockStep, coverEmail, email, refreshSignups, setLockStep, showToast]);
 
-  if (hasActiveBot) return null;
+  // Allow license entry while unlocked so "Add New Trading Bot" can activate
+  // another robot without wiping the ones already on the home screen.
+  const addingBot = hasActiveBot && lockStep === "license";
+  if (hasActiveBot && !addingBot) return null;
 
   const signup = getSignup(coverEmail || email);
   const declined = signup?.status === "declined";
@@ -189,9 +192,14 @@ export default function CoverLock() {
     showToast("Still pending — wait for super admin approval");
   }
 
-  function submitLicense(event) {
+  async function submitLicense(event) {
     event.preventDefault();
-    void activateLicense(licenseKey);
+    const ok = await activateLicense(licenseKey);
+    if (ok) {
+      setLicenseKey("");
+      // Close the overlay after a successful add/activate.
+      setLockStep("cover");
+    }
   }
 
   return (
@@ -316,11 +324,15 @@ export default function CoverLock() {
         {lockStep === "license" && (
           <section className="cover-step is-active">
             <p className="app-lock-eyebrow">ApexEA</p>
-            <h2 className="app-lock-title">Activate license key</h2>
+            <h2 className="app-lock-title">
+              {addingBot ? "Add another trading bot" : "Activate license key"}
+            </h2>
             <p className="app-lock-sub">
-              {coverEmail
-                ? `Approved · ${coverEmail}. Enter your license key to unlock the app.`
-                : "Enter your license key to unlock the app."}
+              {addingBot
+                ? "Enter a new license key to add another robot. Your current bots stay on the home screen."
+                : coverEmail
+                  ? `Approved · ${coverEmail}. Enter your license key to unlock the app.`
+                  : "Enter your license key to unlock the app."}
             </p>
             <form className="app-lock-form" onSubmit={submitLicense}>
               <label className="ea-field">
@@ -335,7 +347,7 @@ export default function CoverLock() {
                 />
               </label>
               <button className="admin-btn admin-btn-solid admin-btn-block" type="submit">
-                Unlock app
+                {addingBot ? "Add trading bot" : "Unlock app"}
               </button>
             </form>
             <button
@@ -343,7 +355,7 @@ export default function CoverLock() {
               type="button"
               onClick={() => setLockStep("cover")}
             >
-              ← Change email
+              {addingBot ? "← Cancel" : "← Change email"}
             </button>
           </section>
         )}

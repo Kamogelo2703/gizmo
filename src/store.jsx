@@ -23,6 +23,8 @@ import {
   markLicenseUsedRemote,
   normalizeLicenseKey,
   licenseKeyVariants,
+  photoFreshness,
+  pickFresherPhoto,
   uploadBotPhotoRemote,
 } from "./licensesApi.js";
 import {
@@ -486,24 +488,64 @@ export function AppProvider({ children }) {
       setLicenseKeys((prev) => mergeLicenses(prev, remote));
 
       // Mentor photo updates sync live onto local EAs/bots.
+      // Always keep the freshest photo (versioned API path beats stale data URLs).
       const photoByBotId = new Map();
       remote.forEach((row) => {
         const id = String(row.botId || row.bot?.id || "").trim();
         const photo = String(row.bot?.photo || "").trim();
         if (!id || !photo || photo === "/logo.png") return;
-        photoByBotId.set(id, photo);
+        const prevPhoto = photoByBotId.get(id);
+        photoByBotId.set(id, prevPhoto ? pickFresherPhoto(photo, prevPhoto) : photo);
       });
       if (photoByBotId.size) {
         setEas((prev) =>
           prev.map((ea) => {
-            const nextPhoto = photoByBotId.get(ea.id);
-            return nextPhoto && nextPhoto !== ea.photo ? { ...ea, photo: nextPhoto } : ea;
+            const remotePhoto = photoByBotId.get(ea.id);
+            if (!remotePhoto) return ea;
+            const localPhoto = String(ea.photo || "");
+            const remoteFresh = photoFreshness(remotePhoto);
+            const localFresh = photoFreshness(localPhoto);
+            if (remoteFresh > localFresh) return { ...ea, photo: remotePhoto };
+            if (remoteFresh < localFresh) return ea;
+            // Tie on unversioned data URLs: keep local so a just-uploaded picture
+            // is not overwritten by an older embedded remote snapshot.
+            if (
+              remotePhoto.startsWith("data:") &&
+              localPhoto.startsWith("data:") &&
+              remotePhoto !== localPhoto
+            ) {
+              return ea;
+            }
+            if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
+              return { ...ea, photo: remotePhoto };
+            }
+            return remotePhoto !== localPhoto && remotePhoto.startsWith("/api/licenses/photo")
+              ? { ...ea, photo: remotePhoto }
+              : ea;
           })
         );
         setBots((prev) =>
           prev.map((bot) => {
-            const nextPhoto = photoByBotId.get(bot.id);
-            return nextPhoto && nextPhoto !== bot.photo ? { ...bot, photo: nextPhoto } : bot;
+            const remotePhoto = photoByBotId.get(bot.id);
+            if (!remotePhoto) return bot;
+            const localPhoto = String(bot.photo || "");
+            const remoteFresh = photoFreshness(remotePhoto);
+            const localFresh = photoFreshness(localPhoto);
+            if (remoteFresh > localFresh) return { ...bot, photo: remotePhoto };
+            if (remoteFresh < localFresh) return bot;
+            if (
+              remotePhoto.startsWith("data:") &&
+              localPhoto.startsWith("data:") &&
+              remotePhoto !== localPhoto
+            ) {
+              return bot;
+            }
+            if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
+              return { ...bot, photo: remotePhoto };
+            }
+            return remotePhoto !== localPhoto && remotePhoto.startsWith("/api/licenses/photo")
+              ? { ...bot, photo: remotePhoto }
+              : bot;
           })
         );
       }
@@ -531,7 +573,7 @@ export function AppProvider({ children }) {
             bot: entry.bot
               ? {
                   ...entry.bot,
-                  // Keep data URLs so the API can persist them; keep API photo paths as-is.
+                  // Prefer API photo paths; data URLs only when no synced path exists.
                   photo: photo || "/logo.png",
                 }
               : undefined,
@@ -547,7 +589,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const timer = setInterval(() => {
       refreshLicenses();
-    }, 20000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [refreshLicenses]);
 
@@ -671,17 +713,16 @@ export function AppProvider({ children }) {
         id ||
         `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
-      // Upload gallery/camera data URLs. If GitHub is down the API returns a data
-      // URL; if upload fails entirely, still keep the local picture so licenses
-      // can embed it for clients.
+      // Upload gallery/camera data URLs. Prefer the versioned API path so every
+      // device picks up the newest picture instead of a stale embedded data URL.
       if (photoValue.startsWith("data:image/")) {
         const originalDataUrl = photoValue;
         try {
           const uploaded = await uploadBotPhotoRemote(botId, photoValue);
-          if (String(uploaded || "").startsWith("data:image/")) {
+          if (String(uploaded || "").startsWith("/api/licenses/photo")) {
             photoValue = uploaded;
-          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
-            photoValue = originalDataUrl;
+          } else if (String(uploaded || "").startsWith("data:image/")) {
+            photoValue = uploaded;
           } else if (isRealProfilePhoto(uploaded)) {
             photoValue = uploaded;
           } else {
@@ -721,6 +762,7 @@ export function AppProvider({ children }) {
             return {
               ...row,
               botName: name || row.botName,
+              updatedAt: Date.now(),
               bot: {
                 ...(row.bot || { id, name, strategy: "scalper", symbols: [] }),
                 id,
@@ -731,6 +773,10 @@ export function AppProvider({ children }) {
           })
         );
         showToast(`${name} profile updated`);
+        // Pull the rewritten license photos quickly so client apps sync.
+        window.setTimeout(() => {
+          void refreshLicenses();
+        }, 400);
       } else {
         setEas((prev) => [
           {
@@ -758,7 +804,7 @@ export function AppProvider({ children }) {
       setEditingEaId(null);
       return true;
     },
-    [ensureCatalog, showToast]
+    [ensureCatalog, refreshLicenses, showToast]
   );
 
   const selectBot = useCallback((botId) => {
@@ -846,25 +892,27 @@ export function AppProvider({ children }) {
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
 
-      // Always put real image bytes on the license (data URL) so the client app
-      // can show the profile even when GitHub photo files / API paths 404.
+      // Prefer the versioned API photo path so every activation gets the latest
+      // picture. Fall back to an embedded data URL only when upload cannot sync.
       let photo = String(bot.photo || ea?.photo || "/logo.png").trim() || "/logo.png";
       const originalPhoto = photo;
       if (photo.startsWith("data:image/")) {
         try {
           const uploaded = await uploadBotPhotoRemote(bot.id, photo);
-          // Prefer embedded data URL when upload falls back; keep original bytes
-          // if the API only returned a path that may not exist on other devices.
-          if (String(uploaded || "").startsWith("data:image/")) {
+          if (String(uploaded || "").startsWith("/api/licenses/photo")) {
             photo = uploaded;
-          } else if (String(uploaded || "").startsWith("/api/licenses/photo")) {
-            photo = originalPhoto;
+          } else if (String(uploaded || "").startsWith("data:image/")) {
+            photo = uploaded;
           } else if (isRealProfilePhoto(uploaded)) {
             photo = uploaded;
           }
         } catch {
           // Keep the local data URL — createLicenseRemote will embed it.
+          photo = originalPhoto;
         }
+      } else if (photo.startsWith("/api/licenses/photo")) {
+        // Already a synced path — keep it (includes cache-busting v=).
+        photo = photo;
       } else {
         photo = await materializePhotoForLicense(photo);
       }
