@@ -61,7 +61,12 @@ export default function V2Interface() {
                   src="/zeta-fire-portal.jpg"
                   alt=""
                 />
-                <span className="v2-flame-ring" aria-hidden="true" />
+                <img
+                  className="v2-avatar-fire"
+                  src="/zeta-fire-portal.jpg"
+                  alt=""
+                  aria-hidden="true"
+                />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
               {mentorDisplayName ? (
