@@ -904,6 +904,7 @@ export default function AdminPortal() {
                     clientEmail: licenseClientEmail,
                     mentorEmail: adminSession.email,
                     mentorId: adminSession.id,
+                    mentorName: adminSession.username || "",
                   });
                   if (key) {
                     setLatestKey(key);

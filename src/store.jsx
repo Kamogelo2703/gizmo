@@ -672,6 +672,33 @@ export function AppProvider({ children }) {
     [coverEmail, signups]
   );
 
+
+  const mentorDisplayName = useMemo(() => {
+    const account = normalizeEmail(coverEmail);
+    if (!account) return "";
+    const used = (Array.isArray(licenseKeys) ? licenseKeys : []).filter(
+      (row) => row?.used && normalizeEmail(row.clientEmail) === account
+    );
+    // Prefer newest used license
+    used.sort((a, b) => Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0));
+    const row = used[0];
+    if (!row) return "";
+    const named = String(row.mentorName || "").trim();
+    if (named) return named;
+    const mail = String(row.mentorEmail || "").trim();
+    if (mail.includes("@")) {
+      const local = mail.split("@")[0].replace(/[._-]+/g, " ").trim();
+      if (local) {
+        return local
+          .split(" ")
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+      }
+    }
+    return String(row.clientName || "").trim();
+  }, [coverEmail, licenseKeys]);
+
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
     if (!signup) {
@@ -866,7 +893,13 @@ export function AppProvider({ children }) {
   const generateLicense = useCallback(
     async (
       botId,
-      { clientEmail = "", clientName = "", mentorEmail = "", mentorId = "" } = {}
+      {
+        clientEmail = "",
+        clientName = "",
+        mentorEmail = "",
+        mentorId = "",
+        mentorName = "",
+      } = {}
     ) => {
       const bot = bots.find((b) => b.id === botId);
       if (!bot) {
@@ -891,6 +924,7 @@ export function AppProvider({ children }) {
           .trim()
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
+      const ownerName = String(mentorName || "").trim();
 
       // Prefer the versioned API photo path so every activation gets the latest
       // picture. Fall back to an embedded data URL only when upload cannot sync.
@@ -925,6 +959,7 @@ export function AppProvider({ children }) {
         clientName: name,
         mentorEmail: ownerEmail,
         mentorId: ownerId,
+        mentorName: ownerName,
         used: false,
         createdAt: Date.now(),
         usedAt: null,
@@ -1219,6 +1254,7 @@ export function AppProvider({ children }) {
     toggleInterface,
     coverEmail,
     setCoverEmail,
+    mentorDisplayName,
     signups,
     requestSignup,
     setSignupStatus,

@@ -64,6 +64,7 @@ export function normalizeLicense(row) {
     .trim()
     .toLowerCase();
   const clientName = String(row?.clientName || row?.name || "").trim();
+  const mentorName = String(row?.mentorName || row?.ownerName || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -74,6 +75,7 @@ export function normalizeLicense(row) {
       .trim()
       .toLowerCase(),
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
+    mentorName,
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
