@@ -3902,25 +3902,29 @@ button {
 }
 
 /* Floating cycle profile — appears immediately on TRADE / robot press */
+.iface-layer[data-iface="v2"] {
+  position: relative;
+}
+
 .v2-float-cycle {
   position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 20;
-  width: 78px;
-  height: 78px;
+  right: 16px;
+  bottom: calc(70px + var(--safe-bottom));
+  z-index: 30;
+  width: 86px;
+  height: 86px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: #0a0a0a;
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    0 0 0 2px rgba(255, 40, 40, 0.55),
-    0 0 22px rgba(255, 30, 30, 0.45);
+    0 12px 30px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(255, 40, 40, 0.7),
+    0 0 28px rgba(255, 30, 30, 0.55);
   display: grid;
   place-items: center;
   overflow: visible;
-  animation: v2-float-pop 0.12s ease-out both;
+  animation: v2-float-pop 0.08s ease-out both;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -3931,8 +3935,8 @@ button {
 .v2-float-cycle-photo {
   position: relative;
   z-index: 2;
-  width: 62px;
-  height: 62px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   object-fit: cover;
   object-position: center;

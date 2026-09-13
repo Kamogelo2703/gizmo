@@ -172,18 +172,6 @@ export default function V2Interface() {
               </div>
             </section>
 
-            {floatCycle ? (
-              <button
-                className="v2-float-cycle is-on"
-                type="button"
-                aria-label={`${activeBot?.name || "Bot"} live profile`}
-                onClick={() => setFloatCycle(false)}
-              >
-                <span className="v2-float-cycle-ring" aria-hidden="true" />
-                <span className="v2-float-cycle-ring v2-float-cycle-ring--outer" aria-hidden="true" />
-                <img className="v2-float-cycle-photo" src={floatSrc} alt="" />
-              </button>
-            ) : null}
           </section>
         )}
 
@@ -376,6 +364,26 @@ export default function V2Interface() {
           <span>METATRADER</span>
         </button>
       </nav>
+
+      {(floatCycle || v2Running) && v2View === "home" ? (
+        <button
+          className="v2-float-cycle is-on"
+          type="button"
+          aria-label={`${activeBot?.name || "Bot"} live profile`}
+          onClick={() => {
+            setFloatCycle(false);
+            if (v2Running) {
+              setV2Running(false);
+              showToast("Bot stopped");
+            }
+          }}
+        >
+          <span className="v2-float-cycle-ring" aria-hidden="true" />
+          <span className="v2-float-cycle-ring v2-float-cycle-ring--outer" aria-hidden="true" />
+          <img className="v2-float-cycle-photo" src={floatSrc} alt="" />
+        </button>
+      ) : null}
     </div>
   );
 }
+
