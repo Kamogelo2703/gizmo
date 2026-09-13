@@ -369,6 +369,7 @@ function normalizeLicense(row) {
     clientName,
     mentorEmail: normalizeEmail(row?.mentorEmail || row?.ownerEmail || ""),
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
+    mentorName: String(row?.mentorName || row?.ownerName || "").trim(),
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
@@ -646,6 +647,15 @@ export async function createLicense(payload = {}) {
         ...existing,
         clientEmail: existing.clientEmail || clientEmail,
         clientName: existing.clientName || clientName,
+        mentorEmail:
+          existing.mentorEmail ||
+          normalizeEmail(payload.mentorEmail || payload.ownerEmail || ""),
+        mentorId:
+          existing.mentorId ||
+          String(payload.mentorId || payload.ownerId || "").trim(),
+        mentorName:
+          existing.mentorName ||
+          String(payload.mentorName || payload.ownerName || "").trim(),
         updatedAt: replacePhoto
           ? Date.now()
           : Number(existing.updatedAt || existing.usedAt || existing.createdAt) ||
@@ -670,6 +680,7 @@ export async function createLicense(payload = {}) {
       clientName,
       mentorEmail: normalizeEmail(payload.mentorEmail || payload.ownerEmail || ""),
       mentorId: String(payload.mentorId || payload.ownerId || "").trim(),
+      mentorName: String(payload.mentorName || payload.ownerName || "").trim(),
       used: false,
       createdAt: Number(payload.createdAt) || Date.now(),
       usedAt: null,

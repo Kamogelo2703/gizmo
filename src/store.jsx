@@ -674,6 +674,18 @@ export function AppProvider({ children }) {
 
 
   const mentorDisplayName = useMemo(() => {
+    const formatFromEmail = (email) => {
+      const mail = String(email || "").trim();
+      if (!mail.includes("@")) return "";
+      const local = mail.split("@")[0].replace(/[._-]+/g, " ").trim();
+      if (!local) return "";
+      return local
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    };
+
     const account = normalizeEmail(coverEmail);
     if (!account) return "";
     const used = (Array.isArray(licenseKeys) ? licenseKeys : []).filter(
@@ -682,22 +694,22 @@ export function AppProvider({ children }) {
     // Prefer newest used license
     used.sort((a, b) => Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0));
     const row = used[0];
-    if (!row) return "";
-    const named = String(row.mentorName || "").trim();
-    if (named) return named;
-    const mail = String(row.mentorEmail || "").trim();
-    if (mail.includes("@")) {
-      const local = mail.split("@")[0].replace(/[._-]+/g, " ").trim();
-      if (local) {
-        return local
-          .split(" ")
-          .filter(Boolean)
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" ");
-      }
+    if (row) {
+      const named = String(row.mentorName || "").trim();
+      if (named) return named;
+      const fromMail = formatFromEmail(row.mentorEmail);
+      if (fromMail) return fromMail;
     }
-    return String(row.clientName || "").trim();
-  }, [coverEmail, licenseKeys]);
+
+    // Fallback: EA owner email for the active bot
+    const botId = String(activeBot?.id || "").trim();
+    if (botId) {
+      const ea = (Array.isArray(eas) ? eas : []).find((item) => item.id === botId);
+      const fromOwner = formatFromEmail(ea?.ownerEmail);
+      if (fromOwner) return fromOwner;
+    }
+    return "";
+  }, [activeBot, coverEmail, eas, licenseKeys]);
 
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
@@ -1117,6 +1129,8 @@ export function AppProvider({ children }) {
                   // Don't let a logo placeholder from an old key wipe an existing picture.
                   photo: pickProfilePhoto(snapshot.photo, ea.photo),
                   strategy: snapshot.strategy || ea.strategy,
+                  ownerEmail: ea.ownerEmail || entry.mentorEmail || "",
+                  ownerId: ea.ownerId || entry.mentorId || "",
                   symbols:
                     Array.isArray(snapshot.symbols) && snapshot.symbols.length
                       ? snapshot.symbols
@@ -1131,6 +1145,8 @@ export function AppProvider({ children }) {
             name: snapshot.name || entry.botName || "Bot",
             photo: pickProfilePhoto(snapshot.photo),
             strategy: snapshot.strategy || "scalper",
+            ownerEmail: entry.mentorEmail || "",
+            ownerId: entry.mentorId || "",
             symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
           },
           ...prev,

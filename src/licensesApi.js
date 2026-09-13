@@ -110,6 +110,9 @@ export function mergeLicenses(localList = [], remoteList = []) {
       ...row,
       clientEmail: row.clientEmail || prev.clientEmail || "",
       clientName: row.clientName || prev.clientName || "",
+      mentorEmail: row.mentorEmail || prev.mentorEmail || "",
+      mentorId: row.mentorId || prev.mentorId || "",
+      mentorName: row.mentorName || prev.mentorName || "",
       // Newer updatedAt wins so deactivate (used:false) can stick.
       used: preferIncoming ? Boolean(row.used) : Boolean(prev.used || row.used),
       usedAt: preferIncoming
