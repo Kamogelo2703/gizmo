@@ -230,14 +230,14 @@ button {
   position: relative;
   z-index: 12;
   flex-shrink: 0;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
-  min-height: calc(52px + env(safe-area-inset-top, 0px));
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 6px;
+  min-height: calc(48px + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  /* Keep header painted so scroll never flashes bare black above Kama. */
-  background: linear-gradient(180deg, #000 0%, #000 72%, rgba(0, 0, 0, 0) 100%);
+  /* Transparent — opaque black was covering the avatar/glow when scrolling. */
+  background: transparent;
 }
 
 .username {
@@ -253,7 +253,9 @@ button {
   letter-spacing: 0.02em;
   text-align: center;
   color: #fff;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 12px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -367,7 +369,7 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 28px;
+  padding-top: 12px;
   animation: rise 0.7s ease both;
 }
 
