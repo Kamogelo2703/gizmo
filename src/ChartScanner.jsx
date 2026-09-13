@@ -83,6 +83,7 @@ export default function ChartScanner({ variant = "default" }) {
     engineMode,
     engineStep,
     engineLogs,
+    toggleInterface,
   } = useApp();
 
   const uploadRef = useRef(null);
@@ -496,10 +497,50 @@ export default function ChartScanner({ variant = "default" }) {
         <div className="cs-head-main">
           <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
           <h2 className="cs-title">Chart Scanner</h2>
+          {variant === "v2" ? (
+            <p className="cs-tagline">Scan • Analyze • Trade Smarter</p>
+          ) : null}
         </div>
         <div className="cs-head-meta">
-          <span className="cs-scans-left">{scansLeft} scans left</span>
+          {variant === "v2" ? (
+            <button
+              className="cs-settings-btn"
+              type="button"
+              aria-label="Switch interface"
+              title="Switch interface"
+              onClick={toggleInterface}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 7h10M4 12h16M4 17h12"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                />
+                <circle cx="16" cy="7" r="2.2" fill="currentColor" />
+                <circle cx="8" cy="12" r="2.2" fill="currentColor" />
+                <circle cx="14" cy="17" r="2.2" fill="currentColor" />
+              </svg>
+            </button>
+          ) : null}
+          <span className="cs-scans-left">
+            {variant === "v2" ? (
+              <span className="cs-scans-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+                </svg>
+              </span>
+            ) : null}
+            {variant === "v2" ? `${scansLeft} scans left` : `${scansLeft} scans left`}
+          </span>
           <span className={`cs-mt-pill${connected ? " is-on" : ""}`}>
+            {variant === "v2" ? <span className="cs-mt-dot" aria-hidden="true" /> : null}
             {connected ? `MT5 · ${mt5Session.login}` : "MT5 offline"}
           </span>
         </div>
@@ -507,16 +548,31 @@ export default function ChartScanner({ variant = "default" }) {
 
       <div className={`cs-stage${engineActive ? " is-running" : ""}${preview ? " has-chart" : ""}`}>
         <div className="cs-stage-main">
+          {variant === "v2" && !preview ? (
+            <div className="cs-lock-copy">
+              <p className="cs-lock-title">Lock onto a chart to scan</p>
+              <p className="cs-lock-sub">Point your camera or upload a chart</p>
+            </div>
+          ) : null}
+
           <div className="cs-viewport" aria-label="Chart preview">
+            {variant === "v2" ? (
+              <>
+                <span className="cs-bracket cs-bracket--tl" aria-hidden="true" />
+                <span className="cs-bracket cs-bracket--tr" aria-hidden="true" />
+                <span className="cs-bracket cs-bracket--bl" aria-hidden="true" />
+                <span className="cs-bracket cs-bracket--br" aria-hidden="true" />
+              </>
+            ) : null}
             {preview ? (
               <img className="cs-chart" src={preview} alt="Chart to scan" />
             ) : (
               <div className="cs-empty">
-                <p className="cs-empty-copy">
-                  {variant === "v2"
-                    ? "Lock onto a chart to scan"
-                    : "Point the camera at a chart or upload a screenshot"}
-                </p>
+                {variant !== "v2" ? (
+                  <p className="cs-empty-copy">
+                    Point the camera at a chart or upload a screenshot
+                  </p>
+                ) : null}
                 {variant === "v2" ? (
                   <div
                     className={`cs-sniper${engineActive ? " is-scanning" : ""}`}
@@ -565,7 +621,12 @@ export default function ChartScanner({ variant = "default" }) {
           </div>
 
           <div className={`cs-capture-row${engineActive ? " is-scanning" : ""}`}>
-            <button className="cs-capture-btn" type="button" onClick={openCamera} disabled={busy}>
+            <button
+              className={`cs-capture-btn${variant === "v2" ? " is-primary" : ""}`}
+              type="button"
+              onClick={openCamera}
+              disabled={busy}
+            >
               <span className="cs-capture-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -576,9 +637,21 @@ export default function ChartScanner({ variant = "default" }) {
                   <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
                 </svg>
               </span>
-              Camera
+              {variant === "v2" ? (
+                <span className="cs-capture-text">
+                  <strong>Camera</strong>
+                  <em>Open camera</em>
+                </span>
+              ) : (
+                "Camera"
+              )}
             </button>
-            <button className="cs-capture-btn" type="button" onClick={openUpload} disabled={busy}>
+            <button
+              className={`cs-capture-btn${variant === "v2" ? " is-ghost" : ""}`}
+              type="button"
+              onClick={openUpload}
+              disabled={busy}
+            >
               <span className="cs-capture-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -590,7 +663,14 @@ export default function ChartScanner({ variant = "default" }) {
                   />
                 </svg>
               </span>
-              Upload
+              {variant === "v2" ? (
+                <span className="cs-capture-text">
+                  <strong>Upload</strong>
+                  <em>Choose image</em>
+                </span>
+              ) : (
+                "Upload"
+              )}
             </button>
           </div>
         </div>
@@ -614,15 +694,34 @@ export default function ChartScanner({ variant = "default" }) {
 
       <div className={`cs-engine${engineActive ? " is-open" : ""}`} aria-live="polite">
         <div className="cs-engine-top">
-          <div>
-            <p className="cs-engine-kicker">Trading Engine</p>
-            <p className="cs-engine-status">
-              {engineActive
-                ? activeStepLabel
-                : setupReady
-                  ? "Setup ready — waiting for Execute Trade"
-                  : "Armed and ready"}
-            </p>
+          <div className="cs-engine-label">
+            {variant === "v2" ? (
+              <span className="cs-engine-gear" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M19.4 13.2v-2.4l-1.7-.3a5.8 5.8 0 0 0-.5-1.2l1-1.4-1.7-1.7-1.4 1a5.8 5.8 0 0 0-1.2-.5L13.2 4.6h-2.4l-.3 1.7a5.8 5.8 0 0 0-1.2.5l-1.4-1-1.7 1.7 1 1.4a5.8 5.8 0 0 0-.5 1.2l-1.7.3v2.4l1.7.3c.1.4.3.8.5 1.2l-1 1.4 1.7 1.7 1.4-1c.4.2.8.4 1.2.5l.3 1.7h2.4l.3-1.7c.4-.1.8-.3 1.2-.5l1.4 1 1.7-1.7-1-1.4c.2-.4.4-.8.5-1.2l1.7-.3Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            ) : null}
+            <div>
+              <p className="cs-engine-kicker">Trading Engine</p>
+              <p className="cs-engine-status">
+                {engineActive
+                  ? activeStepLabel
+                  : setupReady
+                    ? "Setup ready — waiting for Execute Trade"
+                    : "Armed and ready"}
+              </p>
+            </div>
           </div>
           <span className="cs-engine-pct">
             {engineActive ? `${engineProgress}%` : setupReady ? "100%" : "0%"}
@@ -711,7 +810,6 @@ export default function ChartScanner({ variant = "default" }) {
             value={lotSize}
             disabled={busy}
             onChange={(e) => {
-              // Allow any numeric draft while typing (including "", "0.", "1.25").
               const next = e.target.value.replace(/[^\d.,]/g, "");
               setLotSize(next);
             }}

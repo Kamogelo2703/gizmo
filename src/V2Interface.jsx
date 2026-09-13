@@ -48,7 +48,7 @@ export default function V2Interface() {
   return (
     <div className="iface-layer is-active" data-iface="v2">
       <main className="v2-stage">
-        <TopBar />
+        {v2View !== "scanner" ? <TopBar /> : null}
         {v2View === "home" && (
           <section className="v2-view is-active">
             <p className="v2-top-title">
