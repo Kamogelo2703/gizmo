@@ -138,10 +138,11 @@ button {
   height: 100dvh;
   max-height: 100dvh;
   min-height: 0;
-  /* Clip sideways; vertical scroll happens in stage / app-lock content. */
+  /* Clip sideways; vertical scroll stays in .stage / .v2-stage so the header never sinks. */
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   touch-action: pan-y;
   background: #000;
   display: flex;
@@ -226,31 +227,42 @@ button {
 }
 
 .top {
-  padding: calc(22px + env(safe-area-inset-top, 0px)) 22px 0;
-  min-height: 56px;
+  position: relative;
+  z-index: 12;
+  flex-shrink: 0;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
+  min-height: calc(52px + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
+  /* Keep header painted so scroll never flashes bare black above Kama. */
+  background: linear-gradient(180deg, #000 0%, #000 72%, rgba(0, 0, 0, 0) 100%);
 }
 
 .username {
   margin: 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 120px);
   min-height: 1.2em;
-  font-size: 1.08rem;
-  font-weight: 600;
+  font-size: 1.12rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
-  flex: 1;
-  min-width: 0;
+  text-align: center;
   color: #fff;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .iface-toggle {
   flex: 0 0 auto;
+  margin-left: auto;
   width: 44px;
   height: 44px;
   border-radius: 14px;
