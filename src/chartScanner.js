@@ -82,7 +82,8 @@ function formatRiskReward(entry, stopLoss, takeProfit) {
 }
 
 /**
- * Always produce Entry, SL, TP1, TP2, TP3 with correct directional order.
+ * Always produce Entry, SL, TP1, TP2, TP3 with fixed R:R targets.
+ * TP1 = 1:1 · TP2 = 1:2 · TP3 = 1:3 (reward vs stop distance).
  * BUY:  SL < Entry < TP1 < TP2 < TP3
  * SELL: SL > Entry > TP1 > TP2 > TP3
  */
@@ -90,11 +91,6 @@ function ensureCompleteSetup(partial = {}) {
   const side = String(partial.side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let entry = toFiniteNumber(partial.entry);
   let stopLoss = toFiniteNumber(partial.stopLoss);
-  let takeProfit1 = toFiniteNumber(
-    partial.takeProfit1 ?? partial.tp1 ?? partial.takeProfit
-  );
-  let takeProfit2 = toFiniteNumber(partial.takeProfit2 ?? partial.tp2);
-  let takeProfit3 = toFiniteNumber(partial.takeProfit3 ?? partial.tp3);
 
   if (entry == null) entry = 1;
   const magnitude = Math.max(
@@ -104,26 +100,22 @@ function ensureCompleteSetup(partial = {}) {
 
   if (side === "BUY") {
     if (stopLoss == null || !(stopLoss < entry)) stopLoss = entry - magnitude;
-    const risk = Math.abs(entry - stopLoss);
-    if (takeProfit1 == null || !(takeProfit1 > entry)) takeProfit1 = entry + risk * 1.0;
-    if (takeProfit2 == null || !(takeProfit2 > takeProfit1)) takeProfit2 = entry + risk * 1.8;
-    if (takeProfit3 == null || !(takeProfit3 > takeProfit2)) takeProfit3 = entry + risk * 2.8;
-    if (!(entry < takeProfit1 && takeProfit1 < takeProfit2 && takeProfit2 < takeProfit3)) {
-      takeProfit1 = entry + risk * 1.0;
-      takeProfit2 = entry + risk * 1.8;
-      takeProfit3 = entry + risk * 2.8;
-    }
+  } else if (stopLoss == null || !(stopLoss > entry)) {
+    stopLoss = entry + magnitude;
+  }
+
+  const risk = Math.abs(entry - stopLoss);
+  let takeProfit1;
+  let takeProfit2;
+  let takeProfit3;
+  if (side === "BUY") {
+    takeProfit1 = entry + risk * 1;
+    takeProfit2 = entry + risk * 2;
+    takeProfit3 = entry + risk * 3;
   } else {
-    if (stopLoss == null || !(stopLoss > entry)) stopLoss = entry + magnitude;
-    const risk = Math.abs(stopLoss - entry);
-    if (takeProfit1 == null || !(takeProfit1 < entry)) takeProfit1 = entry - risk * 1.0;
-    if (takeProfit2 == null || !(takeProfit2 < takeProfit1)) takeProfit2 = entry - risk * 1.8;
-    if (takeProfit3 == null || !(takeProfit3 < takeProfit2)) takeProfit3 = entry - risk * 2.8;
-    if (!(entry > takeProfit1 && takeProfit1 > takeProfit2 && takeProfit2 > takeProfit3)) {
-      takeProfit1 = entry - risk * 1.0;
-      takeProfit2 = entry - risk * 1.8;
-      takeProfit3 = entry - risk * 2.8;
-    }
+    takeProfit1 = entry - risk * 1;
+    takeProfit2 = entry - risk * 2;
+    takeProfit3 = entry - risk * 3;
   }
 
   entry = formatPrice(entry);
@@ -150,9 +142,7 @@ function ensureCompleteSetup(partial = {}) {
     takeProfit2,
     takeProfit3,
     takeProfit: takeProfit3,
-    riskReward:
-      String(partial.riskReward || "").trim() ||
-      formatRiskReward(entry, stopLoss, takeProfit2),
+    riskReward: "1:1 · 1:2 · 1:3",
     timeframe: String(partial.timeframe || "M15").trim().toUpperCase() || "M15",
     analysis,
     reasons: Array.isArray(partial.reasons) && partial.reasons.length
