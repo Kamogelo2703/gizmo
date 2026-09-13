@@ -331,13 +331,28 @@ button {
 }
 
 .phone[data-interface="v2"] {
-  background: #000;
+  /* Colored wash like Interface 1 — portal accent from top into deep black */
+  background:
+    radial-gradient(
+      130% 95% at 50% -8%,
+      rgba(var(--pink-rgb), 0.62) 0%,
+      rgba(var(--pink-deep-rgb), 0.32) 34%,
+      rgba(var(--pink-dark-rgb), 0.14) 58%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--pink) 28%, #000) 0%,
+      color-mix(in srgb, var(--pink-deep) 18%, #000) 22%,
+      #0a0006 55%,
+      #000 100%
+    );
 }
 
 .phone[data-interface="v2"] .glow,
 .phone[data-interface="v2"] .glow-soft {
-  opacity: 0;
-  visibility: hidden;
+  opacity: 0.55;
+  visibility: visible;
 }
 
 .phone[data-interface="v2"] .top {
