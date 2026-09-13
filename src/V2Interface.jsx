@@ -56,11 +56,15 @@ export default function V2Interface() {
             </p>
             <div className="v2-hero">
               <div className="v2-avatar-wrap">
-                <img
-                  className="v2-avatar"
-                  src={activeBot?.photo || "/logo.png"}
-                  alt=""
-                />
+                <span className="v2-avatar-flame" aria-hidden="true" />
+                <span className="v2-avatar-flame v2-avatar-flame--glow" aria-hidden="true" />
+                <div className="v2-avatar-core">
+                  <img
+                    className="v2-avatar"
+                    src={activeBot?.photo || "/logo.png"}
+                    alt=""
+                  />
+                </div>
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
               {mentorDisplayName ? (
