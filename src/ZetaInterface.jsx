@@ -1,6 +1,7 @@
 import { useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
+import TopBar from "./TopBar.jsx";
 
 export default function ZetaInterface() {
   const {
@@ -41,6 +42,7 @@ export default function ZetaInterface() {
   return (
     <div className="iface-layer is-active" data-iface="zeta">
       <main className="stage">
+        <TopBar />
         {zetaView === "home" && (
           <section className="view is-active">
             <div className="hero">
