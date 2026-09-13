@@ -165,16 +165,8 @@ export default function AdminPortal() {
     [mentors]
   );
 
-  useEffect(() => {
-    if (!editingEaId) return;
-    const ea = eas.find((e) => e.id === editingEaId);
-    if (!ea) return;
-    setName(ea.name);
-    setStrategy(ea.strategy);
-    setPhoto(ea.photo || "/logo.png");
-    setPhotoUploaded(isUploadedProfilePhoto(ea.photo));
-    setDraftSymbols([...ea.symbols]);
-  }, [editingEaId, eas]);
+  // Form fields are seeded in startEdit — do not rebind on `eas` poll updates
+  // or a newly picked profile picture gets wiped before save.
 
   useEffect(() => {
     if (!licenseBotId && eas[0]) setLicenseBotId(eas[0].id);
@@ -291,6 +283,18 @@ export default function AdminPortal() {
     setCustomSymbol("");
   }
 
+  function startEdit(ea) {
+    setEditingEaId(ea.id);
+    setName(ea.name || "");
+    setStrategy(ea.strategy || "scalper");
+    setPhoto(ea.photo || "/logo.png");
+    setPhotoUploaded(isUploadedProfilePhoto(ea.photo));
+    setDraftSymbols(Array.isArray(ea.symbols) ? [...ea.symbols] : []);
+    setCustomSymbol("");
+    setAdminPage("manage-ea");
+    showToast(`Editing ${ea.name}`);
+  }
+
   function addCustomSymbol() {
     const symbol = normalizeSymbol(customSymbol);
     if (!symbol) {
@@ -393,12 +397,6 @@ export default function AdminPortal() {
     if (!ok) return;
     resetForm();
     setAdminPage("manage-ea");
-  }
-
-  function startEdit(ea) {
-    setEditingEaId(ea.id);
-    setAdminPage("manage-ea");
-    showToast(`Editing ${ea.name}`);
   }
 
   const isSuperAdmin =
