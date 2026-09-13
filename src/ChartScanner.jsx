@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CHART_DETECTION_STATUS,
   TRADE_ENGINE_STEPS,
   analyzeChartImage,
   detectSymbolFromChart,
@@ -74,6 +75,9 @@ export default function ChartScanner() {
   const [preview, setPreview] = useState("");
   const [symbol, setSymbol] = useState("");
   const [symbolSource, setSymbolSource] = useState("");
+  const [detectionStatus, setDetectionStatus] = useState("");
+  const [detectionMessage, setDetectionMessage] = useState("");
+  const [detectionHint, setDetectionHint] = useState("");
   const [detectingSymbol, setDetectingSymbol] = useState(false);
   const [trades, setTrades] = useState(1);
   const [lotSize, setLotSize] = useState(0.01);
@@ -115,37 +119,54 @@ export default function ChartScanner() {
     cameraRef.current?.click();
   }
 
-  async function applyDetectedSymbol(dataUrl) {
-    setDetectingSymbol(true);
+  function resetDetectionState() {
     setSymbol("");
     setSymbolSource("");
+    setDetectionStatus("");
+    setDetectionMessage("");
+    setDetectionHint("");
+  }
+
+  async function applyDetectedSymbol(dataUrl) {
+    setDetectingSymbol(true);
+    resetDetectionState();
     try {
       const detection = await detectSymbolFromChart(dataUrl, {
         catalog: [...symbols, ...(catalog || [])],
       });
-      if (detection?.symbol) {
+      const status = String(detection?.status || CHART_DETECTION_STATUS.NO_CHART);
+      setDetectionStatus(status);
+      setDetectionMessage(detection?.message || "");
+      setDetectionHint(detection?.uiMessage || "");
+
+      if (
+        status === CHART_DETECTION_STATUS.SYMBOL_DETECTED &&
+        detection?.symbol
+      ) {
         const next = String(detection.symbol).toUpperCase();
         ensureCatalog?.(next);
         setSymbol(next);
         setSymbolSource("scanner");
-        showToast(
-          detection.source === "openai"
-            ? `AI symbol: ${next}`
-            : `Scanner symbol: ${next}`
-        );
+        showToast(`Symbol detected: ${next}`);
         return next;
       }
+
       setSymbol("");
       setSymbolSource("");
-      showToast(
-        detection?.error ||
-          "Could not read the symbol — add OPENAI_API_KEY or use a clearer chart"
-      );
+      if (status === CHART_DETECTION_STATUS.NO_CHART) {
+        showToast("No trading chart detected");
+      } else if (status === CHART_DETECTION_STATUS.SYMBOL_UNCLEAR) {
+        showToast("Chart detected — symbol unclear");
+      } else {
+        showToast(detection?.error || "Chart analysis unavailable");
+      }
       return null;
     } catch {
-      setSymbol("");
-      setSymbolSource("");
-      showToast("Scanner could not read the symbol");
+      resetDetectionState();
+      setDetectionStatus(CHART_DETECTION_STATUS.NO_CHART);
+      setDetectionMessage("No trading chart detected");
+      setDetectionHint("Please upload a clear trading chart.");
+      showToast("Chart analysis failed");
       return null;
     } finally {
       setDetectingSymbol(false);
@@ -166,9 +187,8 @@ export default function ChartScanner() {
       setSignal(null);
       setFills([]);
       setEngineProgress(0);
-      setSymbol("");
-      setSymbolSource("");
-      showToast("Chart ready — detecting symbol…");
+      resetDetectionState();
+      showToast("Analyzing image…");
       void applyDetectedSymbol(dataUrl);
     };
     reader.readAsDataURL(file);
@@ -305,7 +325,22 @@ export default function ChartScanner() {
     } catch (error) {
       setEngineMode("idle");
       setEngineProgress(0);
-      showToast(error.message || "Scan failed");
+      if (error.code === "NO_CHART") {
+        resetDetectionState();
+        setDetectionStatus(CHART_DETECTION_STATUS.NO_CHART);
+        setDetectionMessage(error.message || "No trading chart detected");
+        setDetectionHint(error.uiMessage || "Please upload a clear trading chart.");
+        showToast("No trading chart detected");
+      } else if (error.code === "SYMBOL_UNCLEAR") {
+        setSymbol("");
+        setSymbolSource("");
+        setDetectionStatus(CHART_DETECTION_STATUS.SYMBOL_UNCLEAR);
+        setDetectionMessage(error.message || "Chart detected — symbol unclear");
+        setDetectionHint(error.uiMessage || "Chart detected — symbol unclear");
+        showToast("Chart detected — symbol unclear");
+      } else {
+        showToast(error.message || "Scan failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -423,10 +458,10 @@ export default function ChartScanner() {
           </span>
           <input
             className="cs-lot cs-symbol-auto"
-            value={detectingSymbol ? "" : symbol}
+            value={detectingSymbol ? "" : symbol || "—"}
             readOnly
             disabled={busy || detectingSymbol}
-            placeholder={detectingSymbol ? "Detecting from chart…" : "Upload a chart to auto-fill"}
+            placeholder={detectingSymbol ? "Analyzing image…" : "—"}
           />
         </label>
 
@@ -485,19 +520,49 @@ export default function ChartScanner() {
         </label>
       </div>
 
+      {detectionMessage &&
+      !detectingSymbol &&
+      detectionStatus !== CHART_DETECTION_STATUS.SYMBOL_DETECTED ? (
+        <p
+          className={`cs-detection-status${
+            detectionStatus === CHART_DETECTION_STATUS.SYMBOL_UNCLEAR
+              ? " is-warn"
+              : " is-error"
+          }`}
+          aria-live="polite"
+        >
+          <span>{detectionMessage}</span>
+          {detectionHint && detectionHint !== detectionMessage ? (
+            <span className="cs-detection-hint">{detectionHint}</span>
+          ) : null}
+        </p>
+      ) : null}
+
       <button
         className="cs-run-btn"
         type="button"
         onClick={runScanAndTrade}
-        disabled={busy || detectingSymbol || !preview || !symbol || scansLeft <= 0}
+        disabled={
+          busy ||
+          detectingSymbol ||
+          !preview ||
+          !symbol ||
+          detectionStatus === CHART_DETECTION_STATUS.NO_CHART ||
+          detectionStatus === CHART_DETECTION_STATUS.SYMBOL_UNCLEAR ||
+          scansLeft <= 0
+        }
       >
         {busy
           ? "Trading engine running…"
           : detectingSymbol
-            ? "Detecting symbol…"
-            : !symbol
-              ? "Waiting for scanner symbol…"
-              : "Scan & Open Trades"}
+            ? "Analyzing chart…"
+            : detectionStatus === CHART_DETECTION_STATUS.NO_CHART
+              ? "Upload a trading chart"
+              : detectionStatus === CHART_DETECTION_STATUS.SYMBOL_UNCLEAR
+                ? "Symbol unclear on chart"
+                : !symbol
+                  ? "Waiting for symbol…"
+                  : "Scan & Open Trades"}
       </button>
 
       {signal && !engineActive ? (

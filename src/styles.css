@@ -4701,6 +4701,40 @@ button {
   margin: 0;
 }
 
+.cs-detection-status {
+  display: grid;
+  gap: 4px;
+  margin: -2px 0 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.cs-detection-status.is-error {
+  background: rgba(200, 50, 80, 0.12);
+  border-color: rgba(var(--pink-rgb), 0.28);
+}
+
+.cs-detection-status.is-warn {
+  background: rgba(255, 180, 60, 0.12);
+  border-color: rgba(255, 180, 60, 0.28);
+}
+
+.cs-detection-status.is-ok {
+  background: rgba(35, 180, 110, 0.12);
+  border-color: rgba(80, 230, 150, 0.28);
+}
+
+.cs-detection-hint {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.78rem;
+}
+
 .cs-run-btn {
   width: 100%;
   min-height: 54px;
