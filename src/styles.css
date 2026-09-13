@@ -5137,85 +5137,85 @@ button {
 }
 
 .view-scanner.cs-v2 .cs-stage {
-  padding: 12px;
-  border-radius: 28px;
-  gap: 0;
+  padding: 14px;
+  border-radius: 26px;
+  gap: 12px;
   background:
-    radial-gradient(80% 70% at 78% 28%, rgba(255, 120, 180, 0.28), transparent 55%),
-    radial-gradient(70% 60% at 12% 80%, rgba(255, 255, 255, 0.08), transparent 50%),
-    linear-gradient(160deg, rgba(42, 4, 22, 0.55), rgba(8, 0, 6, 0.88));
-  border: 1px solid rgba(255, 255, 255, 0.28);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 28%, transparent 55%),
+    linear-gradient(165deg, #c2186a 0%, #6a0538 42%, #1a000c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.view-scanner.cs-v2 .cs-stage.is-running {
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.32),
-    0 0 36px rgba(255, 70, 150, 0.35),
+    0 16px 32px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-/* Flipped side layout: Camera/Upload LEFT · sniper scope RIGHT */
+.view-scanner.cs-v2 .cs-stage.is-running {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(255, 70, 150, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+/* Stack layout: wide HUD scope on top · Camera/Upload dock below */
 .view-scanner.cs-v2 .cs-stage-main {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   align-items: stretch;
 }
 
-.view-scanner.cs-v2 .cs-capture-row {
-  order: 1;
+.view-scanner.cs-v2 .cs-capture-row,
+.view-scanner.cs-v2 .cs-viewport {
+  order: unset;
 }
 
 .view-scanner.cs-v2 .cs-viewport {
-  order: 2;
-  aspect-ratio: 1 / 1;
-  max-height: min(48vw, 230px);
-  min-height: 160px;
-  border-radius: 50%;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: min(34vh, 210px);
+  min-height: 148px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 90, 160, 0.22), transparent 52%),
-    radial-gradient(circle at 50% 50%, #1a0612 0%, #050208 72%);
-  border: 2px solid rgba(255, 255, 255, 0.28);
+    radial-gradient(circle at 50% 48%, rgba(255, 90, 160, 0.2), transparent 46%),
+    linear-gradient(180deg, #12040c 0%, #050208 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow:
-    inset 0 0 0 6px rgba(0, 0, 0, 0.35),
-    inset 0 0 28px rgba(255, 60, 140, 0.18),
-    0 0 24px rgba(255, 80, 160, 0.25);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 40px rgba(255, 40, 120, 0.12),
+    0 8px 20px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
 }
 
 .view-scanner.cs-v2 .cs-stage.has-chart .cs-viewport,
 .view-scanner.cs-v2 .cs-stage:has(.cs-chart) .cs-viewport {
-  aspect-ratio: 1 / 1;
-  max-height: min(48vw, 230px);
-  min-height: 160px;
-  padding: 14px;
-  border-radius: 50%;
+  aspect-ratio: 16 / 10;
+  max-height: min(34vh, 210px);
+  min-height: 148px;
+  padding: 10px 14px;
+  border-radius: 20px;
 }
 
 .view-scanner.cs-v2 .cs-stage.has-chart .cs-chart,
 .view-scanner.cs-v2 .cs-stage:has(.cs-chart) .cs-chart {
-  border-radius: 50%;
+  border-radius: 12px;
 }
 
 .view-scanner.cs-v2 .cs-empty {
-  gap: 8px;
-  padding: 18px 14px;
+  gap: 12px;
+  padding: 16px 18px;
 }
 
 .view-scanner.cs-v2 .cs-empty-copy {
-  max-width: 10.5rem;
+  max-width: 16rem;
   font-family: var(--font-v2);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1.35;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* V2 sniper / compass reticle — idle + circulating scan */
@@ -5225,8 +5225,8 @@ button {
 
 .view-scanner.cs-v2 .cs-sniper {
   position: relative;
-  width: clamp(84px, 26vw, 112px);
-  height: clamp(84px, 26vw, 112px);
+  width: clamp(88px, 28vw, 120px);
+  height: clamp(88px, 28vw, 120px);
   flex-shrink: 0;
   border-radius: 50%;
   isolation: isolate;
@@ -5475,51 +5475,54 @@ button {
 }
 
 .view-scanner.cs-v2 .cs-capture-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  order: 1;
+  order: unset;
+  padding: 4px;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .view-scanner.cs-v2 .cs-capture-btn {
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 22px;
-  padding: 10px 8px;
+  flex: none;
+  min-height: 56px;
+  flex-direction: row;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 12px 14px;
   font-family: var(--font-v2);
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fff;
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  color: #9b0b4a;
+  background: #fff;
+  border: 0;
   box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    0 8px 18px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .view-scanner.cs-v2 .cs-capture-btn:active {
-  transform: scale(0.96);
-  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.97);
+  background: #fff5fa;
 }
 
 .view-scanner.cs-v2 .cs-capture-icon {
-  width: 26px;
-  height: 26px;
-  color: #ff7ab8;
-  filter: drop-shadow(0 0 8px rgba(255, 90, 160, 0.55));
+  width: 22px;
+  height: 22px;
+  color: #c2186a;
+  filter: none;
 }
 
 .view-scanner.cs-v2 .cs-capture-icon svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
 }
 
 .view-scanner.cs-v2 .cs-engine {
@@ -5664,28 +5667,32 @@ button {
   .view-scanner.cs-v2 .cs-viewport,
   .view-scanner.cs-v2 .cs-stage.has-chart .cs-viewport,
   .view-scanner.cs-v2 .cs-stage:has(.cs-chart) .cs-viewport {
-    max-height: min(42vw, 190px);
-    min-height: 140px;
+    max-height: min(30vh, 180px);
+    min-height: 132px;
   }
 
   .view-scanner.cs-v2 .cs-stage-main {
-    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 10px;
   }
 
   .view-scanner.cs-v2 .cs-sniper {
-    width: 72px;
-    height: 72px;
+    width: 70px;
+    height: 70px;
+  }
+
+  .view-scanner.cs-v2 .cs-capture-btn {
+    min-height: 50px;
   }
 }
 
 @media (max-width: 360px) {
   .view-scanner.cs-v2 .cs-stage-main {
-    grid-template-columns: 78px minmax(0, 1fr);
     gap: 8px;
   }
 
   .view-scanner.cs-v2 .cs-capture-btn {
-    font-size: 0.56rem;
-    padding: 6px 4px;
+    font-size: 0.62rem;
+    padding: 10px 8px;
+    gap: 8px;
   }
 }

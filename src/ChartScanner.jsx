@@ -514,7 +514,7 @@ export default function ChartScanner({ variant = "default" }) {
               <div className="cs-empty">
                 <p className="cs-empty-copy">
                   {variant === "v2"
-                    ? "Aim at a chart · tap Camera or Upload"
+                    ? "Lock onto a chart to scan"
                     : "Point the camera at a chart or upload a screenshot"}
                 </p>
                 {variant === "v2" ? (
