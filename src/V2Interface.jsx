@@ -25,6 +25,9 @@ export default function V2Interface() {
     setEditingSymbol,
     showToast,
     mentorDisplayName,
+    setLockStep,
+    getSignup,
+    coverEmail,
   } = useApp();
 
   const [lotSize, setLotSize] = useState(0.01);
@@ -34,6 +37,18 @@ export default function V2Interface() {
 
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
+  const activeRobots = bots.filter((b) => b.active);
+  const heroSrc = activeBot?.photo || "/zeta-fire-portal.jpg";
+
+  function openLicense() {
+    const signup = getSignup(coverEmail);
+    if (activeRobots.length > 0 || signup?.status === "approved") {
+      setLockStep("license");
+      return;
+    }
+    if (signup) setLockStep("pending");
+    else setLockStep("cover");
+  }
 
   function openEdit(symbol) {
     const meta = getSymbolMeta(symbol);
@@ -51,34 +66,21 @@ export default function V2Interface() {
         {v2View !== "scanner" ? <TopBar /> : null}
         {v2View === "home" && (
           <section className="v2-view is-active v2-view-home">
-            <p className="v2-top-title">
-              <span>{activeBot?.name ? `${activeBot.name}` : "No active bot"}</span>
-            </p>
-            <div className="v2-hero">
-              <div className="v2-avatar-wrap">
-                <img
-                  className="v2-avatar"
-                  src="/zeta-fire-portal.jpg"
-                  alt=""
-                />
-                <img
-                  className="v2-avatar-fire v2-avatar-fire--glow"
-                  src="/zeta-fire-portal.jpg"
-                  alt=""
-                  aria-hidden="true"
-                />
-                <img
-                  className="v2-avatar-fire"
-                  src="/zeta-fire-portal.jpg"
-                  alt=""
-                  aria-hidden="true"
-                />
+            <div className="v2-home-hero">
+              <div className="v2-home-hero-media" aria-hidden="true">
+                <img className="v2-home-hero-img" src={heroSrc} alt="" />
+                <div className="v2-home-hero-shade" />
               </div>
-              <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
-              {mentorDisplayName ? (
-                <p className="v2-account">{mentorDisplayName}</p>
-              ) : null}
+              <div className="v2-home-hero-copy">
+                <p className="v2-home-hero-kicker">You are trading with</p>
+                <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
+                <p className="v2-home-hero-powered">
+                  POWERED BY <span>{mentorDisplayName || "EA FORCE"}</span>
+                </p>
+              </div>
             </div>
+
+            {/* Keep existing V2 pill look + button set */}
             <div className="v2-pill-bar">
               <button
                 className={`v2-pill-btn${v2Running ? " is-running" : ""}`}
@@ -131,26 +133,34 @@ export default function V2Interface() {
                 <span className="v2-pill-label">REMOVE</span>
               </button>
             </div>
+
             <section className="v2-robots">
-              <h2 className="v2-robots-title">CONNECTED ROBOTS:</h2>
+              <h2 className="v2-robots-title">ROBOT LIST:</h2>
               <div className="v2-robot-list">
-                {bots.filter((b) => b.active).length === 0 ? (
+                {activeRobots.length === 0 ? (
                   <p className="v2-robot-empty">No connected robots</p>
                 ) : (
-                  bots
-                    .filter((b) => b.active)
-                    .map((bot) => (
-                      <button
-                        key={bot.id}
-                        className={`v2-robot-row${bot.id === activeBot?.id ? " is-active" : ""}`}
-                        type="button"
-                        onClick={() => selectBot(bot.id)}
-                      >
-                        <img src={bot.photo || "/logo.png"} alt="" width="40" height="40" />
-                        <span>{bot.name}</span>
-                      </button>
-                    ))
+                  activeRobots.map((bot) => (
+                    <button
+                      key={bot.id}
+                      className={`v2-robot-row${bot.id === activeBot?.id ? " is-active" : ""}`}
+                      type="button"
+                      onClick={() => selectBot(bot.id)}
+                    >
+                      <img src={bot.photo || "/logo.png"} alt="" width="40" height="40" />
+                      <span>{bot.name}</span>
+                    </button>
+                  ))
                 )}
+                <button className="v2-robot-row v2-robot-add" type="button" onClick={openLicense}>
+                  <span className="v2-robot-add-icon" aria-hidden="true">
+                    +
+                  </span>
+                  <span className="v2-robot-add-copy">
+                    <strong>Add a new Robot</strong>
+                    <small>Be having a new license Keys</small>
+                  </span>
+                </button>
               </div>
             </section>
           </section>
