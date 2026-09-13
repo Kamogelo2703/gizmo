@@ -3563,149 +3563,19 @@ button {
 
 
 
+
 .v2-avatar-wrap {
   position: relative;
   width: min(64vw, 236px);
   aspect-ratio: 1;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  isolation: isolate;
-  margin: 52px auto 28px;
-  overflow: visible;
-  animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-/* Fire portal — tongues sit outside the circle and lick outward */
-.v2-fire {
-  position: absolute;
-  inset: -64px;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: 50%;
-  overflow: visible;
-}
-
-.v2-fire-ember {
-  position: absolute;
-  inset: 58px;
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 2px rgba(255, 90, 0, 0.55),
-    0 0 20px 3px rgba(255, 60, 0, 0.55);
-  animation: flame-flicker 0.55s ease-in-out infinite;
-}
-
-.v2-fire-ember--soft {
-  inset: 44px;
-  box-shadow: 0 0 30px 12px rgba(255, 80, 0, 0.4);
-  filter: blur(7px);
-  animation: flame-flicker 0.7s ease-in-out infinite reverse;
-}
-
-.v2-fire-tongue {
-  position: absolute;
-  inset: 0;
-  transform: rotate(calc(var(--i) * 20deg));
-}
-
-/* Outer flame tongue (pointing away from center) */
-.v2-fire-tongue::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 26px;
-  height: 64px;
-  margin-left: -13px;
-  transform-origin: 50% 100%;
-  background: linear-gradient(
-    to top,
-    #4a0500 0%,
-    #b30000 18%,
-    #ff2a00 36%,
-    #ff6a00 52%,
-    #ffb000 68%,
-    #ffe566 84%,
-    #ffffff 100%
-  );
-  clip-path: polygon(
-    48% 0%,
-    58% 8%,
-    72% 18%,
-    86% 34%,
-    95% 52%,
-    82% 68%,
-    70% 82%,
-    56% 94%,
-    50% 100%,
-    40% 93%,
-    26% 80%,
-    12% 64%,
-    6% 46%,
-    16% 28%,
-    30% 14%,
-    40% 6%
-  );
-  filter: drop-shadow(0 0 6px rgba(255, 80, 0, 0.95));
-  animation: tongue-flicker 0.36s ease-in-out infinite alternate;
-  animation-delay: calc(var(--i) * -0.055s);
-  will-change: transform, opacity, filter;
-}
-
-/* Hot white core */
-.v2-fire-tongue::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 12px;
-  width: 10px;
-  height: 28px;
-  margin-left: -5px;
-  transform-origin: 50% 100%;
-  background: linear-gradient(to top, transparent 0%, #ffcc33 40%, #fff7c2 70%, #ffffff 100%);
-  clip-path: polygon(50% 0%, 72% 35%, 78% 65%, 50% 100%, 22% 65%, 28% 35%);
-  animation: tongue-flicker 0.26s ease-in-out infinite alternate;
-  animation-delay: calc(var(--i) * -0.04s + 0.08s);
-  will-change: transform, opacity;
-}
-
-.v2-fire-tongue:nth-child(4n + 3)::before {
-  width: 26px;
-  height: 62px;
-  margin-left: -13px;
-  top: -6px;
-  animation-duration: 0.3s;
-}
-
-.v2-fire-tongue:nth-child(4n + 4)::before {
-  width: 16px;
-  height: 42px;
-  margin-left: -8px;
-  top: 8px;
-  animation-duration: 0.44s;
-}
-
-.v2-fire-tongue:nth-child(4n + 5)::before {
-  width: 24px;
-  height: 58px;
-  margin-left: -12px;
-  top: -2px;
-  animation-duration: 0.34s;
-}
-
-.v2-avatar-core {
-  position: relative;
-  z-index: 1;
-  width: calc(100% - 2px);
-  height: calc(100% - 2px);
-  border-radius: 50%;
   overflow: hidden;
-  background: #050505;
+  margin: 12px auto 0;
+  background: #000;
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.8),
-    0 0 0 3px #000,
-    0 0 26px rgba(255, 70, 0, 0.45);
+    0 0 0 2px rgba(255, 255, 255, 0.14),
+    0 0 28px rgba(var(--pink-rgb), 0.35);
+  animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .v2-avatar {
@@ -3715,43 +3585,7 @@ button {
   object-position: center;
   display: block;
   background: transparent;
-}
-
-@keyframes flame-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes flame-flicker {
-  0%,
-  100% {
-    opacity: 0.7;
-  }
-  40% {
-    opacity: 1;
-  }
-  70% {
-    opacity: 0.82;
-  }
-}
-
-@keyframes tongue-flicker {
-  0% {
-    transform: scaleY(0.7) scaleX(0.82) rotate(-7deg) skewX(-5deg);
-    opacity: 0.78;
-    filter: brightness(0.85) drop-shadow(0 0 4px rgba(255, 70, 0, 0.8));
-  }
-  55% {
-    transform: scaleY(1.22) scaleX(1.1) rotate(6deg) skewX(4deg);
-    opacity: 1;
-    filter: brightness(1.35) drop-shadow(0 0 12px rgba(255, 120, 0, 1));
-  }
-  100% {
-    transform: scaleY(0.9) scaleX(0.9) rotate(2deg) skewX(-2deg);
-    opacity: 0.92;
-    filter: brightness(1.1) drop-shadow(0 0 8px rgba(255, 90, 0, 0.95));
-  }
+  border-radius: 50%;
 }
 
 .v2-bot-name {

@@ -56,20 +56,11 @@ export default function V2Interface() {
             </p>
             <div className="v2-hero">
               <div className="v2-avatar-wrap">
-                <div className="v2-fire" aria-hidden="true">
-                  <span className="v2-fire-ember" />
-                  <span className="v2-fire-ember v2-fire-ember--soft" />
-                  {Array.from({ length: 18 }, (_, i) => (
-                    <span key={i} className="v2-fire-tongue" style={{ "--i": i }} />
-                  ))}
-                </div>
-                <div className="v2-avatar-core">
-                  <img
-                    className="v2-avatar"
-                    src={activeBot?.photo || "/logo.png"}
-                    alt=""
-                  />
-                </div>
+                <img
+                  className="v2-avatar"
+                  src={activeBot?.photo || "/logo.png"}
+                  alt=""
+                />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
               {mentorDisplayName ? (
