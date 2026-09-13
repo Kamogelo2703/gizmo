@@ -50,23 +50,25 @@ export default function V2Interface() {
       <main className="v2-stage">
         {v2View !== "scanner" ? <TopBar /> : null}
         {v2View === "home" && (
-          <section className="v2-view is-active">
+          <section className="v2-view is-active v2-view-home">
             <p className="v2-top-title">
               <span>{activeBot?.name ? `${activeBot.name}` : "No active bot"}</span>
             </p>
             <div className="v2-hero">
-              <div className="v2-avatar-wrap">
+              <div className="v2-hero-figure">
                 <img
-                  className="v2-avatar"
+                  className="v2-hero-art"
                   src={activeBot?.photo || "/logo.png"}
                   alt=""
                   decoding="async"
                 />
+                <div className="v2-hero-caption">
+                  <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
+                  {mentorDisplayName ? (
+                    <p className="v2-account">{mentorDisplayName}</p>
+                  ) : null}
+                </div>
               </div>
-              <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
-              {mentorDisplayName ? (
-                <p className="v2-account">{mentorDisplayName}</p>
-              ) : null}
             </div>
             <div className="v2-pill-bar">
               <button

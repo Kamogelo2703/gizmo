@@ -331,15 +331,16 @@ button {
 }
 
 .phone[data-interface="v2"] {
+  /* Follow portal accent color — light wash → deep theme tone */
   background:
     linear-gradient(
       180deg,
-      #e35a9a 0%,
-      #c2186a 16%,
-      #9b0b4a 38%,
-      #7a0538 58%,
-      #4a0222 78%,
-      #1a000c 100%
+      color-mix(in srgb, var(--pink-soft) 72%, #ffffff) 0%,
+      color-mix(in srgb, var(--pink) 82%, #ffffff) 12%,
+      var(--pink) 28%,
+      var(--pink-deep) 52%,
+      var(--pink-dark) 78%,
+      color-mix(in srgb, var(--pink-dark) 55%, #000000) 100%
     );
 }
 
@@ -374,83 +375,94 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 12px;
+  padding-top: 4px;
+  margin: 0;
   animation: rise 0.7s ease both;
 }
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.avatar-wrap {
-  /* Large rectangular / portrait hero — full-bleed artwork, not a circle */
-  width: min(86vw, 340px);
-  aspect-ratio: 3 / 4;
-  height: auto;
-  border-radius: 22px;
-  padding: 0;
-  overflow: hidden;
+.hero-figure {
   position: relative;
-  isolation: isolate;
-  background: #000;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 16px 40px rgba(0, 0, 0, 0.45),
-    0 0 48px rgba(var(--pink-rgb), 0.28);
-  margin-bottom: 22px;
-  animation: avatar-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  width: min(92vw, 380px);
+  margin: 0 auto;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
-@keyframes breathe-ring {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 1px rgba(var(--pink-rgb), 0.3),
-      0 0 18px rgba(var(--pink-rgb), 0.35),
-      0 0 36px rgba(var(--pink-hot-rgb), 0.22);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px rgba(var(--pink-soft-rgb), 0.75),
-      0 0 42px rgba(var(--pink-rgb), 0.95),
-      0 0 90px rgba(var(--pink-hot-rgb), 0.7);
-  }
+.hero-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(56vh, 500px);
+  object-fit: contain;
+  object-position: center top;
+  background: transparent;
+  border-radius: 0;
+  opacity: 1;
+  filter: none;
+  -webkit-filter: none;
+  mix-blend-mode: normal;
+  /* No mask/fade — artwork stays fully opaque and sharp */
+  -webkit-mask-image: none;
+  mask-image: none;
 }
+
+.hero-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6%;
+  z-index: 2;
+  padding: 0 14px 4px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.hero-caption .kicker,
+.hero-caption .brand,
+.hero-caption .powered {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.hero-caption .kicker {
+  margin: 0 0 2px;
+  font-size: 0.92rem;
+}
+
+.hero-caption .brand {
+  margin: 0;
+  color: #fff;
+}
+
+.hero-caption .powered {
+  margin: 6px 0 0;
+}
+
+.hero + .action-deck {
+  margin-top: 8px;
+}
+
+
+/* Legacy selectors kept as aliases so leftover markup still renders cleanly */
+.avatar-wrap,
+.avatar {
+  all: unset;
+}
+
 
 @keyframes avatar-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.avatar {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  object-fit: cover;
-  object-position: center top;
-  background: #000;
-  /* Force true source fidelity — never fade / wash the uploaded artwork */
-  opacity: 1;
-  filter: none;
-  -webkit-filter: none;
-  mix-blend-mode: normal;
-  image-rendering: auto;
 }
 
 .kicker {
@@ -3249,9 +3261,8 @@ button {
   font-size: 0.88rem;
 }
 
-.hero.is-empty .avatar-wrap {
-  /* Empty-state only: keep frame visible but never wash a real uploaded photo */
-  opacity: 1;
+.hero.is-empty .hero-art {
+  opacity: 0.55;
   filter: none;
 }
 
@@ -3544,13 +3555,15 @@ button {
 }
 
 .v2-top-title {
-  margin: 2px 0 0;
+  position: relative;
+  z-index: 3;
+  margin: 0 0 -18px;
   text-align: center;
   font-family: var(--font-v2);
   font-size: clamp(1.05rem, 4.8vw, 1.32rem);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #2a0214;
+  color: #1a0210;
   -webkit-text-stroke: 0.7px rgba(255, 255, 255, 0.92);
   text-shadow:
     0 0 1px rgba(255, 255, 255, 0.95),
@@ -3566,80 +3579,102 @@ button {
   display: none;
 }
 
+.v2-view-home {
+  gap: 10px;
+}
+
 .v2-hero {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-top: 6px;
 }
 
-.v2-avatar-wrap {
-  /* Large rectangular / portrait hero — full-bleed artwork, not a circle */
-  width: min(86vw, 340px);
-  aspect-ratio: 3 / 4;
-  border-radius: 22px;
-  overflow: hidden;
+.v2-hero-figure {
   position: relative;
-  isolation: isolate;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 16px 40px rgba(0, 0, 0, 0.45),
-    0 0 48px rgba(255, 80, 160, 0.28);
-  /* Opaque black behind the image so no pink wash bleeds through */
-  background: #000;
+  width: min(94vw, 400px);
+  margin: -22px auto 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-.v2-avatar-wrap::before,
-.v2-avatar-wrap::after {
-  content: none;
-  display: none;
-}
-
-.v2-avatar {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
+.v2-hero-art {
   display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(62vh, 560px);
+  object-fit: contain;
+  object-position: center top;
+  background: transparent;
   border-radius: 0;
-  background: #000;
-  /* Force true source fidelity — never fade / wash the uploaded artwork */
   opacity: 1;
   filter: none;
   -webkit-filter: none;
   mix-blend-mode: normal;
   image-rendering: auto;
+  /* No mask/fade — artwork stays fully opaque and sharp */
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.v2-hero-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Sit on the lower portion of the artwork (reference overlap) */
+  bottom: 6%;
+  z-index: 2;
+  padding: 0 16px 2px;
+  pointer-events: none;
+  text-align: center;
+}
+
+/* Kill any leftover black card styles if old class names linger */
+.v2-avatar-wrap,
+.v2-avatar {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .v2-bot-name {
-  margin: 14px 0 0;
+  margin: 0;
   font-family: var(--font-v2);
-  font-size: clamp(1.55rem, 6.8vw, 2.05rem);
+  font-size: clamp(1.55rem, 6.8vw, 2.15rem);
   font-weight: 400;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fff;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
-  line-height: 1.1;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.65),
+    0 4px 18px rgba(0, 0, 0, 0.45);
+  line-height: 1.05;
 }
 
 .v2-account {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   font-family: var(--font-script);
   font-size: 1.65rem;
   color: rgba(255, 255, 255, 0.96);
   line-height: 1;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 3px 12px rgba(0, 0, 0, 0.35);
 }
 
 /* Solid white GOAT-style control card */
 .v2-pill-bar {
   position: relative;
-  margin: 12px auto 0;
+  z-index: 3;
+  margin: -12px auto 0;
   width: min(86%, 290px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);

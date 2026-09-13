@@ -46,19 +46,21 @@ export default function ZetaInterface() {
         {zetaView === "home" && (
           <section className="view is-active">
             <div className="hero">
-              <div className="avatar-wrap">
+              <div className="hero-figure">
                 <img
-                  className="avatar"
+                  className="hero-art"
                   src={activeBot?.photo || "/logo.png"}
                   alt=""
                   decoding="async"
                 />
+                <div className="hero-caption">
+                  <p className="kicker">You are trading with</p>
+                  <h1 className="brand">{activeBot?.name || "No active bot"}</h1>
+                  <p className="powered">
+                    POWERED BY <span className="apexea-hotspot">ApexEA</span>
+                  </p>
+                </div>
               </div>
-              <p className="kicker">You are trading with</p>
-              <h1 className="brand">{activeBot?.name || "No active bot"}</h1>
-              <p className="powered">
-                POWERED BY <span className="apexea-hotspot">ApexEA</span>
-              </p>
             </div>
 
             <div className="action-deck" role="group" aria-label="Trading controls">
