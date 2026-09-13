@@ -34,11 +34,13 @@ export default function V2Interface() {
   const [action, setAction] = useState("BOTH");
   const [platform, setPlatform] = useState("MT5");
   const [trades, setTrades] = useState(1);
+  const [floatCycle, setFloatCycle] = useState(false);
 
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const heroSrc = activeBot?.photo || "/zeta-fire-portal.jpg";
+  const floatSrc = activeBot?.photo || "/logo.png";
 
   function openLicense() {
     const signup = getSignup(coverEmail);
@@ -89,6 +91,8 @@ export default function V2Interface() {
                 onClick={() => {
                   const next = !v2Running;
                   setV2Running(next);
+                  // Floating cycle profile pops in immediately with TRADE.
+                  setFloatCycle(next);
                   showToast(next ? `${activeBot?.name || "Bot"} started` : "Bot stopped");
                 }}
               >
@@ -145,7 +149,11 @@ export default function V2Interface() {
                       key={bot.id}
                       className={`v2-robot-row${bot.id === activeBot?.id ? " is-active" : ""}`}
                       type="button"
-                      onClick={() => selectBot(bot.id)}
+                      onClick={() => {
+                        selectBot(bot.id);
+                        // Floating cycle with this profile appears immediately.
+                        setFloatCycle(true);
+                      }}
                     >
                       <img src={bot.photo || "/logo.png"} alt="" width="40" height="40" />
                       <span>{bot.name}</span>
@@ -163,6 +171,19 @@ export default function V2Interface() {
                 </button>
               </div>
             </section>
+
+            {floatCycle ? (
+              <button
+                className="v2-float-cycle is-on"
+                type="button"
+                aria-label={`${activeBot?.name || "Bot"} live profile`}
+                onClick={() => setFloatCycle(false)}
+              >
+                <span className="v2-float-cycle-ring" aria-hidden="true" />
+                <span className="v2-float-cycle-ring v2-float-cycle-ring--outer" aria-hidden="true" />
+                <img className="v2-float-cycle-photo" src={floatSrc} alt="" />
+              </button>
+            ) : null}
           </section>
         )}
 

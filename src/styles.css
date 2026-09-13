@@ -3551,6 +3551,7 @@ button {
 }
 
 .v2-view-home {
+  position: relative;
   gap: 0;
   margin: -8px -18px 0;
   padding: 0;
@@ -3898,6 +3899,86 @@ button {
   margin: 0 0 4px;
   color: rgba(0, 0, 0, 0.55);
   font-size: 0.92rem;
+}
+
+/* Floating cycle profile — appears immediately on TRADE / robot press */
+.v2-float-cycle {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  width: 78px;
+  height: 78px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #0a0a0a;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(255, 40, 40, 0.55),
+    0 0 22px rgba(255, 30, 30, 0.45);
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  animation: v2-float-pop 0.12s ease-out both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v2-float-cycle:active {
+  transform: scale(0.94);
+}
+
+.v2-float-cycle-photo {
+  position: relative;
+  z-index: 2;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  background: #120000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.v2-float-cycle-ring {
+  position: absolute;
+  inset: -3px;
+  z-index: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #ff2a2a;
+  border-right-color: rgba(255, 80, 80, 0.85);
+  animation: v2-float-spin 1.4s linear infinite;
+  pointer-events: none;
+}
+
+.v2-float-cycle-ring--outer {
+  inset: -9px;
+  border-width: 1.5px;
+  border-top-color: rgba(255, 255, 255, 0.75);
+  border-right-color: rgba(255, 40, 40, 0.55);
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  animation-duration: 2.2s;
+  animation-direction: reverse;
+  opacity: 0.9;
+}
+
+@keyframes v2-float-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes v2-float-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .v2-tabbar {
