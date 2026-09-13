@@ -48,24 +48,25 @@ export default function V2Interface() {
       <main className="v2-stage">
         {v2View === "home" && (
           <section className="v2-view is-active">
-            <p className="v2-top-title">
-              <span className="v2-top-icon">✦</span>
-              <span>{activeBot?.name || "No active bot"}</span>
-            </p>
-            <div className="v2-hero">
-              <div className="v2-avatar-wrap">
-                <img
-                  className="v2-avatar"
-                  src={activeBot?.photo || "/logo.png"}
-                  alt=""
-                />
+            <div className="v2-hero-banner">
+              <img
+                className="v2-hero-image"
+                src={activeBot?.photo || "/logo.png"}
+                alt=""
+              />
+              <div className="v2-hero-shade" aria-hidden="true" />
+              <div className="v2-hero-copy">
+                <p className="v2-hero-kicker">AI TRADING SYSTEM</p>
+                <h1 className="v2-hero-title">GOAT SCALPER EA</h1>
               </div>
-              <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
-              {coverEmail ? <p className="v2-account">{coverEmail}</p> : null}
             </div>
-            <div className="v2-pill-bar">
+
+            <p className="v2-user-name">Kamogelo</p>
+            {coverEmail ? <p className="v2-user-meta">{coverEmail}</p> : null}
+
+            <div className="v2-action-card">
               <button
-                className={`v2-pill-btn${v2Running ? " is-running" : ""}`}
+                className={`v2-action-btn${v2Running ? " is-running" : ""}`}
                 type="button"
                 id="v2-trade-btn"
                 onClick={() => {
@@ -74,27 +75,46 @@ export default function V2Interface() {
                   showToast(next ? `${activeBot?.name || "Bot"} started` : "Bot stopped");
                 }}
               >
-                <span className="v2-pill-icon is-trade">▶</span>
-                <span className="v2-pill-label">{v2Running ? "STOP" : "START"}</span>
+                <span className="v2-action-icon is-trade" aria-hidden="true">
+                  {v2Running ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5.5v13l11-6.5L8 5.5z" />
+                    </svg>
+                  )}
+                </span>
+                <span className="v2-action-label">{v2Running ? "STOP" : "TRADE"}</span>
               </button>
               <button
-                className="v2-pill-btn"
+                className="v2-action-btn"
                 type="button"
                 onClick={() => {
                   setV2SymTab("allowed");
                   setV2View("quotes");
                 }}
               >
-                <span className="v2-pill-icon is-quotes">✦</span>
-                <span className="v2-pill-label">QUOTES</span>
+                <span className="v2-action-icon is-quotes" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v18M3 12h18M6.5 6.5l11 11M17.5 6.5l-11 11" />
+                  </svg>
+                </span>
+                <span className="v2-action-label">QUOTES</span>
               </button>
-              <button className="v2-pill-btn" type="button" onClick={removeActiveBot}>
-                <span className="v2-pill-icon is-remove">🗑</span>
-                <span className="v2-pill-label">REMOVE</span>
+              <button className="v2-action-btn" type="button" onClick={removeActiveBot}>
+                <span className="v2-action-icon is-remove" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span className="v2-action-label">REMOVE</span>
               </button>
             </div>
+
             <section className="v2-robots">
-              <h2 className="v2-robots-title">CONNECTED ROBOTS:</h2>
+              <h2 className="v2-robots-title">CONNECTED ROBOTS</h2>
               <div className="v2-robot-list">
                 {bots.filter((b) => b.active).length === 0 ? (
                   <p className="v2-robot-empty">No connected robots</p>
@@ -108,8 +128,10 @@ export default function V2Interface() {
                         type="button"
                         onClick={() => selectBot(bot.id)}
                       >
-                        <img src={bot.photo || "/logo.png"} alt="" width="42" height="42" />
-                        <span>{bot.name}</span>
+                        <span className="v2-robot-thumb">
+                          <img src={bot.photo || "/logo.png"} alt="" />
+                        </span>
+                        <span className="v2-robot-name">{bot.name}</span>
                       </button>
                     ))
                 )}
@@ -267,6 +289,9 @@ export default function V2Interface() {
           type="button"
           onClick={() => setV2View("home")}
         >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9.5z" strokeLinejoin="round" />
+          </svg>
           <span>HOME</span>
         </button>
         <button
@@ -274,6 +299,10 @@ export default function V2Interface() {
           type="button"
           onClick={() => setV2View("metatrader")}
         >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="14" rx="2" />
+            <path d="M8 21h8M12 18v3" strokeLinecap="round" />
+          </svg>
           <span>METATRADER</span>
         </button>
       </nav>
