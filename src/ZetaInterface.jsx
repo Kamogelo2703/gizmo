@@ -14,7 +14,6 @@ export default function ZetaInterface() {
     v2Running,
     setV2Running,
     showToast,
-    openAdmin,
     setLockStep,
     getSignup,
     coverEmail,
@@ -30,12 +29,13 @@ export default function ZetaInterface() {
 
   function openLicense() {
     const signup = getSignup(coverEmail);
-    if (signup?.status === "approved") setLockStep("license");
-    else if (signup) setLockStep("pending");
-    else setLockStep("cover");
-    if (bots.some((b) => b.active)) {
-      showToast("Use Admin → License Keys for activation keys");
+    // Already unlocked: still open license entry so a new key can add another bot.
+    if (bots.some((b) => b.active) || signup?.status === "approved") {
+      setLockStep("license");
+      return;
     }
+    if (signup) setLockStep("pending");
+    else setLockStep("cover");
   }
 
   return (
@@ -105,9 +105,7 @@ export default function ZetaInterface() {
               <button
                 className="robot-row robot-add"
                 type="button"
-                onClick={() => {
-                  openAdmin("manage-ea");
-                }}
+                onClick={openLicense}
               >
                 <span className="plus">+</span>
                 <span>Add New Trading Bot</span>

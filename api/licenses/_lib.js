@@ -331,6 +331,30 @@ export async function syncBotPhotoToLicenses(botId, photoPath) {
   return updated;
 }
 
+function photoVersion(photo) {
+  const match = String(photo || "").match(/[?&]v=(\d+)/);
+  return match ? Number(match[1]) || 0 : 0;
+}
+
+/** Only replace when the incoming photo is newer / more canonical. */
+function shouldReplacePhoto(prevPhoto, nextPhoto) {
+  const prev = String(prevPhoto || "").trim();
+  const next = String(nextPhoto || "").trim();
+  if (!next || next === "/logo.png") return false;
+  if (!prev || prev === "/logo.png") return true;
+
+  const prevV = photoVersion(prev);
+  const nextV = photoVersion(next);
+  if (nextV || prevV) return nextV >= prevV;
+
+  // Prefer durable API path over a stale embedded data URL from device migration.
+  if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return true;
+  if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return false;
+  // Existing key POST from migration must not clobber an already-good photo.
+  if (next.startsWith("data:") && prev.startsWith("data:")) return false;
+  return next !== prev;
+}
+
 function normalizeLicense(row) {
   const key = normalizeLicenseKey(row?.key);
   if (!key) return null;
@@ -348,6 +372,8 @@ function normalizeLicense(row) {
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    updatedAt:
+      Number(row?.updatedAt || row?.usedAt || row?.createdAt) || Date.now(),
     bot: bot
       ? {
           id: String(bot.id || row.botId || "").trim(),
@@ -404,7 +430,33 @@ function mergeLicenseLists(...lists) {
     const preferIncoming =
       (item.updatedAt || item.usedAt || item.createdAt || 0) >=
       (prev.updatedAt || prev.usedAt || prev.createdAt || 0);
-    map.set(item.key, preferIncoming ? { ...prev, ...item } : { ...item, ...prev });
+    const merged = preferIncoming ? { ...prev, ...item } : { ...item, ...prev };
+    const nextPhoto = shouldReplacePhoto(prev.bot?.photo, item.bot?.photo)
+      ? item.bot?.photo
+      : shouldReplacePhoto(item.bot?.photo, prev.bot?.photo)
+        ? prev.bot?.photo
+        : preferIncoming
+          ? item.bot?.photo || prev.bot?.photo
+          : prev.bot?.photo || item.bot?.photo;
+    map.set(item.key, {
+      ...merged,
+      updatedAt: Math.max(
+        prev.updatedAt || 0,
+        item.updatedAt || 0,
+        prev.usedAt || 0,
+        item.usedAt || 0,
+        prev.createdAt || 0,
+        item.createdAt || 0
+      ),
+      bot:
+        item.bot || prev.bot
+          ? {
+              ...(prev.bot || {}),
+              ...(item.bot || {}),
+              photo: nextPhoto || prev.bot?.photo || item.bot?.photo || "/logo.png",
+            }
+          : null,
+    });
   });
   return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
@@ -589,22 +641,20 @@ export async function createLicense(payload = {}) {
     if (existing) {
       const prevBot = existing.bot || null;
       const prevPhoto = String(prevBot?.photo || "");
-      const shouldReplacePhoto =
-        Boolean(bot?.photo) &&
-        bot.photo !== "/logo.png" &&
-        (prevPhoto === "/logo.png" ||
-          !prevPhoto ||
-          prevPhoto.startsWith("data:") ||
-          prevPhoto.startsWith("/api/licenses/photo"));
+      const replacePhoto = shouldReplacePhoto(prevPhoto, bot?.photo);
       result = {
         ...existing,
         clientEmail: existing.clientEmail || clientEmail,
         clientName: existing.clientName || clientName,
+        updatedAt: replacePhoto
+          ? Date.now()
+          : Number(existing.updatedAt || existing.usedAt || existing.createdAt) ||
+            Date.now(),
         bot: prevBot
           ? {
               ...prevBot,
               ...bot,
-              photo: shouldReplacePhoto ? bot.photo : prevBot.photo || bot.photo,
+              photo: replacePhoto ? bot.photo : prevBot.photo || bot.photo,
             }
           : bot,
       };
@@ -623,6 +673,7 @@ export async function createLicense(payload = {}) {
       used: false,
       createdAt: Number(payload.createdAt) || Date.now(),
       usedAt: null,
+      updatedAt: Date.now(),
       bot,
     };
     return [result, ...licenses];

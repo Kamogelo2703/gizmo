@@ -116,29 +116,57 @@ export function mergeLicenses(localList = [], remoteList = []) {
           : null
         : row.usedAt || prev.usedAt || null,
       updatedAt: Math.max(prev.updatedAt || 0, row.updatedAt || 0),
-      bot: preferLicenseBot(row.bot, prev.bot),
+      bot: preferLicenseBot(row.bot, prev.bot, row.updatedAt || 0, prev.updatedAt || 0),
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),
     });
   });
   return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
-function photoRank(photo) {
+/** Newer cache-busted API photos beat stale embedded data URLs. */
+export function photoFreshness(photo) {
   const value = String(photo || "").trim();
   if (!value || value === "/logo.png") return 0;
-  if (value.startsWith("data:image/")) return 3;
+  const version = value.match(/[?&]v=(\d+)/);
+  if (version) return Number(version[1]) || 1;
   if (value.startsWith("/api/licenses/photo")) return 2;
   if (/^https?:\/\//i.test(value)) return 2;
-  return 1;
+  // Unversioned data URLs are real, but lose to a fresh versioned API path.
+  if (value.startsWith("data:image/")) return 1;
+  return 0;
 }
 
-function preferLicenseBot(a, b) {
+export function pickFresherPhoto(...candidates) {
+  let best = "/logo.png";
+  let bestScore = -1;
+  for (const value of candidates) {
+    const photo = String(value || "").trim();
+    if (!photo) continue;
+    const score = photoFreshness(photo);
+    if (score > bestScore) {
+      best = photo;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function preferLicenseBot(a, b, aUpdatedAt = 0, bUpdatedAt = 0) {
   if (!a) return b || null;
   if (!b) return a;
-  const rankA = photoRank(a.photo);
-  const rankB = photoRank(b.photo);
-  if (rankA === rankB) return { ...b, ...a, photo: a.photo || b.photo };
-  return rankA > rankB ? { ...b, ...a, photo: a.photo } : { ...a, ...b, photo: b.photo };
+  const freshA = photoFreshness(a.photo);
+  const freshB = photoFreshness(b.photo);
+  if (freshA !== freshB) {
+    return freshA > freshB
+      ? { ...b, ...a, photo: a.photo }
+      : { ...a, ...b, photo: b.photo };
+  }
+  if (aUpdatedAt !== bUpdatedAt) {
+    return aUpdatedAt >= bUpdatedAt
+      ? { ...b, ...a, photo: a.photo || b.photo }
+      : { ...a, ...b, photo: b.photo || a.photo };
+  }
+  return { ...b, ...a, photo: a.photo || b.photo };
 }
 
 export async function fetchLicenses() {
