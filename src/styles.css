@@ -3566,18 +3566,22 @@ button {
 
 
 
+
 .v2-avatar-wrap {
   position: relative;
   width: min(72vw, 280px);
   aspect-ratio: 1;
   border-radius: 50%;
-  margin: 10px auto 0;
+  margin: 14px auto 0;
   background: #000;
-  overflow: hidden;
+  overflow: visible;
+  isolation: isolate;
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .v2-avatar {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3585,23 +3589,74 @@ button {
   display: block;
   background: #000;
   border-radius: 50%;
-  /* Subtle pulse so the artwork's own red fire feels alive */
-  animation: portal-fire-breathe 2.8s ease-in-out infinite;
-  will-change: filter;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9);
 }
 
-@keyframes portal-fire-breathe {
-  0%,
+/* Red flame rim: rounds while breathing in/out every 3 seconds */
+.v2-flame-ring {
+  position: absolute;
+  inset: -2px;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    rgba(120, 0, 0, 0.15) 0deg,
+    #ff1a00 28deg,
+    #ff6a00 48deg,
+    #ffd080 58deg,
+    #ff2200 78deg,
+    rgba(80, 0, 0, 0.2) 110deg,
+    #ff2a00 150deg,
+    #ff8a20 170deg,
+    #ffe0a0 182deg,
+    #ff1a00 205deg,
+    rgba(60, 0, 0, 0.15) 240deg,
+    #ff3000 280deg,
+    #ffb040 300deg,
+    #ff2200 325deg,
+    rgba(120, 0, 0, 0.15) 360deg
+  );
+  -webkit-mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 10px),
+    #000 calc(100% - 8px),
+    #000 calc(100% - 1px),
+    transparent
+  );
+  mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 10px),
+    #000 calc(100% - 8px),
+    #000 calc(100% - 1px),
+    transparent
+  );
+  filter: drop-shadow(0 0 6px rgba(255, 40, 0, 0.85));
+  mix-blend-mode: screen;
+  transform-origin: 50% 50%;
+  animation: flame-spin-breathe 3s linear infinite;
+  will-change: transform, opacity, filter;
+}
+
+@keyframes flame-spin-breathe {
+  0% {
+    transform: rotate(0deg) scale(0.96);
+    opacity: 0.72;
+    filter: brightness(0.88) saturate(1.05);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.07);
+    opacity: 1;
+    filter: brightness(1.3) saturate(1.4);
+  }
   100% {
-    filter: brightness(1) contrast(1) saturate(1);
-  }
-  40% {
-    filter: brightness(1.08) contrast(1.06) saturate(1.12);
-  }
-  70% {
-    filter: brightness(0.97) contrast(1.02) saturate(1.05);
+    transform: rotate(360deg) scale(0.96);
+    opacity: 0.72;
+    filter: brightness(0.88) saturate(1.05);
   }
 }
+
+
 
 .v2-bot-name {
   margin: 22px 0 0;
