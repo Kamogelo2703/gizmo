@@ -5188,25 +5188,259 @@ button {
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* V2 sniper / compass reticle — idle + circulating scan */
 .view-scanner.cs-v2 .cs-empty-orb {
-  width: clamp(58px, 18vw, 78px);
-  height: clamp(58px, 18vw, 78px);
-  animation: cs-breathe 3.2s ease-in-out infinite, cs-v2-orb-glow 2.8s ease-in-out infinite;
+  display: none;
 }
 
-@keyframes cs-v2-orb-glow {
+.view-scanner.cs-v2 .cs-sniper {
+  position: relative;
+  width: clamp(72px, 22vw, 96px);
+  height: clamp(72px, 22vw, 96px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  isolation: isolate;
+}
+
+.view-scanner.cs-v2 .cs-sniper--overlay {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(58%, 120px);
+  height: min(58%, 120px);
+  pointer-events: none;
+  z-index: 4;
+  filter: drop-shadow(0 0 10px rgba(255, 80, 160, 0.45));
+}
+
+.view-scanner.cs-v2 .cs-sniper-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(255, 90, 160, 0.2),
+    inset 0 0 12px rgba(255, 90, 160, 0.18);
+}
+
+.view-scanner.cs-v2 .cs-sniper-ring--mid {
+  inset: 14%;
+  border-color: rgba(255, 120, 180, 0.7);
+  border-style: dashed;
+  animation: cs-sniper-spin 12s linear infinite;
+}
+
+.view-scanner.cs-v2 .cs-sniper-ring--inner {
+  inset: 30%;
+  border-color: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 10px rgba(255, 90, 160, 0.35);
+}
+
+.view-scanner.cs-v2 .cs-sniper-ticks {
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg 8deg,
+      rgba(255, 255, 255, 0.55) 8deg 10deg,
+      transparent 10deg 44deg,
+      rgba(255, 180, 220, 0.85) 44deg 46deg,
+      transparent 46deg 80deg,
+      rgba(255, 255, 255, 0.55) 80deg 82deg,
+      transparent 82deg 134deg,
+      rgba(255, 180, 220, 0.85) 134deg 136deg,
+      transparent 136deg 170deg,
+      rgba(255, 255, 255, 0.55) 170deg 172deg,
+      transparent 172deg 224deg,
+      rgba(255, 180, 220, 0.85) 224deg 226deg,
+      transparent 226deg 260deg,
+      rgba(255, 255, 255, 0.55) 260deg 262deg,
+      transparent 262deg 314deg,
+      rgba(255, 180, 220, 0.85) 314deg 316deg,
+      transparent 316deg 360deg
+    );
+  mask-image: radial-gradient(circle, transparent 62%, #000 63%, #000 78%, transparent 79%);
+  -webkit-mask-image: radial-gradient(circle, transparent 62%, #000 63%, #000 78%, transparent 79%);
+  animation: cs-sniper-spin 18s linear infinite;
+  opacity: 0.9;
+}
+
+.view-scanner.cs-v2 .cs-sniper-cross {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.view-scanner.cs-v2 .cs-sniper-cross::before,
+.view-scanner.cs-v2 .cs-sniper-cross::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 6px rgba(255, 90, 160, 0.55);
+}
+
+.view-scanner.cs-v2 .cs-sniper-cross::before {
+  left: 50%;
+  top: 8%;
+  bottom: 8%;
+  width: 1.5px;
+  transform: translateX(-50%);
+}
+
+.view-scanner.cs-v2 .cs-sniper-cross::after {
+  top: 50%;
+  left: 8%;
+  right: 8%;
+  height: 1.5px;
+  transform: translateY(-50%);
+}
+
+.view-scanner.cs-v2 .cs-sniper-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 42%;
+  margin-left: -1px;
+  transform-origin: 50% 0;
+  transform: rotate(0deg);
+  background: linear-gradient(180deg, #fff 0%, var(--pink-soft) 55%, transparent 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(255, 90, 160, 0.8);
+  animation: cs-sniper-needle 4.8s linear infinite;
+}
+
+.view-scanner.cs-v2 .cs-sniper-sweep {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 90, 160, 0.45),
+    rgba(255, 90, 160, 0.08) 55deg,
+    transparent 90deg 360deg
+  );
+  opacity: 0.55;
+  animation: cs-sniper-spin 3.6s linear infinite;
+  mix-blend-mode: screen;
+}
+
+.view-scanner.cs-v2 .cs-sniper-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 2px rgba(255, 45, 122, 0.55),
+    0 0 12px rgba(255, 90, 160, 0.95);
+  animation: cs-sniper-pulse 1.8s ease-in-out infinite;
+}
+
+/* Faster circulating when scan/trade engine is active */
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-ring--mid {
+  animation-duration: 2.4s;
+  border-color: #fff;
+}
+
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-ticks {
+  animation-duration: 3.2s;
+}
+
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-needle {
+  animation-duration: 1.15s;
+  height: 46%;
+  background: linear-gradient(180deg, #fff 0%, #ff4b93 40%, transparent 100%);
+}
+
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-sweep {
+  opacity: 0.85;
+  animation-duration: 1.05s;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 75, 147, 0.5) 40deg,
+    rgba(255, 75, 147, 0.08) 80deg,
+    transparent 110deg 360deg
+  );
+}
+
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-dot {
+  animation-duration: 0.7s;
+  box-shadow:
+    0 0 0 3px rgba(255, 45, 122, 0.7),
+    0 0 18px rgba(255, 90, 160, 1);
+}
+
+.view-scanner.cs-v2 .cs-sniper.is-scanning .cs-sniper-ring--outer {
+  animation: cs-sniper-lock 1.2s ease-in-out infinite;
+}
+
+@keyframes cs-sniper-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cs-sniper-needle {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cs-sniper-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.72);
+    opacity: 0.75;
+  }
+}
+
+@keyframes cs-sniper-lock {
   0%,
   100% {
     box-shadow:
-      0 0 16px rgba(var(--pink-rgb), 0.7),
-      0 0 36px rgba(var(--pink-rgb), 0.4),
-      0 0 56px rgba(var(--pink-soft-rgb), 0.22);
+      0 0 0 1px rgba(255, 90, 160, 0.25),
+      inset 0 0 12px rgba(255, 90, 160, 0.2);
+    border-color: rgba(255, 255, 255, 0.55);
   }
   50% {
     box-shadow:
-      0 0 22px rgba(var(--pink-rgb), 0.9),
-      0 0 48px rgba(var(--pink-hot-rgb), 0.55),
-      0 0 72px rgba(var(--pink-soft-rgb), 0.35);
+      0 0 0 2px rgba(255, 255, 255, 0.55),
+      0 0 18px rgba(255, 90, 160, 0.65),
+      inset 0 0 16px rgba(255, 90, 160, 0.35);
+    border-color: #fff;
+  }
+}
+
+.view-scanner.cs-v2 .cs-capture-row.is-scanning .cs-capture-btn {
+  animation: cs-capture-scan-pulse 1.4s ease-in-out infinite;
+}
+
+.view-scanner.cs-v2 .cs-capture-row.is-scanning .cs-capture-btn:nth-child(2) {
+  animation-delay: 0.35s;
+}
+
+@keyframes cs-capture-scan-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.22),
+      0 0 0 0 rgba(255, 90, 160, 0);
+  }
+  50% {
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.22),
+      0 0 0 3px rgba(255, 90, 160, 0.35);
   }
 }
 
@@ -5403,9 +5637,9 @@ button {
     grid-template-columns: minmax(0, 1fr) 84px;
   }
 
-  .view-scanner.cs-v2 .cs-empty-orb {
-    width: 52px;
-    height: 52px;
+  .view-scanner.cs-v2 .cs-sniper {
+    width: 64px;
+    height: 64px;
   }
 }
 
