@@ -332,8 +332,10 @@ export default function ChartScanner() {
             <img className="cs-chart" src={preview} alt="Chart to scan" />
           ) : (
             <div className="cs-empty">
-              <span className="cs-empty-orb" />
-              <p>Point the camera at a chart or upload a screenshot</p>
+              <p className="cs-empty-copy">
+                Point the camera at a chart or upload a screenshot
+              </p>
+              <span className="cs-empty-orb" aria-hidden="true" />
             </div>
           )}
           <div className={`cs-scan-beam${engineActive ? " is-on" : ""}`} aria-hidden="true" />
