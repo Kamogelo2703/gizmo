@@ -686,29 +686,60 @@ export function AppProvider({ children }) {
         .join(" ");
     };
 
-    const account = normalizeEmail(coverEmail);
-    if (!account) return "";
-    const used = (Array.isArray(licenseKeys) ? licenseKeys : []).filter(
-      (row) => row?.used && normalizeEmail(row.clientEmail) === account
-    );
-    // Prefer newest used license
-    used.sort((a, b) => Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0));
-    const row = used[0];
-    if (row) {
+    const pickFromLicense = (row) => {
+      if (!row) return "";
       const named = String(row.mentorName || "").trim();
       if (named) return named;
-      const fromMail = formatFromEmail(row.mentorEmail);
-      if (fromMail) return fromMail;
+      return formatFromEmail(row.mentorEmail);
+    };
+
+    const account = normalizeEmail(coverEmail);
+    const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
+    const eaList = Array.isArray(eas) ? eas : [];
+    const botId = String(activeBot?.id || "").trim();
+
+    if (account) {
+      const used = keys.filter(
+        (row) => row?.used && normalizeEmail(row.clientEmail) === account
+      );
+      used.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromUsed = pickFromLicense(used[0]);
+      if (fromUsed) return fromUsed;
+
+      const bound = keys.filter((row) => normalizeEmail(row.clientEmail) === account);
+      bound.sort(
+        (a, b) =>
+          Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
+      );
+      const fromBound = pickFromLicense(bound[0]);
+      if (fromBound) return fromBound;
     }
 
-    // Fallback: EA owner email for the active bot
-    const botId = String(activeBot?.id || "").trim();
     if (botId) {
-      const ea = (Array.isArray(eas) ? eas : []).find((item) => item.id === botId);
+      const forBot = keys.filter(
+        (row) =>
+          String(row.botId || "").trim() === botId ||
+          String(row.bot?.id || "").trim() === botId
+      );
+      forBot.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromBotLicense = pickFromLicense(forBot.find((row) => row?.used) || forBot[0]);
+      if (fromBotLicense) return fromBotLicense;
+
+      const ea =
+        eaList.find((item) => item.id === botId) ||
+        eaList.find((item) => String(item.ownerEmail || "").includes("@"));
       const fromOwner = formatFromEmail(ea?.ownerEmail);
       if (fromOwner) return fromOwner;
     }
-    return "";
+
+    const anyOwner = eaList.find((item) => String(item.ownerEmail || "").includes("@"));
+    return formatFromEmail(anyOwner?.ownerEmail);
   }, [activeBot, coverEmail, eas, licenseKeys]);
 
   const resolveLockStep = useCallback(() => {
