@@ -3573,7 +3573,7 @@ button {
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Thin portal rim — fire tongues race around the circle */
+/* Thin portal rim — chosen portal color only, intensity races like fire */
 .v2-avatar-flame {
   position: absolute;
   inset: -5px;
@@ -3582,37 +3582,38 @@ button {
   pointer-events: none;
   background: conic-gradient(
     from 0deg,
-    #1a0208 0deg,
-    #ff1a00 12deg,
-    #ff7a00 22deg,
-    #ffe566 30deg,
+    rgba(var(--pink-rgb), 0.08) 0deg,
+    var(--pink-dark) 10deg,
+    var(--pink) 20deg,
+    var(--pink-soft) 28deg,
     #ffffff 34deg,
-    #ff2d7a 44deg,
-    #2a0410 58deg,
-    #ff4500 72deg,
-    #ffb000 84deg,
-    #fff6c8 92deg,
-    #a855f7 104deg,
-    #1a0820 120deg,
-    #ff2200 136deg,
-    #ff9900 148deg,
-    #ffe999 156deg,
-    #22d3ee 168deg,
-    #0a1520 184deg,
-    #ff3300 200deg,
-    #ffd400 214deg,
-    #fff1a8 222deg,
-    #39ff14 236deg,
-    #0a1808 252deg,
-    #ff1a00 268deg,
-    #ff7a00 282deg,
-    #ffe566 292deg,
-    #ff2d7a 308deg,
-    #1a0208 324deg,
-    #ff4500 338deg,
-    #ffef88 348deg,
-    #ffffff 354deg,
-    #1a0208 360deg
+    var(--pink-hot) 42deg,
+    var(--pink) 52deg,
+    rgba(var(--pink-rgb), 0.1) 68deg,
+    var(--pink-dark) 80deg,
+    var(--pink) 94deg,
+    var(--pink-soft) 104deg,
+    #ffffff 110deg,
+    var(--pink-hot) 120deg,
+    rgba(var(--pink-rgb), 0.08) 138deg,
+    var(--pink) 152deg,
+    var(--pink-soft) 164deg,
+    #ffffff 170deg,
+    var(--pink) 182deg,
+    rgba(var(--pink-rgb), 0.1) 200deg,
+    var(--pink-dark) 214deg,
+    var(--pink-hot) 228deg,
+    var(--pink-soft) 238deg,
+    #ffffff 244deg,
+    var(--pink) 256deg,
+    rgba(var(--pink-rgb), 0.08) 274deg,
+    var(--pink-dark) 288deg,
+    var(--pink) 302deg,
+    var(--pink-soft) 312deg,
+    #ffffff 318deg,
+    var(--pink-hot) 330deg,
+    var(--pink) 344deg,
+    rgba(var(--pink-rgb), 0.08) 360deg
   );
   -webkit-mask-image: radial-gradient(
     farthest-side,
@@ -3627,17 +3628,17 @@ button {
   animation:
     flame-orbit 1.65s linear infinite,
     flame-flicker 0.7s ease-in-out infinite;
-  filter: saturate(1.45) contrast(1.15);
+  filter: saturate(1.2) contrast(1.08);
   will-change: transform, opacity;
 }
 
 .v2-avatar-flame--glow {
   inset: -18px;
   z-index: -1;
-  opacity: 0.95;
+  opacity: 0.9;
   -webkit-mask-image: none;
   mask-image: none;
-  filter: blur(14px) saturate(1.6);
+  filter: blur(14px) saturate(1.25);
   animation:
     flame-orbit 2.4s linear infinite reverse,
     flame-flicker 0.55s ease-in-out infinite;
@@ -3655,7 +3656,7 @@ button {
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.7),
     0 0 0 2px rgba(0, 0, 0, 0.9),
-    0 0 22px rgba(255, 60, 0, 0.35);
+    0 0 24px rgba(var(--pink-rgb), 0.45);
 }
 
 .v2-avatar {
