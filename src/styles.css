@@ -331,22 +331,13 @@ button {
 }
 
 .phone[data-interface="v2"] {
-  /* Follow portal accent color — light wash → deep theme tone */
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--pink-soft) 72%, #ffffff) 0%,
-      color-mix(in srgb, var(--pink) 82%, #ffffff) 12%,
-      var(--pink) 28%,
-      var(--pink-deep) 52%,
-      var(--pink-dark) 78%,
-      color-mix(in srgb, var(--pink-dark) 55%, #000000) 100%
-    );
+  background: #000;
 }
 
 .phone[data-interface="v2"] .glow,
 .phone[data-interface="v2"] .glow-soft {
-  opacity: 0.28;
+  opacity: 0;
+  visibility: hidden;
 }
 
 .phone[data-interface="v2"] .top {
@@ -3571,16 +3562,61 @@ button {
 }
 
 .v2-avatar-wrap {
+  position: relative;
   width: min(78vw, 300px);
   aspect-ratio: 1;
   border-radius: 50%;
-  overflow: hidden;
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.16),
-    0 12px 36px rgba(0, 0, 0, 0.35),
-    0 0 48px rgba(255, 80, 160, 0.35);
-  background: radial-gradient(circle at 40% 30%, #ff7ab8, #6a0435 72%);
+  display: grid;
+  place-items: center;
+  isolation: isolate;
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.v2-avatar-flame {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg,
+    #ff1a00 0deg,
+    #ff7a00 45deg,
+    #ffd400 90deg,
+    #ff2d7a 140deg,
+    #a855f7 190deg,
+    #22d3ee 240deg,
+    #39ff14 300deg,
+    #ff1a00 360deg
+  );
+  animation:
+    flame-spin 2.8s linear infinite,
+    flame-hue 5s linear infinite,
+    flame-flicker 1.1s ease-in-out infinite;
+  will-change: transform, filter, opacity;
+}
+
+.v2-avatar-flame--glow {
+  inset: -16px;
+  z-index: -1;
+  opacity: 0.9;
+  animation:
+    flame-spin 4.2s linear infinite reverse,
+    flame-hue-glow 5s linear infinite,
+    flame-flicker 0.85s ease-in-out infinite;
+  will-change: transform, filter, opacity;
+}
+
+.v2-avatar-core {
+  position: relative;
+  z-index: 1;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
+  border-radius: 50%;
+  overflow: hidden;
+  background: #050505;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.85);
 }
 
 .v2-avatar {
@@ -3590,6 +3626,43 @@ button {
   object-position: center;
   display: block;
   background: transparent;
+}
+
+@keyframes flame-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flame-hue {
+  from {
+    filter: hue-rotate(0deg) saturate(1.35) contrast(1.08);
+  }
+  to {
+    filter: hue-rotate(360deg) saturate(1.35) contrast(1.08);
+  }
+}
+
+@keyframes flame-hue-glow {
+  from {
+    filter: hue-rotate(0deg) blur(18px) saturate(1.55);
+  }
+  to {
+    filter: hue-rotate(360deg) blur(18px) saturate(1.55);
+  }
+}
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.88;
+  }
 }
 
 .v2-bot-name {
