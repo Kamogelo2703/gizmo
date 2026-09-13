@@ -110,10 +110,6 @@ export default function ZetaInterface() {
                 <span className="plus">+</span>
                 <span>Add New Trading Bot</span>
               </button>
-              <button className="robot-row robot-activate" type="button" onClick={openLicense}>
-                <span className="plus">🔑</span>
-                <span>Activate with License Key</span>
-              </button>
             </section>
           </section>
         )}
