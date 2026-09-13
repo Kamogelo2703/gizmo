@@ -69,25 +69,15 @@ function formatRiskReward(entry, stopLoss, takeProfit) {
 }
 
 /**
- * Ensure Entry / SL / TP1 / TP2 / TP3 are complete and correctly ordered.
+ * Ensure Entry / SL / TP1 / TP2 / TP3 with fixed R:R targets.
+ * TP1 = 1:1 · TP2 = 1:2 · TP3 = 1:3 (reward vs stop distance).
  * BUY:  SL < Entry < TP1 < TP2 < TP3
  * SELL: SL > Entry > TP1 > TP2 > TP3
  */
-function ensureMultiTpLevels({
-  side,
-  entry,
-  stopLoss,
-  takeProfit1,
-  takeProfit2,
-  takeProfit3,
-  takeProfit,
-}) {
+function ensureMultiTpLevels({ side, entry, stopLoss }) {
   const dir = String(side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let e = toFiniteNumber(entry);
   let sl = toFiniteNumber(stopLoss);
-  let tp1 = toFiniteNumber(takeProfit1 ?? takeProfit);
-  let tp2 = toFiniteNumber(takeProfit2);
-  let tp3 = toFiniteNumber(takeProfit3);
 
   if (e == null) e = 1;
   const riskMag = Math.max(
@@ -97,28 +87,14 @@ function ensureMultiTpLevels({
 
   if (dir === "BUY") {
     if (sl == null || !(sl < e)) sl = e - riskMag;
-    const risk = Math.abs(e - sl);
-    if (tp1 == null || !(tp1 > e)) tp1 = e + risk * 1.0;
-    if (tp2 == null || !(tp2 > tp1)) tp2 = e + risk * 1.8;
-    if (tp3 == null || !(tp3 > tp2)) tp3 = e + risk * 2.8;
-    // Force strict ascending order.
-    if (!(e < tp1 && tp1 < tp2 && tp2 < tp3)) {
-      tp1 = e + risk * 1.0;
-      tp2 = e + risk * 1.8;
-      tp3 = e + risk * 2.8;
-    }
-  } else {
-    if (sl == null || !(sl > e)) sl = e + riskMag;
-    const risk = Math.abs(sl - e);
-    if (tp1 == null || !(tp1 < e)) tp1 = e - risk * 1.0;
-    if (tp2 == null || !(tp2 < tp1)) tp2 = e - risk * 1.8;
-    if (tp3 == null || !(tp3 < tp2)) tp3 = e - risk * 2.8;
-    if (!(e > tp1 && tp1 > tp2 && tp2 > tp3)) {
-      tp1 = e - risk * 1.0;
-      tp2 = e - risk * 1.8;
-      tp3 = e - risk * 2.8;
-    }
+  } else if (sl == null || !(sl > e)) {
+    sl = e + riskMag;
   }
+
+  const risk = Math.abs(e - sl);
+  const tp1 = dir === "BUY" ? e + risk * 1 : e - risk * 1;
+  const tp2 = dir === "BUY" ? e + risk * 2 : e - risk * 2;
+  const tp3 = dir === "BUY" ? e + risk * 3 : e - risk * 3;
 
   return {
     side: dir,
@@ -127,7 +103,6 @@ function ensureMultiTpLevels({
     takeProfit1: formatPrice(tp1),
     takeProfit2: formatPrice(tp2),
     takeProfit3: formatPrice(tp3),
-    // Back-compat alias = furthest target
     takeProfit: formatPrice(tp3),
   };
 }
@@ -211,10 +186,8 @@ function normalizeSetup(parsed = {}, { catalog = [], hintSymbol = "" } = {}) {
     ? parsed.reasons.map((r) => String(r)).filter(Boolean).slice(0, 4)
     : [analysis];
 
-  // R:R measured to TP2 (balanced target) for display.
-  const riskReward =
-    String(parsed?.riskReward || parsed?.rr || "").trim() ||
-    formatRiskReward(levels.entry, levels.stopLoss, levels.takeProfit2);
+  // Fixed R:R ladder: TP1 1:1 · TP2 1:2 · TP3 1:3
+  const riskReward = "1:1 · 1:2 · 1:3";
 
   return {
     status: "setup_ready",
@@ -291,8 +264,9 @@ export async function analyzeChartSetupWithOpenAI({
             "If not a chart: status=no_chart, isChart=false, and leave trade fields null. " +
             "If it IS a chart: ALWAYS return a COMPLETE trade setup with THREE take-profit levels. NEVER say incomplete. " +
             "ALWAYS provide side, confidence, entry, stopLoss, takeProfit1, takeProfit2, takeProfit3, riskReward, timeframe, and analysis. " +
-            "TP1 = nearest realistic target; TP2 = next logical target; TP3 = furthest reasonable target from chart structure. " +
-            "Base TP levels on visible support/resistance, swing highs/lows, momentum, and price axis levels — never invent random prices. " +
+            "Set take-profit targets using fixed risk/reward multiples of the stop distance: " +
+            "TP1 = 1:1, TP2 = 1:2, TP3 = 1:3. Set riskReward to \"1:1 · 1:2 · 1:3\". " +
+            "Read entry and stop from chart structure (support/resistance, swings). " +
             "BUY must satisfy: stopLoss < entry < takeProfit1 < takeProfit2 < takeProfit3. " +
             "SELL must satisfy: stopLoss > entry > takeProfit1 > takeProfit2 > takeProfit3. " +
             "Read the instrument from the chart header when visible. " +

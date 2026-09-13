@@ -169,7 +169,7 @@ export function describeManagementPlan(management = DEFAULT_TRADE_MANAGEMENT) {
   const cfg = normalizeTradeManagement(management);
   return {
     ...cfg,
-    summary: `TP1 ${cfg.tp1ClosePercent}% · TP2 ${cfg.tp2ClosePercent}% · TP3 ${cfg.tp3ClosePercent}%`,
+    summary: "TP targets · 1:1 · 1:2 · 1:3",
     breakevenNote: cfg.moveSlToBreakevenAfterTp1
       ? "After TP1, remaining SL moves toward breakeven when supported"
       : "Breakeven move after TP1 disabled",
