@@ -517,20 +517,54 @@ export default function ChartScanner({ variant = "default" }) {
                     ? "Point at a chart or upload a screenshot"
                     : "Point the camera at a chart or upload a screenshot"}
                 </p>
-                <span className="cs-empty-orb" aria-hidden="true" />
+                {variant === "v2" ? (
+                  <div
+                    className={`cs-sniper${engineActive ? " is-scanning" : ""}`}
+                    aria-hidden="true"
+                  >
+                    <span className="cs-sniper-ring cs-sniper-ring--outer" />
+                    <span className="cs-sniper-ring cs-sniper-ring--mid" />
+                    <span className="cs-sniper-ring cs-sniper-ring--inner" />
+                    <span className="cs-sniper-ticks" />
+                    <span className="cs-sniper-cross" />
+                    <span className="cs-sniper-needle" />
+                    <span className="cs-sniper-sweep" />
+                    <span className="cs-sniper-dot" />
+                  </div>
+                ) : (
+                  <span className="cs-empty-orb" aria-hidden="true" />
+                )}
               </div>
             )}
-            <div className={`cs-scan-beam${engineActive ? " is-on" : ""}`} aria-hidden="true" />
-            <div className={`cs-scan-grid${engineActive ? " is-on" : ""}`} aria-hidden="true" />
+            <div
+              className={`cs-scan-beam${engineActive && variant !== "v2" ? " is-on" : ""}`}
+              aria-hidden="true"
+            />
+            <div
+              className={`cs-scan-grid${engineActive && variant !== "v2" ? " is-on" : ""}`}
+              aria-hidden="true"
+            />
             {engineActive ? (
               <div className="cs-engine-chip">
                 <span className="cs-engine-pulse" />
                 <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
               </div>
             ) : null}
+            {variant === "v2" && preview && engineActive ? (
+              <div className="cs-sniper cs-sniper--overlay is-scanning" aria-hidden="true">
+                <span className="cs-sniper-ring cs-sniper-ring--outer" />
+                <span className="cs-sniper-ring cs-sniper-ring--mid" />
+                <span className="cs-sniper-ring cs-sniper-ring--inner" />
+                <span className="cs-sniper-ticks" />
+                <span className="cs-sniper-cross" />
+                <span className="cs-sniper-needle" />
+                <span className="cs-sniper-sweep" />
+                <span className="cs-sniper-dot" />
+              </div>
+            ) : null}
           </div>
 
-          <div className="cs-capture-row">
+          <div className={`cs-capture-row${engineActive ? " is-scanning" : ""}`}>
             <button className="cs-capture-btn" type="button" onClick={openCamera} disabled={busy}>
               <span className="cs-capture-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
