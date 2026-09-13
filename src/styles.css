@@ -4765,7 +4765,7 @@ button {
 
 .cs-controls {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-template-columns: 1.15fr 1.2fr 1fr;
   gap: 10px;
 }
 
@@ -4814,8 +4814,8 @@ button {
 
 .cs-stepper {
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
-  gap: 4px;
+  grid-template-columns: 32px minmax(56px, 1fr) 32px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -4835,7 +4835,8 @@ button {
 
 .cs-stepper input {
   text-align: center;
-  padding: 0 4px;
+  min-width: 56px;
+  padding: 0 6px;
   -moz-appearance: textfield;
 }
 
