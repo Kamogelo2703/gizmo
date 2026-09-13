@@ -51,8 +51,7 @@ export default function ZetaInterface() {
                   className="avatar"
                   src={activeBot?.photo || "/logo.png"}
                   alt=""
-                  width="160"
-                  height="160"
+                  decoding="async"
                 />
               </div>
               <p className="kicker">You are trading with</p>

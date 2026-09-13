@@ -179,7 +179,7 @@ function pickProfilePhoto(...candidates) {
 function persistablePhoto(value) {
   const photo = String(value || "").trim();
   if (!photo) return "/logo.png";
-  if (photo.startsWith("data:image/") && photo.length > 60_000) return "/logo.png";
+  if (photo.startsWith("data:image/") && photo.length > 450_000) return "/logo.png";
   return photo;
 }
 
