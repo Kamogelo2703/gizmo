@@ -70,6 +70,12 @@ export default function ZetaInterface() {
                   type="button"
                   onClick={toggleRun}
                 >
+                  <span className="stop-energy" aria-hidden="true">
+                    {Array.from({ length: 18 }, (_, i) => (
+                      <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
+                    ))}
+                  </span>
+                  <span className="stop-core-glow" aria-hidden="true" />
                   <span className="stop-label">{running ? "STOP" : "START"}</span>
                 </button>
                 <button className="glass-btn" type="button" onClick={removeActiveBot}>
