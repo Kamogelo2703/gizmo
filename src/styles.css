@@ -3385,11 +3385,24 @@ button {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px 18px calc(12px + var(--safe-bottom));
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 10px 12px calc(12px + var(--safe-bottom));
   background: linear-gradient(180deg, #b00058 0%, #7a003c 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.v2-view-scanner {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 0 12px;
+}
+
+.v2-view-scanner .view-scanner {
+  min-height: auto;
+  padding-bottom: 8px;
 }
 
 .v2-tab {

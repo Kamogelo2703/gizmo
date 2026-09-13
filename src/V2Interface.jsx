@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from "./store.jsx";
+import ChartScanner from "./ChartScanner.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 
 export default function V2Interface() {
@@ -254,6 +255,12 @@ export default function V2Interface() {
           </section>
         )}
 
+        {v2View === "scanner" && (
+          <section className="v2-view is-active v2-view-scanner">
+            <ChartScanner />
+          </section>
+        )}
+
         {v2View === "metatrader" && (
           <section className="v2-view is-active v2-view-metatrader">
             <MetaTraderPanel variant="v2" />
@@ -263,11 +270,18 @@ export default function V2Interface() {
 
       <nav className="v2-tabbar" aria-label="V2 primary">
         <button
-          className={`v2-tab${v2View !== "metatrader" ? " is-active" : ""}`}
+          className={`v2-tab${v2View === "home" || v2View === "quotes" || v2View === "symbol-edit" ? " is-active" : ""}`}
           type="button"
           onClick={() => setV2View("home")}
         >
           <span>HOME</span>
+        </button>
+        <button
+          className={`v2-tab${v2View === "scanner" ? " is-active" : ""}`}
+          type="button"
+          onClick={() => setV2View("scanner")}
+        >
+          <span>SCANNER</span>
         </button>
         <button
           className={`v2-tab${v2View === "metatrader" ? " is-active" : ""}`}
