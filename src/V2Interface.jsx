@@ -62,7 +62,6 @@ export default function V2Interface() {
                   alt=""
                 />
                 <span className="v2-flame-ring" aria-hidden="true" />
-                <span className="v2-flame-ring v2-flame-ring--glow" aria-hidden="true" />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
               {mentorDisplayName ? (

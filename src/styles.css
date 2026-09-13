@@ -3619,31 +3619,23 @@ button {
   );
   -webkit-mask-image: radial-gradient(
     farthest-side,
-    transparent calc(100% - 12px),
-    #000 calc(100% - 9px),
+    transparent calc(100% - 10px),
+    #000 calc(100% - 8px),
     #000 calc(100% - 1px),
-    transparent 100%
+    transparent
   );
   mask-image: radial-gradient(
     farthest-side,
-    transparent calc(100% - 12px),
-    #000 calc(100% - 9px),
+    transparent calc(100% - 10px),
+    #000 calc(100% - 8px),
     #000 calc(100% - 1px),
-    transparent 100%
+    transparent
   );
+  filter: drop-shadow(0 0 6px rgba(255, 40, 0, 0.85));
   mix-blend-mode: screen;
   transform-origin: 50% 50%;
   animation: flame-spin-breathe 3s linear infinite;
   will-change: transform, opacity, filter;
-}
-
-.v2-flame-ring--glow {
-  inset: -10px;
-  z-index: 0;
-  mix-blend-mode: screen;
-  -webkit-mask-image: none;
-  mask-image: none;
-  animation: flame-spin-breathe-glow 3s linear infinite reverse;
 }
 
 @keyframes flame-spin-breathe {
@@ -3664,23 +3656,7 @@ button {
   }
 }
 
-@keyframes flame-spin-breathe-glow {
-  0% {
-    transform: rotate(0deg) scale(0.94);
-    opacity: 0.55;
-    filter: blur(12px) brightness(0.9) saturate(1.2);
-  }
-  50% {
-    transform: rotate(-180deg) scale(1.1);
-    opacity: 0.95;
-    filter: blur(14px) brightness(1.35) saturate(1.45);
-  }
-  100% {
-    transform: rotate(-360deg) scale(0.94);
-    opacity: 0.55;
-    filter: blur(12px) brightness(0.9) saturate(1.2);
-  }
-}
+
 
 .v2-bot-name {
   margin: 22px 0 0;
