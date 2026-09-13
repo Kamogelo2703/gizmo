@@ -391,7 +391,24 @@ button {
   overflow: visible;
 }
 
+/* Soft themed wash behind the cut-out art (uses portal accent) */
+.hero-figure::before {
+  content: "";
+  position: absolute;
+  inset: 6% 4% 10%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 42%,
+    color-mix(in srgb, var(--pink-soft) 45%, transparent) 0%,
+    color-mix(in srgb, var(--pink) 22%, transparent) 42%,
+    transparent 72%
+  );
+}
+
 .hero-art {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: auto;
@@ -403,8 +420,8 @@ button {
   opacity: 1;
   filter: none;
   -webkit-filter: none;
-  mix-blend-mode: normal;
-  /* No mask/fade — artwork stays fully opaque and sharp */
+  /* Knock out baked-in black studio backdrop so the app theme shows through */
+  mix-blend-mode: lighten;
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -415,6 +432,7 @@ button {
   right: 0;
   bottom: 6%;
   z-index: 2;
+  isolation: isolate;
   padding: 0 14px 4px;
   pointer-events: none;
   text-align: center;
@@ -3606,7 +3624,24 @@ button {
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Soft themed wash behind the cut-out art (uses portal accent) */
+.v2-hero-figure::before {
+  content: "";
+  position: absolute;
+  inset: 4% 2% 8%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 72% 62% at 50% 40%,
+    color-mix(in srgb, var(--pink-soft) 48%, transparent) 0%,
+    color-mix(in srgb, var(--pink) 24%, transparent) 44%,
+    transparent 74%
+  );
+}
+
 .v2-hero-art {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: auto;
@@ -3618,9 +3653,9 @@ button {
   opacity: 1;
   filter: none;
   -webkit-filter: none;
-  mix-blend-mode: normal;
+  /* Knock out baked-in black studio backdrop so the app theme shows through */
+  mix-blend-mode: lighten;
   image-rendering: auto;
-  /* No mask/fade — artwork stays fully opaque and sharp */
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -3632,6 +3667,7 @@ button {
   /* Sit on the lower portion of the artwork (reference overlap) */
   bottom: 6%;
   z-index: 2;
+  isolation: isolate;
   padding: 0 16px 2px;
   pointer-events: none;
   text-align: center;
