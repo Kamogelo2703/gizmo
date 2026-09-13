@@ -60,6 +60,7 @@ export default function V2Interface() {
                   className="v2-avatar"
                   src={activeBot?.photo || "/logo.png"}
                   alt=""
+                  decoding="async"
                 />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>

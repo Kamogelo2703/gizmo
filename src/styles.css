@@ -390,20 +390,22 @@ button {
 }
 
 .avatar-wrap {
-  width: 168px;
-  height: 168px;
-  border-radius: 50%;
-  padding: 3px;
+  /* Large rectangular / portrait hero — full-bleed artwork, not a circle */
+  width: min(86vw, 340px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  border-radius: 22px;
+  padding: 0;
   overflow: hidden;
-  background: linear-gradient(145deg, var(--pink-soft), var(--pink-hot) 40%, var(--pink-dark));
+  position: relative;
+  isolation: isolate;
+  background: #000;
   box-shadow:
-    0 0 0 1px rgba(var(--pink-rgb), 0.45),
-    0 0 28px rgba(var(--pink-rgb), 0.55),
-    0 0 64px rgba(var(--pink-hot-rgb), 0.45);
-  margin-bottom: 28px;
-  animation:
-    avatar-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both,
-    breathe-ring 6s ease-in-out 0.9s infinite;
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 0 48px rgba(var(--pink-rgb), 0.28);
+  margin-bottom: 22px;
+  animation: avatar-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @keyframes breathe-ring {
@@ -434,13 +436,21 @@ button {
 }
 
 .avatar {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: 0;
   object-fit: cover;
-  object-position: center;
-  background: transparent;
+  object-position: center top;
+  background: #000;
+  /* Force true source fidelity — never fade / wash the uploaded artwork */
+  opacity: 1;
+  filter: none;
+  -webkit-filter: none;
+  mix-blend-mode: normal;
+  image-rendering: auto;
 }
 
 .kicker {
@@ -3240,8 +3250,9 @@ button {
 }
 
 .hero.is-empty .avatar-wrap {
-  opacity: 0.35;
-  filter: grayscale(0.4);
+  /* Empty-state only: keep frame visible but never wash a real uploaded photo */
+  opacity: 1;
+  filter: none;
 }
 
 .hero.is-empty .brand {
@@ -3564,25 +3575,44 @@ button {
 }
 
 .v2-avatar-wrap {
-  width: min(78vw, 300px);
-  aspect-ratio: 1;
-  border-radius: 50%;
+  /* Large rectangular / portrait hero — full-bleed artwork, not a circle */
+  width: min(86vw, 340px);
+  aspect-ratio: 3 / 4;
+  border-radius: 22px;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.16),
-    0 12px 36px rgba(0, 0, 0, 0.35),
-    0 0 48px rgba(255, 80, 160, 0.35);
-  background: radial-gradient(circle at 40% 30%, #ff7ab8, #6a0435 72%);
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 0 48px rgba(255, 80, 160, 0.28);
+  /* Opaque black behind the image so no pink wash bleeds through */
+  background: #000;
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+.v2-avatar-wrap::before,
+.v2-avatar-wrap::after {
+  content: none;
+  display: none;
+}
+
 .v2-avatar {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center top;
   display: block;
-  background: transparent;
+  border-radius: 0;
+  background: #000;
+  /* Force true source fidelity — never fade / wash the uploaded artwork */
+  opacity: 1;
+  filter: none;
+  -webkit-filter: none;
+  mix-blend-mode: normal;
+  image-rendering: auto;
 }
 
 .v2-bot-name {

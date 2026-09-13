@@ -325,13 +325,15 @@ export default function AdminPortal() {
       const dataUrl = String(reader.result || "");
       const img = new Image();
       img.onload = () => {
-        const max = 256;
-        const side = Math.min(img.width, img.height);
-        const sx = Math.max(0, Math.round((img.width - side) / 2));
-        const sy = Math.max(0, Math.round((img.height - side) / 2));
+        // Keep the full artwork (no square crop). Cap the longest edge so
+        // Home can show a large portrait hero at near-original quality.
+        const maxEdge = 1400;
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height, 1));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
         const canvas = document.createElement("canvas");
-        canvas.width = max;
-        canvas.height = max;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           if (!dataUrl.startsWith("data:image/")) {
@@ -344,10 +346,18 @@ export default function AdminPortal() {
           showToast("Picture ready");
           return;
         }
-        // Center-crop to a square with no letterboxing so object-fit:cover
-        // fills the circle edge-to-edge (no white bars).
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, max, max);
-        setPhoto(canvas.toDataURL("image/jpeg", 0.82));
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+        const preferPng =
+          file.type === "image/png" ||
+          file.type === "image/webp" ||
+          file.type === "image/gif";
+        setPhoto(
+          preferPng
+            ? canvas.toDataURL("image/png")
+            : canvas.toDataURL("image/jpeg", 0.92)
+        );
         setPhotoUploaded(true);
         showToast("Picture ready");
       };
