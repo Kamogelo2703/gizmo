@@ -22,7 +22,6 @@ function sampleBias(imageData) {
     const lum = (r + g + b) / 3;
     if (lum > 180) bright += 1;
     if (lum < 50) dark += 1;
-    // Candlestick greens / blues vs reds / oranges
     if (g > r + 18 && g > b + 8) bull += 1;
     if (r > g + 18 && r > b + 8) bear += 1;
   }
@@ -33,221 +32,133 @@ function sampleBias(imageData) {
   return { bull, bear, bullRatio, structure };
 }
 
-const COMMON_SYMBOLS = [
-  "EURUSD",
-  "GBPUSD",
-  "USDJPY",
-  "USDCHF",
-  "AUDUSD",
-  "USDCAD",
-  "NZDUSD",
-  "EURJPY",
-  "GBPJPY",
-  "EURGBP",
-  "XAUUSD",
-  "XAGUSD",
-  "BTCUSD",
-  "ETHUSD",
-  "US30",
-  "US500",
-  "NAS100",
-  "GER40",
-  "UK100",
-];
+export const CHART_DETECTION_STATUS = {
+  NO_CHART: "no_chart",
+  SYMBOL_DETECTED: "symbol_detected",
+  SYMBOL_UNCLEAR: "symbol_unclear",
+  SETUP_READY: "setup_ready",
+};
 
-function normalizeDetectedSymbol(raw) {
-  return String(raw || "")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/[\/_\-]/g, "")
-    .replace(/[^A-Z0-9.]/g, "");
+export const CHART_DETECTION_MESSAGES = {
+  no_chart: {
+    message: "No trading chart detected",
+    uiMessage: "Please upload a clear trading chart.",
+  },
+  symbol_unclear: {
+    message: "Chart detected — symbol unclear",
+    uiMessage: "Chart detected — symbol unclear",
+  },
+};
+
+function toFiniteNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const cleaned = String(value ?? "")
+    .replace(/,/g, "")
+    .replace(/[^\d.\-]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
 }
 
-function compactSymbol(raw) {
-  const full = normalizeDetectedSymbol(raw);
-  // Keep broker suffix if present (EURUSD.mic → base EURUSD for matching)
-  const base = full.split(".")[0];
-  return { full, base };
+function formatPrice(value) {
+  const n = toFiniteNumber(value);
+  if (n == null) return null;
+  const abs = Math.abs(n);
+  let digits = 5;
+  if (abs >= 1000) digits = 2;
+  else if (abs >= 100) digits = 3;
+  else if (abs >= 10) digits = 4;
+  return Number(n.toFixed(digits));
 }
 
-function scoreCandidate(candidate, catalog = []) {
-  const { full, base } = compactSymbol(candidate);
-  if (!base || base.length < 4) return null;
-  const catalogSet = new Set(
-    (catalog || []).map((s) => compactSymbol(s).base).filter(Boolean)
+function formatRiskReward(entry, stopLoss, takeProfit) {
+  const e = toFiniteNumber(entry);
+  const sl = toFiniteNumber(stopLoss);
+  const tp = toFiniteNumber(takeProfit);
+  if (e == null || sl == null || tp == null) return "1:2";
+  const risk = Math.abs(e - sl);
+  const reward = Math.abs(tp - e);
+  if (risk <= 0 || reward <= 0) return "1:2";
+  return `1:${(reward / risk).toFixed(1)}`;
+}
+
+/**
+ * Always produce Entry, SL, TP1, TP2, TP3 with correct directional order.
+ * BUY:  SL < Entry < TP1 < TP2 < TP3
+ * SELL: SL > Entry > TP1 > TP2 > TP3
+ */
+function ensureCompleteSetup(partial = {}) {
+  const side = String(partial.side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
+  let entry = toFiniteNumber(partial.entry);
+  let stopLoss = toFiniteNumber(partial.stopLoss);
+  let takeProfit1 = toFiniteNumber(
+    partial.takeProfit1 ?? partial.tp1 ?? partial.takeProfit
   );
-  let score = 1;
-  if (COMMON_SYMBOLS.includes(base)) score += 3;
-  if (catalogSet.has(base)) score += 4;
-  if (/^[A-Z]{6}$/.test(base)) score += 2;
-  if (/^(XAU|XAG|BTC|ETH)/.test(base)) score += 2;
-  if (/^(US30|US500|NAS100|GER40|UK100)$/.test(base)) score += 2;
-  // Prefer returning a catalog/broker-friendly form when possible
-  const catalogHit = (catalog || []).find((s) => compactSymbol(s).base === base);
+  let takeProfit2 = toFiniteNumber(partial.takeProfit2 ?? partial.tp2);
+  let takeProfit3 = toFiniteNumber(partial.takeProfit3 ?? partial.tp3);
+
+  if (entry == null) entry = 1;
+  const magnitude = Math.max(
+    Math.abs(entry) * 0.0025,
+    entry >= 1000 ? 3 : entry >= 100 ? 1 : entry >= 10 ? 0.05 : 0.0015
+  );
+
+  if (side === "BUY") {
+    if (stopLoss == null || !(stopLoss < entry)) stopLoss = entry - magnitude;
+    const risk = Math.abs(entry - stopLoss);
+    if (takeProfit1 == null || !(takeProfit1 > entry)) takeProfit1 = entry + risk * 1.0;
+    if (takeProfit2 == null || !(takeProfit2 > takeProfit1)) takeProfit2 = entry + risk * 1.8;
+    if (takeProfit3 == null || !(takeProfit3 > takeProfit2)) takeProfit3 = entry + risk * 2.8;
+    if (!(entry < takeProfit1 && takeProfit1 < takeProfit2 && takeProfit2 < takeProfit3)) {
+      takeProfit1 = entry + risk * 1.0;
+      takeProfit2 = entry + risk * 1.8;
+      takeProfit3 = entry + risk * 2.8;
+    }
+  } else {
+    if (stopLoss == null || !(stopLoss > entry)) stopLoss = entry + magnitude;
+    const risk = Math.abs(stopLoss - entry);
+    if (takeProfit1 == null || !(takeProfit1 < entry)) takeProfit1 = entry - risk * 1.0;
+    if (takeProfit2 == null || !(takeProfit2 < takeProfit1)) takeProfit2 = entry - risk * 1.8;
+    if (takeProfit3 == null || !(takeProfit3 < takeProfit2)) takeProfit3 = entry - risk * 2.8;
+    if (!(entry > takeProfit1 && takeProfit1 > takeProfit2 && takeProfit2 > takeProfit3)) {
+      takeProfit1 = entry - risk * 1.0;
+      takeProfit2 = entry - risk * 1.8;
+      takeProfit3 = entry - risk * 2.8;
+    }
+  }
+
+  entry = formatPrice(entry);
+  stopLoss = formatPrice(stopLoss);
+  takeProfit1 = formatPrice(takeProfit1);
+  takeProfit2 = formatPrice(takeProfit2);
+  takeProfit3 = formatPrice(takeProfit3);
+
+  const analysis =
+    String(partial.analysis || "").trim() ||
+    (side === "BUY"
+      ? "Bullish structure supports a BUY setup toward higher resistance"
+      : "Bearish structure supports a SELL setup toward lower support");
+
   return {
-    symbol: catalogHit || full || base,
-    base,
-    score,
+    ...partial,
+    status: CHART_DETECTION_STATUS.SETUP_READY,
+    isChart: true,
+    side,
+    confidence: Math.max(55, Math.min(95, Math.round(Number(partial.confidence) || 70))),
+    entry,
+    stopLoss,
+    takeProfit1,
+    takeProfit2,
+    takeProfit3,
+    takeProfit: takeProfit3,
+    riskReward:
+      String(partial.riskReward || "").trim() ||
+      formatRiskReward(entry, stopLoss, takeProfit2),
+    timeframe: String(partial.timeframe || "M15").trim().toUpperCase() || "M15",
+    analysis,
+    reasons: Array.isArray(partial.reasons) && partial.reasons.length
+      ? partial.reasons
+      : [analysis],
   };
-}
-
-function extractSymbolCandidates(text) {
-  const upper = String(text || "").toUpperCase();
-  const hits = [];
-
-  // EUR/USD, EUR-USD, EUR USD, EURUSD, EURUSD.mic
-  const pairRe =
-    /\b([A-Z]{3})\s*[\/\-\s]?\s*([A-Z]{3})(?:\.[A-Z0-9]+)?\b/g;
-  let m;
-  while ((m = pairRe.exec(upper))) {
-    hits.push(`${m[1]}${m[2]}`);
-  }
-
-  // Metals / crypto / indices compact forms
-  const specialRe =
-    /\b((?:XAU|XAG|BTC|ETH)USD|US30|US500|NAS100|GER40|UK100)(?:\.[A-Z0-9]+)?\b/g;
-  while ((m = specialRe.exec(upper))) {
-    hits.push(m[1]);
-  }
-
-  // Fallback: glued 6-letter tokens that look like FX pairs
-  const gluedRe = /\b([A-Z]{6})(?:\.[A-Z0-9]+)?\b/g;
-  while ((m = gluedRe.exec(upper))) {
-    hits.push(m[1]);
-  }
-
-  return hits;
-}
-
-function pickBestSymbol(texts, catalog = []) {
-  const candidates = [];
-  const joined = (texts || []).filter(Boolean).join("\n");
-  for (const text of texts || []) {
-    candidates.push(...extractSymbolCandidates(text));
-  }
-  const blob = String(joined || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-  for (const known of [...COMMON_SYMBOLS, ...(catalog || [])]) {
-    const base = compactSymbol(known).base;
-    if (base && blob.includes(base)) candidates.push(base);
-  }
-
-  let best = null;
-  for (const candidate of candidates) {
-    const scored = scoreCandidate(candidate, catalog);
-    if (!scored) continue;
-    if (!best || scored.score > best.score) best = scored;
-  }
-  return best
-    ? {
-        symbol: best.symbol,
-        base: best.base,
-        rawText: joined,
-        confidence: Math.min(95, 55 + best.score * 8),
-      }
-    : { symbol: null, rawText: joined, confidence: 0 };
-}
-
-async function cropChartRegions(dataUrl) {
-  const img = await loadImage(dataUrl);
-  const maxW = 1100;
-  const scale = Math.min(1, maxW / Math.max(1, img.width));
-  const width = Math.max(1, Math.round(img.width * scale));
-  const height = Math.max(1, Math.round(img.height * scale));
-
-  const regions = [
-    { x: 0, y: 0, w: width, h: Math.max(48, Math.round(height * 0.22)) }, // full top banner
-    { x: 0, y: 0, w: Math.round(width * 0.55), h: Math.max(48, Math.round(height * 0.2)) }, // top-left
-    { x: 0, y: 0, w: Math.round(width * 0.4), h: Math.max(40, Math.round(height * 0.14)) }, // title chip
-  ];
-
-  return regions.map((region) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, region.w);
-    canvas.height = Math.max(1, region.h);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      img,
-      Math.round(region.x / scale),
-      Math.round(region.y / scale),
-      Math.round(region.w / scale),
-      Math.round(region.h / scale),
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = image.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
-      const v = lum > 145 ? 255 : lum < 95 ? 0 : 255 - lum;
-      d[i] = d[i + 1] = d[i + 2] = v;
-    }
-    ctx.putImageData(image, 0, 0);
-    return canvas.toDataURL("image/png");
-  }).filter(Boolean);
-}
-
-async function ocrWithTextDetector(dataUrl) {
-  if (typeof window === "undefined" || typeof window.TextDetector !== "function") {
-    return "";
-  }
-  try {
-    const detector = new window.TextDetector();
-    const img = await loadImage(dataUrl);
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = Math.max(1, Math.round(img.height * 0.28));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return "";
-    ctx.drawImage(img, 0, 0);
-    const bitmap = await createImageBitmap(canvas);
-    const texts = await detector.detect(bitmap);
-    return (texts || []).map((t) => t.rawValue || "").join(" ");
-  } catch {
-    return "";
-  }
-}
-
-async function ocrWithTesseract(crops) {
-  const { createWorker, PSM } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, {
-    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
-    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
-    langPath: "https://tessdata.projectnaptha.com/4.0.0",
-  });
-  const texts = [];
-  try {
-    await worker.setParameters({
-      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./- ",
-      preserve_interword_spaces: "1",
-      tessedit_pageseg_mode: PSM.SINGLE_LINE,
-    });
-    for (const crop of crops) {
-      const {
-        data: { text },
-      } = await worker.recognize(crop);
-      if (text) texts.push(text);
-    }
-    // Second pass with sparse text mode for denser headers
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
-    });
-    if (crops[0]) {
-      const {
-        data: { text },
-      } = await worker.recognize(crops[0]);
-      if (text) texts.push(text);
-    }
-  } finally {
-    await worker.terminate();
-  }
-  return texts;
 }
 
 async function shrinkChartImage(dataUrl, { maxW = 1024, quality = 0.72 } = {}) {
@@ -266,6 +177,21 @@ async function shrinkChartImage(dataUrl, { maxW = 1024, quality = 0.72 } = {}) {
   } catch {
     return dataUrl;
   }
+}
+
+function emptyDetection(overrides = {}) {
+  return {
+    status: CHART_DETECTION_STATUS.NO_CHART,
+    isChart: false,
+    symbol: null,
+    message: CHART_DETECTION_MESSAGES.no_chart.message,
+    uiMessage: CHART_DETECTION_MESSAGES.no_chart.uiMessage,
+    chartConfidence: 0,
+    symbolConfidence: 0,
+    confidence: 0,
+    source: "none",
+    ...overrides,
+  };
 }
 
 async function detectSymbolWithOpenAI(dataUrl, { catalog = [] } = {}) {
@@ -289,81 +215,81 @@ async function detectSymbolWithOpenAI(dataUrl, { catalog = [] } = {}) {
   if (!response.ok) {
     const message =
       (data && (data.error || data.message)) ||
-      `Symbol vision failed (${response.status})`;
+      `Chart analysis failed (${response.status})`;
     const err = new Error(message);
     err.status = response.status;
     throw err;
   }
-  const symbol = String(data?.symbol || "")
-    .trim()
-    .toUpperCase();
-  if (!symbol) {
-    throw new Error("Could not read the symbol from this chart");
-  }
+
+  const status = String(data?.status || CHART_DETECTION_STATUS.NO_CHART);
+  const symbol =
+    status === CHART_DETECTION_STATUS.SYMBOL_DETECTED && data?.symbol
+      ? String(data.symbol).trim().toUpperCase()
+      : null;
+
   return {
+    status,
+    isChart: Boolean(data?.isChart),
     symbol,
-    base: symbol.split(".")[0],
-    rawText: "",
-    confidence: Number(data?.confidence) || 80,
-    source: "openai",
+    message: data?.message || CHART_DETECTION_MESSAGES[status]?.message || "",
+    uiMessage:
+      data?.uiMessage || CHART_DETECTION_MESSAGES[status]?.uiMessage || "",
+    chartConfidence: Number(data?.chartConfidence) || 0,
+    symbolConfidence: Number(data?.symbolConfidence) || 0,
+    confidence: Number(data?.symbolConfidence) || 0,
+    source: data?.source || "openai",
   };
 }
 
 /**
- * Read the symbol shown on a chart screenshot.
- * Prefers OpenAI Vision (accurate); falls back to local OCR.
+ * Validate chart image and read symbol when clearly visible.
+ * Uses OpenAI Vision only — never guesses from OCR/text alone.
  */
 export async function detectSymbolFromChart(dataUrl, { catalog = [] } = {}) {
-  if (!dataUrl) return { symbol: null, rawText: "", confidence: 0 };
+  if (!dataUrl) return emptyDetection();
 
-  let openAiError = "";
   try {
     return await detectSymbolWithOpenAI(dataUrl, { catalog });
   } catch (error) {
-    openAiError = error.message || "OpenAI vision unavailable";
-  }
-
-  try {
-    const crops = await cropChartRegions(dataUrl);
-    const texts = [];
-    const nativeText = await ocrWithTextDetector(dataUrl);
-    if (nativeText) texts.push(nativeText);
-    try {
-      const tessTexts = await ocrWithTesseract(crops);
-      texts.push(...tessTexts);
-    } catch {
-      // ignore local OCR worker failures
-    }
-    const local = pickBestSymbol(texts, catalog);
-    if (local?.symbol) {
-      return { ...local, source: "ocr", openAiError };
-    }
-    return {
-      symbol: null,
-      rawText: local?.rawText || "",
-      confidence: 0,
-      error: openAiError || "Could not read the symbol from this chart",
-      source: "none",
-    };
-  } catch (error) {
-    return {
-      symbol: null,
-      rawText: "",
-      confidence: 0,
-      error: openAiError || error.message || "Symbol detection failed",
-      source: "none",
-    };
+    return emptyDetection({
+      error: error.message || "Chart analysis unavailable",
+    });
   }
 }
 
-/**
- * Local chart scan: samples candle colors from the screenshot to bias BUY/SELL,
- * and OCR-detects the symbol shown on the chart header.
- */
-export async function analyzeChartImage(
+async function analyzeSetupWithOpenAI(
   dataUrl,
-  { symbol = "", catalog = [], preferDetectedSymbol = true } = {}
+  { catalog = [], hintSymbol = "" } = {}
 ) {
+  const image = await shrinkChartImage(dataUrl);
+  const response = await fetch("/api/chart/analyze", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ image, catalog, hintSymbol }),
+    cache: "no-store",
+  });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { error: text };
+  }
+  if (!response.ok) {
+    const message =
+      (data && (data.error || data.message)) ||
+      `Setup analysis failed (${response.status})`;
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
+  }
+  return data;
+}
+
+async function localDirectionalBias(dataUrl) {
   const img = await loadImage(dataUrl);
   const canvas = document.createElement("canvas");
   const maxW = 640;
@@ -371,10 +297,9 @@ export async function analyzeChartImage(
   canvas.width = Math.max(1, Math.round(img.width * scale));
   canvas.height = Math.max(1, Math.round(img.height * scale));
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Chart analysis unavailable on this device");
+  if (!ctx) return { side: "BUY", confidence: 62, reasons: ["Local bias unavailable"] };
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // Focus on the right third of the chart (recent price action)
   const x0 = Math.floor(canvas.width * 0.62);
   const y0 = Math.floor(canvas.height * 0.12);
   const w = Math.max(1, canvas.width - x0 - 8);
@@ -383,49 +308,139 @@ export async function analyzeChartImage(
   const full = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const recentBias = sampleBias(recent);
   const fullBias = sampleBias(full);
-
   const score = recentBias.bullRatio * 0.7 + fullBias.bullRatio * 0.3;
+
   let side = "BUY";
   let confidence = Math.round(50 + Math.abs(score - 0.5) * 90);
   if (score < 0.46) side = "SELL";
   else if (score > 0.54) side = "BUY";
   else {
-    // Near balance — slight lean from recent candles
     side = recentBias.bullRatio >= 0.5 ? "BUY" : "SELL";
     confidence = Math.max(52, confidence - 8);
   }
   confidence = Math.min(92, Math.max(55, confidence));
 
-  const detection = await detectSymbolFromChart(dataUrl, { catalog });
-  const detected =
-    preferDetectedSymbol && detection?.symbol
-      ? String(detection.symbol).toUpperCase()
-      : null;
-  if (!detected) {
-    const err = new Error("Could not read the symbol from this chart screenshot");
-    err.code = "SYMBOL_NOT_DETECTED";
-    throw err;
-  }
-  const resolvedSymbol = detected;
-
-  const reasons = [
-    recentBias.bullRatio >= 0.5
-      ? "Recent candles skew bullish"
-      : "Recent candles skew bearish",
-    fullBias.structure === "dark-theme"
-      ? "Dark chart theme detected"
-      : "Light chart theme detected",
-    `Symbol from scanner: ${resolvedSymbol}`,
-  ];
-
   return {
-    symbol: resolvedSymbol,
-    detectedSymbol: detected,
-    detectionConfidence: detection?.confidence || 0,
     side,
     confidence,
     score,
-    reasons,
+    reasons: [
+      recentBias.bullRatio >= 0.5
+        ? "Recent candles skew bullish"
+        : "Recent candles skew bearish",
+      fullBias.structure === "dark-theme"
+        ? "Dark chart theme detected"
+        : "Light chart theme detected",
+    ],
+  };
+}
+
+/**
+ * Analyze a chart image and ALWAYS return a complete trade setup when the
+ * image is a valid trading chart. Never returns an incomplete setup.
+ */
+export async function analyzeChartImage(
+  dataUrl,
+  { catalog = [], hintSymbol = "", preferDetectedSymbol = true } = {}
+) {
+  let setup = null;
+  let openAiError = "";
+
+  try {
+    setup = await analyzeSetupWithOpenAI(dataUrl, { catalog, hintSymbol });
+  } catch (error) {
+    openAiError = error.message || "Setup analysis unavailable";
+  }
+
+  if (setup?.status === CHART_DETECTION_STATUS.NO_CHART || setup?.isChart === false) {
+    const err = new Error(
+      setup?.message || CHART_DETECTION_MESSAGES.no_chart.message
+    );
+    err.code = "NO_CHART";
+    err.uiMessage =
+      setup?.uiMessage || CHART_DETECTION_MESSAGES.no_chart.uiMessage;
+    throw err;
+  }
+
+  if (setup?.status === CHART_DETECTION_STATUS.SETUP_READY || setup?.isChart) {
+    const complete = ensureCompleteSetup(setup);
+    let symbol = preferDetectedSymbol
+      ? String(complete.symbol || hintSymbol || "")
+          .trim()
+          .toUpperCase()
+      : "";
+    if (!symbol) {
+      const detection = await detectSymbolFromChart(dataUrl, { catalog });
+      if (detection.status === CHART_DETECTION_STATUS.NO_CHART) {
+        const err = new Error(CHART_DETECTION_MESSAGES.no_chart.message);
+        err.code = "NO_CHART";
+        err.uiMessage = CHART_DETECTION_MESSAGES.no_chart.uiMessage;
+        throw err;
+      }
+      symbol = String(detection.symbol || hintSymbol || "")
+        .trim()
+        .toUpperCase();
+    }
+    if (!symbol) {
+      const err = new Error(CHART_DETECTION_MESSAGES.symbol_unclear.message);
+      err.code = "SYMBOL_UNCLEAR";
+      err.uiMessage = CHART_DETECTION_MESSAGES.symbol_unclear.uiMessage;
+      throw err;
+    }
+
+    return {
+      ...complete,
+      symbol,
+      detectedSymbol: symbol,
+      detectionStatus: CHART_DETECTION_STATUS.SETUP_READY,
+      detectionConfidence: complete.confidence,
+      scannedAt: Date.now(),
+      source: complete.source || "openai",
+    };
+  }
+
+  // Fallback: chart previously validated via symbol detection + local bias.
+  const detection = await detectSymbolFromChart(dataUrl, { catalog });
+  if (detection.status === CHART_DETECTION_STATUS.NO_CHART) {
+    const err = new Error(
+      openAiError || detection.message || CHART_DETECTION_MESSAGES.no_chart.message
+    );
+    err.code = "NO_CHART";
+    err.uiMessage =
+      detection.uiMessage || CHART_DETECTION_MESSAGES.no_chart.uiMessage;
+    throw err;
+  }
+
+  const symbol = String(detection.symbol || hintSymbol || "")
+    .trim()
+    .toUpperCase();
+  if (!symbol) {
+    const err = new Error(CHART_DETECTION_MESSAGES.symbol_unclear.message);
+    err.code = "SYMBOL_UNCLEAR";
+    err.uiMessage = CHART_DETECTION_MESSAGES.symbol_unclear.uiMessage;
+    throw err;
+  }
+
+  const bias = await localDirectionalBias(dataUrl);
+  const complete = ensureCompleteSetup({
+    symbol,
+    side: bias.side,
+    confidence: bias.confidence,
+    analysis: bias.reasons?.[0] || `${bias.side} setup from chart structure`,
+    reasons: [
+      ...(bias.reasons || []),
+      `Symbol from scanner: ${symbol}`,
+    ],
+    timeframe: "M15",
+    source: "local",
+  });
+
+  return {
+    ...complete,
+    symbol,
+    detectedSymbol: symbol,
+    detectionStatus: CHART_DETECTION_STATUS.SETUP_READY,
+    detectionConfidence: complete.confidence,
     scannedAt: Date.now(),
   };
 }
@@ -447,6 +462,11 @@ export const TRADE_ENGINE_STEPS = [
   { id: "structure", label: "Reading market structure" },
   { id: "bias", label: "Detecting directional bias" },
   { id: "signal", label: "Building entry signal" },
+  { id: "levels", label: "Calculating entry, SL, TP1, TP2 and TP3" },
+  { id: "ready", label: "Trade setup ready" },
+];
+
+export const EXECUTE_ENGINE_STEPS = [
   { id: "route", label: "Routing order to connected MT5" },
   { id: "fill", label: "Confirming broker fill" },
 ];

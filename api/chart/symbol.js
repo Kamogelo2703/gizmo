@@ -23,29 +23,95 @@ function normalizeSymbol(raw) {
     .replace(/[^A-Z0-9.]/g, "");
 }
 
-function extractSymbolFromText(text) {
-  const upper = String(text || "").toUpperCase();
-  let m = upper.match(/\b((?:XAU|XAG|BTC|ETH)USD(?:\.[A-Z0-9]+)?)\b/);
-  if (m) return normalizeSymbol(m[1]);
-  m = upper.match(/\b((?:US30|US500|NAS100|GER40|UK100)(?:\.[A-Z0-9]+)?)\b/);
-  if (m) return normalizeSymbol(m[1]);
-  m = upper.match(/\b([A-Z]{3})\s*[\/\-]?\s*([A-Z]{3})(\.[A-Z0-9]+)?\b/);
-  if (m) return normalizeSymbol(`${m[1]}${m[2]}${m[3] || ""}`);
-  m = upper.match(/\b([A-Z]{6})(\.[A-Z0-9]+)?\b/);
-  if (m) return normalizeSymbol(`${m[1]}${m[2] || ""}`);
-  return "";
-}
-
 function requireOpenAiKey() {
   const key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
   if (!key) {
     const err = new Error(
-      "OpenAI is not configured. Add OPENAI_API_KEY on Vercel to read symbols from charts."
+      "OpenAI is not configured. Add OPENAI_API_KEY on Vercel to analyze chart images."
     );
     err.status = 503;
     throw err;
   }
   return key;
+}
+
+const MIN_CHART_CONFIDENCE = 72;
+const MIN_SYMBOL_CONFIDENCE = 78;
+
+function buildNoChartResult() {
+  return {
+    status: "no_chart",
+    isChart: false,
+    symbol: null,
+    message: "No trading chart detected",
+    uiMessage: "Please upload a clear trading chart.",
+    chartConfidence: 0,
+    symbolConfidence: 0,
+    source: "openai",
+  };
+}
+
+function buildSymbolUnclearResult(chartConfidence = 0) {
+  return {
+    status: "symbol_unclear",
+    isChart: true,
+    symbol: null,
+    message: "Chart detected — symbol unclear",
+    uiMessage: "Chart detected — symbol unclear",
+    chartConfidence,
+    symbolConfidence: 0,
+    source: "openai",
+  };
+}
+
+function resolveCatalogSymbol(symbol, catalog = []) {
+  const normalized = normalizeSymbol(symbol);
+  if (!normalized) return "";
+  const base = normalized.split(".")[0];
+  const catalogHit = (Array.isArray(catalog) ? catalog : []).find(
+    (item) => normalizeSymbol(item).split(".")[0] === base
+  );
+  return catalogHit ? normalizeSymbol(catalogHit) : normalized;
+}
+
+function normalizeAnalysis(parsed = {}) {
+  const chartConfidence = Math.max(
+    0,
+    Math.min(100, Number(parsed?.chartConfidence ?? parsed?.confidence) || 0)
+  );
+  const symbolConfidence = Math.max(
+    0,
+    Math.min(100, Number(parsed?.symbolConfidence) || 0)
+  );
+  const isChart =
+    parsed?.isChart === true &&
+    chartConfidence >= MIN_CHART_CONFIDENCE &&
+    parsed?.status !== "no_chart";
+
+  if (!isChart) {
+    return buildNoChartResult();
+  }
+
+  const rawSymbol = normalizeSymbol(parsed?.symbol || "");
+  const confidentSymbol =
+    parsed?.status === "symbol_detected" &&
+    rawSymbol &&
+    symbolConfidence >= MIN_SYMBOL_CONFIDENCE;
+
+  if (!confidentSymbol) {
+    return buildSymbolUnclearResult(chartConfidence);
+  }
+
+  return {
+    status: "symbol_detected",
+    isChart: true,
+    symbol: rawSymbol,
+    message: `Symbol detected: ${rawSymbol}`,
+    uiMessage: rawSymbol,
+    chartConfidence,
+    symbolConfidence,
+    source: "openai",
+  };
 }
 
 export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
@@ -57,7 +123,6 @@ export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
     throw err;
   }
 
-  // Keep payloads small for serverless limits.
   if (dataUrl.length > 2_500_000) {
     const err = new Error("Chart image is too large — capture a tighter screenshot");
     err.status = 413;
@@ -79,16 +144,23 @@ export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
     body: JSON.stringify({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4o-mini",
       temperature: 0,
-      max_tokens: 80,
+      max_tokens: 180,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content:
-            "You read trading chart screenshots. Return JSON only: {\"symbol\":\"EURUSD\",\"confidence\":0-100}. " +
-            "symbol must be the instrument shown on the chart header/title (forex, metal, crypto, or index). " +
-            "Prefer compact forms like EURUSD, XAUUSD, GBPUSD, USDJPY. Keep broker suffixes when clearly visible (e.g. EURUSD.mic). " +
-            "If unsure, still guess the most likely pair and lower confidence.",
+            "You are a strict trading-chart image analyzer. Return JSON only with this schema: " +
+            '{"isChart":boolean,"chartConfidence":0-100,"symbol":string|null,"symbolConfidence":0-100,"status":"no_chart"|"symbol_detected"|"symbol_unclear"}. ' +
+            "Set isChart=true ONLY when the image clearly shows a genuine financial trading chart (MetaTrader, TradingView, cTrader, etc.) " +
+            "with visible chart structure: candlesticks or OHLC bars, price movement, price/time axes, gridlines, and a trading-platform layout. " +
+            "Do NOT treat photographs, people, buildings, cars, landscapes, random screenshots, websites, documents, or plain text/numbers as charts. " +
+            "Text resembling a symbol (e.g. EURUSD) is NEVER enough for isChart=true without clear chart visuals. " +
+            "If isChart=false, set status=no_chart, symbol=null, symbolConfidence=0. " +
+            "If isChart=true but the instrument label is not clearly visible on the chart, set status=symbol_unclear and symbol=null. " +
+            "Only set status=symbol_detected when the instrument is clearly shown on the chart header/title (e.g. EURUSD, XAUUSD, BTCUSD, NAS100). " +
+            "NEVER guess a symbol from probability. When uncertain, use symbol_unclear. " +
+            "Keep broker suffixes when clearly visible (e.g. EURUSD.m).",
         },
         {
           role: "user",
@@ -96,8 +168,9 @@ export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
             {
               type: "text",
               text:
-                "What trading symbol/pair is shown on this chart?" +
-                (catalogHint ? ` Prefer one of: ${catalogHint}.` : ""),
+                "Analyze this image. First decide if it is a real trading chart. " +
+                "Only if it is, read the instrument symbol shown on the chart." +
+                (catalogHint ? ` Known symbols include: ${catalogHint}.` : ""),
             },
             {
               type: "image_url",
@@ -134,28 +207,17 @@ export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
   try {
     parsed = JSON.parse(content);
   } catch {
-    parsed = { symbol: extractSymbolFromText(content), confidence: 50 };
+    parsed = { isChart: false, status: "no_chart", symbol: null, symbolConfidence: 0 };
   }
 
-  let symbol = normalizeSymbol(parsed?.symbol || "");
-  if (!symbol) symbol = extractSymbolFromText(content);
-  if (!symbol) {
-    const err = new Error("Could not read the symbol from this chart");
-    err.status = 422;
-    throw err;
+  const result = normalizeAnalysis(parsed);
+  if (result.status === "symbol_detected" && result.symbol) {
+    result.symbol = resolveCatalogSymbol(result.symbol, catalog);
+    result.message = `Symbol detected: ${result.symbol}`;
+    result.uiMessage = result.symbol;
   }
 
-  // If catalog has a matching base with broker suffix, prefer that.
-  const base = symbol.split(".")[0];
-  const catalogHit = (Array.isArray(catalog) ? catalog : []).find(
-    (item) => normalizeSymbol(item).split(".")[0] === base
-  );
-
-  return {
-    symbol: catalogHit ? normalizeSymbol(catalogHit) : symbol,
-    confidence: Math.max(0, Math.min(100, Number(parsed?.confidence) || 80)),
-    source: "openai",
-  };
+  return result;
 }
 
 export default async function handler(req, res) {
@@ -178,7 +240,7 @@ export default async function handler(req, res) {
     sendJson(res, 200, result);
   } catch (error) {
     sendJson(res, error.status || 500, {
-      error: error.message || "Symbol detection failed",
+      error: error.message || "Chart analysis failed",
       details: error.data || null,
     });
   }
