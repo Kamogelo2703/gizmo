@@ -3536,7 +3536,7 @@ button {
 .v2-top-title {
   position: relative;
   z-index: 3;
-  margin: 0 0 -18px;
+  margin: 2px 0 0;
   text-align: center;
   font-family: var(--font-v2);
   font-size: clamp(1.05rem, 4.8vw, 1.32rem);
@@ -3563,115 +3563,61 @@ button {
 }
 
 .v2-hero {
-  position: relative;
-  width: 100%;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
+  margin-top: 6px;
 }
 
-.v2-hero-figure {
-  position: relative;
-  width: min(94vw, 400px);
-  margin: -22px auto 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: visible;
+.v2-avatar-wrap {
+  width: min(78vw, 300px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 12px 36px rgba(0, 0, 0, 0.35),
+    0 0 48px rgba(255, 80, 160, 0.35);
+  background: radial-gradient(circle at 40% 30%, #ff7ab8, #6a0435 72%);
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Soft themed wash behind the cut-out art (uses portal accent) */
-.v2-hero-figure::before {
-  content: "";
-  position: absolute;
-  inset: 4% 2% 8%;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 72% 62% at 50% 40%,
-    color-mix(in srgb, var(--pink-soft) 48%, transparent) 0%,
-    color-mix(in srgb, var(--pink) 24%, transparent) 44%,
-    transparent 74%
-  );
-}
-
-.v2-hero-art {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: min(62vh, 560px);
-  object-fit: contain;
-  object-position: center top;
-  background: transparent;
-  border-radius: 0;
-  opacity: 1;
-  filter: none;
-  -webkit-filter: none;
-  /* Knock out baked-in black studio backdrop so the app theme shows through */
-  mix-blend-mode: lighten;
-  image-rendering: auto;
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-.v2-hero-caption {
-  position: absolute;
-  left: 0;
-  right: 0;
-  /* Sit on the lower portion of the artwork (reference overlap) */
-  bottom: 6%;
-  z-index: 2;
-  isolation: isolate;
-  padding: 0 16px 2px;
-  pointer-events: none;
-  text-align: center;
-}
-
-/* Kill any leftover black card styles if old class names linger */
-.v2-avatar-wrap,
 .v2-avatar {
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  background: transparent;
 }
 
 .v2-bot-name {
-  margin: 0;
+  margin: 14px 0 0;
   font-family: var(--font-v2);
-  font-size: clamp(1.55rem, 6.8vw, 2.15rem);
+  font-size: clamp(1.55rem, 6.8vw, 2.05rem);
   font-weight: 400;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fff;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.65),
-    0 4px 18px rgba(0, 0, 0, 0.45);
-  line-height: 1.05;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+  line-height: 1.1;
 }
 
 .v2-account {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   font-family: var(--font-script);
   font-size: 1.65rem;
   color: rgba(255, 255, 255, 0.96);
   line-height: 1;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.55),
-    0 3px 12px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Solid white GOAT-style control card */
 .v2-pill-bar {
   position: relative;
   z-index: 3;
-  margin: -12px auto 0;
+  margin: 12px auto 0;
   width: min(86%, 290px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
