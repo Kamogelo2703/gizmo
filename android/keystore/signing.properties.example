@@ -1,0 +1,7 @@
+sdk.dir=/home/ubuntu/android-sdk
+
+# Copy to android/keystore/signing.properties (gitignored) and fill in:
+# storeFile=apexea-release.jks
+# storePassword=...
+# keyAlias=apexea
+# keyPassword=...

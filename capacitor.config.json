@@ -1,0 +1,35 @@
+{
+  "appId": "com.apexea.zetascalper",
+  "appName": "ZETA SCALPER AI",
+  "webDir": "dist",
+  "server": {
+    "url": "https://www.apex-ea.com",
+    "cleartext": false,
+    "allowNavigation": [
+      "https://www.apex-ea.com/*",
+      "https://apex-ea.com/*",
+      "https://*.paypal.com/*",
+      "https://*.paypalobjects.com/*",
+      "https://*.metaapi.cloud/*",
+      "https://*.agiliumtrade.ai/*",
+      "https://fonts.googleapis.com/*",
+      "https://fonts.gstatic.com/*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#1a0010",
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#1a0010",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1a0010"
+    }
+  }
+}
