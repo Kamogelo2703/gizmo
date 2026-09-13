@@ -698,6 +698,21 @@ export function AppProvider({ children }) {
     const eaList = Array.isArray(eas) ? eas : [];
     const botId = String(activeBot?.id || "").trim();
 
+    // Prefer the mentor tied to the active bot first (multi-bot clients).
+    if (botId) {
+      const forBot = keys.filter(
+        (row) =>
+          String(row.botId || "").trim() === botId ||
+          String(row.bot?.id || "").trim() === botId
+      );
+      forBot.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromBotLicense = pickFromLicense(forBot.find((row) => row?.used) || forBot[0]);
+      if (fromBotLicense) return fromBotLicense;
+    }
+
     if (account) {
       const used = keys.filter(
         (row) => row?.used && normalizeEmail(row.clientEmail) === account
@@ -719,18 +734,6 @@ export function AppProvider({ children }) {
     }
 
     if (botId) {
-      const forBot = keys.filter(
-        (row) =>
-          String(row.botId || "").trim() === botId ||
-          String(row.bot?.id || "").trim() === botId
-      );
-      forBot.sort(
-        (a, b) =>
-          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
-      );
-      const fromBotLicense = pickFromLicense(forBot.find((row) => row?.used) || forBot[0]);
-      if (fromBotLicense) return fromBotLicense;
-
       const ea =
         eaList.find((item) => item.id === botId) ||
         eaList.find((item) => String(item.ownerEmail || "").includes("@"));
