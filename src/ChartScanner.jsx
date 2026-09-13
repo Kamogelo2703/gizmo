@@ -319,13 +319,18 @@ export default function ChartScanner({ variant = "default" }) {
       persistTradeSettings(trades, lotSize, tradeSymbol);
 
       setSignal(result);
-      setScanHistory(
-        addScanHistoryEntry({
+      try {
+        const nextHistory = await addScanHistoryEntry({
           ...result,
           symbol: tradeSymbol,
           image: preview,
-        })
-      );
+          analysis: result.analysis || result.reasons?.[0] || "",
+          reasons: result.reasons || [],
+        });
+        setScanHistory(nextHistory);
+      } catch {
+        // History save should never block a successful scan.
+      }
       setEngineStep(TRADE_ENGINE_STEPS.length - 1);
       setEngineProgress(100);
       pushEngineLog(
@@ -1017,6 +1022,64 @@ export default function ChartScanner({ variant = "default" }) {
         </button>
       ) : null}
 
+      <section className="cs-history-block" aria-label="Scan history">
+        <div className="cs-history-block-head">
+          <div>
+            <p className="cs-history-kicker">Scan History</p>
+            <h3>Your recent scans</h3>
+          </div>
+          <button
+            className="cs-history-btn"
+            type="button"
+            onClick={() => {
+              setHistoryOpen(true);
+              setSelectedHistory(null);
+            }}
+          >
+            Open all
+            {scanHistory.length ? <em>{scanHistory.length}</em> : null}
+          </button>
+        </div>
+
+        {scanHistory.length === 0 ? (
+          <p className="cs-history-empty-inline">
+            No scans yet. After you scan a chart, it appears here with Entry, SL, TPs, reason, and the image.
+          </p>
+        ) : (
+          <div className="cs-history-rail">
+            {scanHistory.slice(0, 8).map((item) => (
+              <button
+                key={item.id}
+                className="cs-history-card"
+                type="button"
+                onClick={() => {
+                  setSelectedHistory(item);
+                  setHistoryOpen(true);
+                }}
+              >
+                {item.image ? (
+                  <img src={item.image} alt="" />
+                ) : (
+                  <span className="cs-history-thumb" aria-hidden="true" />
+                )}
+                <span className="cs-history-card-copy">
+                  <strong>
+                    {item.side} {item.symbol}
+                  </strong>
+                  <small>
+                    Entry {formatSetupPrice(item.entry)} · SL {formatSetupPrice(item.stopLoss)}
+                  </small>
+                  <small>
+                    TP1 {formatSetupPrice(item.takeProfit1)} · TP2 {formatSetupPrice(item.takeProfit2)}
+                  </small>
+                  <small>{formatScanTime(item.createdAt)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
       {historyOpen ? (
         <div className="cs-history-sheet" role="dialog" aria-modal="true" aria-label="Scan history">
           <button
@@ -1065,33 +1128,36 @@ export default function ChartScanner({ variant = "default" }) {
                   <span className="cs-history-time">{formatScanTime(selectedHistory.createdAt)}</span>
                 </div>
                 <p className="cs-history-meta">
-                  Confidence {selectedHistory.confidence}% · {selectedHistory.timeframe || "M15"}
+                  Confidence {selectedHistory.confidence || "—"}% · {selectedHistory.timeframe || "M15"}
                 </p>
-                <div className="cs-setup-grid cs-history-levels">
-                  <span>
-                    <em>Entry</em>
-                    {formatSetupPrice(selectedHistory.entry)}
-                  </span>
-                  <span>
-                    <em>Stop Loss</em>
-                    {formatSetupPrice(selectedHistory.stopLoss)}
-                  </span>
-                  <span className="cs-tp cs-tp--1">
-                    <em>TP1 · 1:1</em>
-                    {formatSetupPrice(selectedHistory.takeProfit1)}
-                  </span>
-                  <span className="cs-tp cs-tp--2">
-                    <em>TP2 · 1:2</em>
-                    {formatSetupPrice(selectedHistory.takeProfit2)}
-                  </span>
-                  <span className="cs-tp cs-tp--3">
-                    <em>TP3 · 1:3</em>
-                    {formatSetupPrice(selectedHistory.takeProfit3)}
-                  </span>
-                  <span>
-                    <em>Risk / Reward</em>
-                    {selectedHistory.riskReward || "1:1 · 1:2 · 1:3"}
-                  </span>
+                <div className="cs-history-levels-wrap">
+                  <h4>Trade levels</h4>
+                  <div className="cs-setup-grid cs-history-levels">
+                    <span>
+                      <em>Entry</em>
+                      {formatSetupPrice(selectedHistory.entry)}
+                    </span>
+                    <span>
+                      <em>Stop Loss</em>
+                      {formatSetupPrice(selectedHistory.stopLoss)}
+                    </span>
+                    <span className="cs-tp cs-tp--1">
+                      <em>TP1 · 1:1</em>
+                      {formatSetupPrice(selectedHistory.takeProfit1)}
+                    </span>
+                    <span className="cs-tp cs-tp--2">
+                      <em>TP2 · 1:2</em>
+                      {formatSetupPrice(selectedHistory.takeProfit2)}
+                    </span>
+                    <span className="cs-tp cs-tp--3">
+                      <em>TP3 · 1:3</em>
+                      {formatSetupPrice(selectedHistory.takeProfit3)}
+                    </span>
+                    <span>
+                      <em>Risk / Reward</em>
+                      {selectedHistory.riskReward || "1:1 · 1:2 · 1:3"}
+                    </span>
+                  </div>
                 </div>
                 <div className="cs-history-reason">
                   <h4>Reason for trade</h4>
@@ -1147,7 +1213,11 @@ export default function ChartScanner({ variant = "default" }) {
                         {item.side} {item.symbol}
                       </strong>
                       <small>
-                        SL {formatSetupPrice(item.stopLoss)} · TP1 {formatSetupPrice(item.takeProfit1)}
+                        Entry {formatSetupPrice(item.entry)} · SL {formatSetupPrice(item.stopLoss)}
+                      </small>
+                      <small>
+                        TP1 {formatSetupPrice(item.takeProfit1)} · TP2{" "}
+                        {formatSetupPrice(item.takeProfit2)} · TP3 {formatSetupPrice(item.takeProfit3)}
                       </small>
                       <small>{formatScanTime(item.createdAt)}</small>
                     </span>
