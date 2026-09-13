@@ -1166,13 +1166,23 @@ export default function ChartScanner({ variant = "default" }) {
                       selectedHistory.reasons?.[0] ||
                       "Setup from chart structure"}
                   </p>
-                  {selectedHistory.reasons?.length > 1 ? (
-                    <ul>
-                      {selectedHistory.reasons.slice(0, 4).map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  {(() => {
+                    const primary = String(
+                      selectedHistory.analysis || selectedHistory.reasons?.[0] || ""
+                    ).trim();
+                    const extras = (selectedHistory.reasons || [])
+                      .map((r) => String(r).trim())
+                      .filter((r) => r && r !== primary)
+                      .slice(0, 4);
+                    if (!extras.length) return null;
+                    return (
+                      <ul>
+                        {extras.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
                 <button
                   className="cs-run-btn"
