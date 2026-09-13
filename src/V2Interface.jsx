@@ -55,20 +55,17 @@ export default function V2Interface() {
               <span>{activeBot?.name ? `${activeBot.name}` : "No active bot"}</span>
             </p>
             <div className="v2-hero">
-              <div className="v2-hero-figure">
+              <div className="v2-avatar-wrap">
                 <img
-                  className="v2-hero-art"
+                  className="v2-avatar"
                   src={activeBot?.photo || "/logo.png"}
                   alt=""
-                  decoding="async"
                 />
-                <div className="v2-hero-caption">
-                  <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
-                  {mentorDisplayName ? (
-                    <p className="v2-account">{mentorDisplayName}</p>
-                  ) : null}
-                </div>
               </div>
+              <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
+              {mentorDisplayName ? (
+                <p className="v2-account">{mentorDisplayName}</p>
+              ) : null}
             </div>
             <div className="v2-pill-bar">
               <button
