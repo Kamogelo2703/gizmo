@@ -62,6 +62,12 @@ export default function V2Interface() {
                   alt=""
                 />
                 <img
+                  className="v2-avatar-fire v2-avatar-fire--glow"
+                  src="/zeta-fire-portal.jpg"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <img
                   className="v2-avatar-fire"
                   src="/zeta-fire-portal.jpg"
                   alt=""
