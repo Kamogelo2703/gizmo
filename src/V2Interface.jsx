@@ -50,8 +50,7 @@ export default function V2Interface() {
         {v2View === "home" && (
           <section className="v2-view is-active">
             <p className="v2-top-title">
-              <span className="v2-top-icon">✦</span>
-              <span>{activeBot?.name || "No active bot"}</span>
+              <span>{activeBot?.name ? `${activeBot.name}` : "No active bot"}</span>
             </p>
             <div className="v2-hero">
               <div className="v2-avatar-wrap">
@@ -80,12 +79,12 @@ export default function V2Interface() {
                 <span className="v2-pill-icon is-trade" aria-hidden="true">
                   {v2Running ? (
                     <svg viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="5" y="5" width="5.5" height="14" rx="1.2" />
-                      <rect x="13.5" y="5" width="5.5" height="14" rx="1.2" />
+                      <rect x="5" y="4.5" width="5.5" height="15" rx="1.3" />
+                      <rect x="13.5" y="4.5" width="5.5" height="15" rx="1.3" />
                     </svg>
                   ) : (
                     <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5.5v13l11-6.5L8 5.5z" />
+                      <path d="M7.2 4.2v15.6L19.8 12 7.2 4.2z" />
                     </svg>
                   )}
                 </span>
@@ -100,20 +99,19 @@ export default function V2Interface() {
                 }}
               >
                 <span className="v2-pill-icon is-quotes" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M4 16.5 8.5 12l3.2 3.2L16 9.5l4 4" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M14.2 7.2l1.1-2.2 1.1 2.2 2.2.3-1.7 1.5.5 2.2-2.1-1.2-2.1 1.2.5-2.2-1.7-1.5 2.2-.3z" fill="currentColor" stroke="none" />
-                    <path d="M18.6 5.4l.55-1.1.55 1.1 1.1.15-.85.75.25 1.1-1.05-.6-1.05.6.25-1.1-.85-.75 1.1-.15z" fill="currentColor" stroke="none" />
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2.2 13.7 7l4.8.4-3.7 3.1 1.2 4.7L12 12.8 8 15.2l1.2-4.7L5.5 7.4 10.3 7 12 2.2z" />
+                    <path d="M18.2 11.2 19.1 13.6l2.5.2-1.9 1.6.6 2.4-2.1-1.2-2.1 1.2.6-2.4-1.9-1.6 2.5-.2 0.9-2.4z" />
                   </svg>
                 </span>
                 <span className="v2-pill-label">QUOTES</span>
               </button>
               <button className="v2-pill-btn" type="button" onClick={removeActiveBot}>
                 <span className="v2-pill-icon is-remove" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <path d="M8 7h8l-.7 11.2a1.6 1.6 0 0 1-1.6 1.5H10.3a1.6 1.6 0 0 1-1.6-1.5L8 7z" strokeLinejoin="round" />
-                    <path d="M7 7h10M10 7V5.8A1.3 1.3 0 0 1 11.3 4.5h1.4A1.3 1.3 0 0 1 14 5.8V7" strokeLinecap="round" />
-                    <path d="m10.2 11 3.6 3.6M13.8 11l-3.6 3.6" strokeLinecap="round" />
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9.2 3.5h5.6c.5 0 .9.4.9.9V6h3.1v2H5.2V6h3.1V4.4c0-.5.4-.9.9-.9zm1.2 2.5h3.2V5.5h-3.2V6z" />
+                    <path d="M7.2 9h9.6l-.7 10.2a1.8 1.8 0 0 1-1.8 1.6H9.7a1.8 1.8 0 0 1-1.8-1.6L7.2 9z" />
+                    <path d="M10.2 12.2h1.4v5.2h-1.4zm2.2 0h1.4v5.2h-1.4z" fill="#fff" />
                   </svg>
                 </span>
                 <span className="v2-pill-label">REMOVE</span>
@@ -305,6 +303,9 @@ export default function V2Interface() {
           type="button"
           onClick={() => setV2View("home")}
         >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4.5 11.2 12 4.8l7.5 6.4v8.5a1.3 1.3 0 0 1-1.3 1.3h-4.1v-5.2h-4.2v5.2H5.8A1.3 1.3 0 0 1 4.5 19.7v-8.5z" />
+          </svg>
           <span>HOME</span>
         </button>
         <button
@@ -312,6 +313,10 @@ export default function V2Interface() {
           type="button"
           onClick={() => setV2View("scanner")}
         >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
+            <path d="M7 15.5 10.2 11l2.6 2.8L16.5 8.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <span>CHART SCANNER</span>
         </button>
         <button
@@ -319,6 +324,10 @@ export default function V2Interface() {
           type="button"
           onClick={() => setV2View("metatrader")}
         >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="9" r="3.6" />
+            <path d="M5.2 19.2c.7-3.2 3.3-5 6.8-5s6.1 1.8 6.8 5" />
+          </svg>
           <span>METATRADER</span>
         </button>
       </nav>
