@@ -745,6 +745,54 @@ export function AppProvider({ children }) {
     return formatFromEmail(anyOwner?.ownerEmail);
   }, [activeBot, coverEmail, eas, licenseKeys]);
 
+  /** Mentor-set username ("main text") shown in the top header. */
+  const mainTextDisplay = useMemo(() => {
+    const account = normalizeEmail(coverEmail);
+    const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
+    const botId = String(activeBot?.id || "").trim();
+
+    const pick = (row) => {
+      if (!row) return "";
+      return String(row.mainText || row.clientName || "").trim();
+    };
+
+    if (botId) {
+      const forBot = keys.filter(
+        (row) =>
+          String(row.botId || "").trim() === botId ||
+          String(row.bot?.id || "").trim() === botId
+      );
+      forBot.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromBot = pick(forBot.find((row) => row?.used) || forBot[0]);
+      if (fromBot) return fromBot;
+    }
+
+    if (account) {
+      const used = keys.filter(
+        (row) => row?.used && normalizeEmail(row.clientEmail) === account
+      );
+      used.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromUsed = pick(used[0]);
+      if (fromUsed) return fromUsed;
+
+      const bound = keys.filter((row) => normalizeEmail(row.clientEmail) === account);
+      bound.sort(
+        (a, b) =>
+          Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
+      );
+      const fromBound = pick(bound[0]);
+      if (fromBound) return fromBound;
+    }
+
+    return "";
+  }, [activeBot, coverEmail, licenseKeys]);
+
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
     if (!signup) {
@@ -942,6 +990,7 @@ export function AppProvider({ children }) {
       {
         clientEmail = "",
         clientName = "",
+        mainText = "",
         mentorEmail = "",
         mentorId = "",
         mentorName = "",
@@ -954,6 +1003,7 @@ export function AppProvider({ children }) {
       }
       const email = normalizeEmail(clientEmail);
       const name = String(clientName || "").trim();
+      const username = String(mainText || name || "").trim();
       if (!name) {
         showToast("Enter the client name");
         return null;
@@ -1003,6 +1053,7 @@ export function AppProvider({ children }) {
         botName: bot.name,
         clientEmail: email,
         clientName: name,
+        mainText: username,
         mentorEmail: ownerEmail,
         mentorId: ownerId,
         mentorName: ownerName,
@@ -1305,6 +1356,7 @@ export function AppProvider({ children }) {
     coverEmail,
     setCoverEmail,
     mentorDisplayName,
+    mainTextDisplay,
     signups,
     requestSignup,
     setSignupStatus,

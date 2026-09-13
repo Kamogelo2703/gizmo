@@ -65,12 +65,14 @@ export function normalizeLicense(row) {
     .toLowerCase();
   const clientName = String(row?.clientName || row?.name || "").trim();
   const mentorName = String(row?.mentorName || row?.ownerName || "").trim();
+  const mainText = String(row?.mainText || row?.username || clientName || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
     botName: String(row?.botName || bot?.name || "Bot").trim() || "Bot",
     clientEmail,
     clientName,
+    mainText,
     mentorEmail: String(row?.mentorEmail || row?.ownerEmail || "")
       .trim()
       .toLowerCase(),
@@ -110,6 +112,7 @@ export function mergeLicenses(localList = [], remoteList = []) {
       ...row,
       clientEmail: row.clientEmail || prev.clientEmail || "",
       clientName: row.clientName || prev.clientName || "",
+      mainText: row.mainText || prev.mainText || row.clientName || prev.clientName || "",
       mentorEmail: row.mentorEmail || prev.mentorEmail || "",
       mentorId: row.mentorId || prev.mentorId || "",
       mentorName: row.mentorName || prev.mentorName || "",

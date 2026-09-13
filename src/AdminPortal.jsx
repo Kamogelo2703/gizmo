@@ -891,8 +891,8 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Generate License Key</h2>
             <p className="admin-sub">
-              Enter the client name and email with the bot. The key syncs to that email so they
-              can activate on any phone after approval.
+              Main text is the username shown at the top of the client app. Enter it with the
+              client email and bot — the key syncs so they can activate on any phone after approval.
             </p>
             <div className="admin-card">
               <form
@@ -901,6 +901,7 @@ export default function AdminPortal() {
                   e.preventDefault();
                   const key = await generateLicense(licenseBotId, {
                     clientName: licenseClientName,
+                    mainText: licenseClientName,
                     clientEmail: licenseClientEmail,
                     mentorEmail: adminSession.email,
                     mentorId: adminSession.id,
@@ -920,12 +921,12 @@ export default function AdminPortal() {
                 }}
               >
                 <label className="ea-field">
-                  <span>Client name *</span>
+                  <span>Main text (username) *</span>
                   <input
                     className="admin-input"
                     value={licenseClientName}
                     onChange={(e) => setLicenseClientName(e.target.value)}
-                    placeholder="e.g. Mukundi"
+                    placeholder="e.g. Trapgoatkaymow"
                     required
                   />
                 </label>
