@@ -4794,6 +4794,11 @@ button {
   font-weight: 700;
 }
 
+.cs-lot {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .cs-field.is-from-scanner .cs-symbol-auto {
   border-color: rgba(var(--pink-rgb), 0.55);
   box-shadow: 0 0 0 1px rgba(var(--pink-rgb), 0.2);

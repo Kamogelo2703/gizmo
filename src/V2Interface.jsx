@@ -237,11 +237,17 @@ export default function V2Interface() {
                 <span>Lot Size</span>
                 <input
                   className="v2-input"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  enterKeyHint="done"
+                  autoComplete="off"
+                  placeholder="0.01"
                   value={lotSize}
-                  onChange={(e) => setLotSize(e.target.value)}
+                  onChange={(e) => setLotSize(e.target.value.replace(/[^\d.,]/g, ""))}
+                  onBlur={() => {
+                    const n = Number(String(lotSize).replace(",", "."));
+                    setLotSize(Number.isFinite(n) && n > 0 ? String(Number(n.toFixed(4))) : "0.01");
+                  }}
                 />
               </label>
               <label className="v2-field">

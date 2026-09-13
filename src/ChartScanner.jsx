@@ -43,10 +43,18 @@ function clampTrades(value) {
   return Math.min(20, Math.max(1, n));
 }
 
+/** Normalize lot only when saving / trading — not while the user is typing. */
+function normalizeLot(value) {
+  const raw = String(value ?? "").trim().replace(",", ".");
+  if (raw === "" || raw === "." || raw === "0.") return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // Keep up to 4 decimals so users can type values like 0.015 / 2.5 freely.
+  return Number(Math.min(1000, n).toFixed(4));
+}
+
 function clampLot(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return 0.01;
-  return Math.min(100, Math.max(0.01, Number(n.toFixed(2))));
+  return normalizeLot(value) ?? 0.01;
 }
 
 function formatSetupPrice(value) {
@@ -655,14 +663,25 @@ export default function ChartScanner() {
           <span>Lot size</span>
           <input
             className="cs-lot"
-            type="number"
-            min="0.01"
-            max="100"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
+            enterKeyHint="done"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="0.01"
             value={lotSize}
             disabled={busy}
-            onChange={(e) => setLotSize(clampLot(e.target.value))}
-            onBlur={() => persistTradeSettings(trades, lotSize)}
+            onChange={(e) => {
+              // Allow any numeric draft while typing (including "", "0.", "1.25").
+              const next = e.target.value.replace(/[^\d.,]/g, "");
+              setLotSize(next);
+            }}
+            onBlur={() => {
+              const next = clampLot(lotSize);
+              setLotSize(String(next));
+              persistTradeSettings(trades, next);
+            }}
           />
         </label>
       </div>
