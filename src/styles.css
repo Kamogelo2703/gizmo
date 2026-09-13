@@ -3565,6 +3565,7 @@ button {
 
 
 
+
 .v2-avatar-wrap {
   position: relative;
   width: min(72vw, 280px);
@@ -3572,14 +3573,11 @@ button {
   border-radius: 50%;
   margin: 10px auto 0;
   background: #000;
-  overflow: visible;
-  isolation: isolate;
+  overflow: hidden;
   animation: avatar-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .v2-avatar {
-  position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3587,130 +3585,21 @@ button {
   display: block;
   background: #000;
   border-radius: 50%;
-  /* Keep the artwork fire ring crisp inside the circle */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85);
+  /* Subtle pulse so the artwork's own red fire feels alive */
+  animation: portal-fire-breathe 2.8s ease-in-out infinite;
+  will-change: filter;
 }
 
-/* Animate the artwork's existing red fire ring — same look, living motion */
-.v2-fire-anim {
-  position: absolute;
-  inset: -3px;
-  z-index: 2;
-  border-radius: 50%;
-  pointer-events: none;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(255, 40, 0, 0.05) 20deg,
-    rgba(255, 70, 0, 0.55) 40deg,
-    rgba(255, 180, 40, 0.75) 52deg,
-    rgba(255, 40, 0, 0.35) 68deg,
-    transparent 90deg,
-    rgba(255, 30, 0, 0.08) 120deg,
-    rgba(255, 90, 0, 0.6) 145deg,
-    rgba(255, 200, 60, 0.8) 158deg,
-    rgba(255, 40, 0, 0.3) 175deg,
-    transparent 200deg,
-    rgba(255, 50, 0, 0.5) 240deg,
-    rgba(255, 160, 30, 0.7) 255deg,
-    rgba(255, 30, 0, 0.25) 275deg,
-    transparent 300deg,
-    rgba(255, 80, 0, 0.55) 330deg,
-    rgba(255, 190, 50, 0.7) 345deg,
-    transparent 360deg
-  );
-  -webkit-mask-image: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 14px),
-    #000 calc(100% - 11px),
-    #000 calc(100% - 2px),
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 14px),
-    #000 calc(100% - 11px),
-    #000 calc(100% - 2px),
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  animation:
-    fire-orbit 2.4s linear infinite,
-    fire-flicker 0.55s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
-.v2-fire-anim--glow {
-  inset: -10px;
-  z-index: 0;
-  opacity: 0.85;
-  mix-blend-mode: screen;
-  -webkit-mask-image: none;
-  mask-image: none;
-  filter: blur(10px) saturate(1.35);
-  animation:
-    fire-orbit 3.6s linear infinite reverse,
-    fire-flicker 0.7s ease-in-out infinite;
-}
-
-.v2-fire-anim--sparks {
-  inset: -6px;
-  z-index: 3;
-  opacity: 0.9;
-  background: conic-gradient(
-    from 40deg,
-    transparent 0deg 18deg,
-    rgba(255, 220, 120, 0.95) 20deg 22deg,
-    transparent 24deg 70deg,
-    rgba(255, 120, 40, 0.9) 72deg 74deg,
-    transparent 76deg 130deg,
-    rgba(255, 200, 80, 0.95) 132deg 134deg,
-    transparent 136deg 200deg,
-    rgba(255, 80, 20, 0.9) 202deg 204deg,
-    transparent 206deg 280deg,
-    rgba(255, 230, 140, 0.95) 282deg 284deg,
-    transparent 286deg 360deg
-  );
-  -webkit-mask-image: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 8px),
-    #000 calc(100% - 6px),
-    #000 calc(100% - 1px),
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 8px),
-    #000 calc(100% - 6px),
-    #000 calc(100% - 1px),
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  filter: blur(0.4px);
-  animation:
-    fire-orbit 1.5s linear infinite,
-    fire-flicker 0.35s ease-in-out infinite;
-}
-
-@keyframes fire-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes fire-flicker {
+@keyframes portal-fire-breathe {
   0%,
   100% {
-    opacity: 0.72;
+    filter: brightness(1) contrast(1) saturate(1);
   }
-  30% {
-    opacity: 1;
+  40% {
+    filter: brightness(1.08) contrast(1.06) saturate(1.12);
   }
-  55% {
-    opacity: 0.8;
-  }
-  78% {
-    opacity: 0.95;
+  70% {
+    filter: brightness(0.97) contrast(1.02) saturate(1.05);
   }
 }
 
