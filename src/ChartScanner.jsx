@@ -50,7 +50,9 @@ export default function ChartScanner() {
     saveSymbolMeta,
     ensureCatalog,
     mt5Session,
+    activeInterface,
     setZetaView,
+    setV2View,
     showToast,
     setEngineMode,
     setEngineStep,
@@ -95,6 +97,11 @@ export default function ChartScanner() {
   const activeStepLabel =
     TRADE_ENGINE_STEPS[Math.min(engineStep, TRADE_ENGINE_STEPS.length - 1)]?.label ||
     "Trading engine ready";
+
+  function openMetaTrader() {
+    if (activeInterface === "v2") setV2View("metatrader");
+    else setZetaView("metatrader");
+  }
 
   function persistTradeSettings(nextTrades = trades, nextLot = lotSize, nextSymbol = symbol) {
     const meta = getSymbolMeta(nextSymbol);
@@ -186,7 +193,7 @@ export default function ChartScanner() {
     }
     if (!connected) {
       showToast("Connect MT5 first to execute trades");
-      setZetaView("metatrader");
+      openMetaTrader();
       return;
     }
 
@@ -523,7 +530,7 @@ export default function ChartScanner() {
         <button
           className="cs-connect-link"
           type="button"
-          onClick={() => setZetaView("metatrader")}
+          onClick={openMetaTrader}
         >
           Connect MetaTrader before scanning →
         </button>
