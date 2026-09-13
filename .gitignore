@@ -6,3 +6,15 @@ dist
 .env.*
 !.env.example
 .vite
+
+# Android / Capacitor
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/keystore/signing.properties
+android/keystore/*.jks
+android/keystore/*.keystore
+*.apk
+!public/ZETA-SCALPER-AI.apk
