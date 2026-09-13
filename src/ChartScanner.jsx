@@ -64,7 +64,7 @@ function formatSetupPrice(value) {
   return String(n);
 }
 
-export default function ChartScanner() {
+export default function ChartScanner({ variant = "default" }) {
   const {
     activeBot,
     eas,
@@ -491,7 +491,7 @@ export default function ChartScanner() {
     scansLeft > 0;
 
   return (
-    <section className="view is-active view-scanner">
+    <section className={`view is-active view-scanner${variant === "v2" ? " cs-v2" : ""}`}>
       <header className="cs-head">
         <div className="cs-head-main">
           <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
@@ -506,55 +506,59 @@ export default function ChartScanner() {
       </header>
 
       <div className={`cs-stage${engineActive ? " is-running" : ""}${preview ? " has-chart" : ""}`}>
-        <div className="cs-viewport" aria-label="Chart preview">
-          {preview ? (
-            <img className="cs-chart" src={preview} alt="Chart to scan" />
-          ) : (
-            <div className="cs-empty">
-              <p className="cs-empty-copy">
-                Point the camera at a chart or upload a screenshot
-              </p>
-              <span className="cs-empty-orb" aria-hidden="true" />
-            </div>
-          )}
-          <div className={`cs-scan-beam${engineActive ? " is-on" : ""}`} aria-hidden="true" />
-          <div className={`cs-scan-grid${engineActive ? " is-on" : ""}`} aria-hidden="true" />
-          {engineActive ? (
-            <div className="cs-engine-chip">
-              <span className="cs-engine-pulse" />
-              <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
-            </div>
-          ) : null}
-        </div>
+        <div className="cs-stage-main">
+          <div className="cs-viewport" aria-label="Chart preview">
+            {preview ? (
+              <img className="cs-chart" src={preview} alt="Chart to scan" />
+            ) : (
+              <div className="cs-empty">
+                <p className="cs-empty-copy">
+                  {variant === "v2"
+                    ? "Point at a chart or upload a screenshot"
+                    : "Point the camera at a chart or upload a screenshot"}
+                </p>
+                <span className="cs-empty-orb" aria-hidden="true" />
+              </div>
+            )}
+            <div className={`cs-scan-beam${engineActive ? " is-on" : ""}`} aria-hidden="true" />
+            <div className={`cs-scan-grid${engineActive ? " is-on" : ""}`} aria-hidden="true" />
+            {engineActive ? (
+              <div className="cs-engine-chip">
+                <span className="cs-engine-pulse" />
+                <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
+              </div>
+            ) : null}
+          </div>
 
-        <div className="cs-capture-row">
-          <button className="cs-capture-btn" type="button" onClick={openCamera} disabled={busy}>
-            <span className="cs-capture-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.2-1.8A1.5 1.5 0 0 1 10.9 3.5h2.2a1.5 1.5 0 0 1 1.2.7L15.5 6h2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                />
-                <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
-            </span>
-            Camera
-          </button>
-          <button className="cs-capture-btn" type="button" onClick={openUpload} disabled={busy}>
-            <span className="cs-capture-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            Upload
-          </button>
+          <div className="cs-capture-row">
+            <button className="cs-capture-btn" type="button" onClick={openCamera} disabled={busy}>
+              <span className="cs-capture-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.2-1.8A1.5 1.5 0 0 1 10.9 3.5h2.2a1.5 1.5 0 0 1 1.2.7L15.5 6h2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+                </svg>
+              </span>
+              Camera
+            </button>
+            <button className="cs-capture-btn" type="button" onClick={openUpload} disabled={busy}>
+              <span className="cs-capture-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              Upload
+            </button>
+          </div>
         </div>
 
         <input
