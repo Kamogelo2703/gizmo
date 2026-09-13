@@ -2,6 +2,7 @@ import { useState } from "react";
 import ChartScanner from "./ChartScanner.jsx";
 import { useApp } from "./store.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
+import TopBar from "./TopBar.jsx";
 
 export default function V2Interface() {
   const {
@@ -47,6 +48,7 @@ export default function V2Interface() {
   return (
     <div className="iface-layer is-active" data-iface="v2">
       <main className="v2-stage">
+        <TopBar />
         {v2View === "home" && (
           <section className="v2-view is-active">
             <p className="v2-top-title">

@@ -233,26 +233,18 @@ button {
 }
 
 .top {
-  /* Overlay the stage so scrolling never leaves a solid black header band
-     that clips the bot — glow + avatar stay visible under Kama. */
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 12;
+  /* Lives inside .stage / .v2-stage so Kama + interface switch scroll away. */
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 6px;
-  min-height: calc(48px + env(safe-area-inset-top, 0px));
+  width: 100%;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 4px 4px;
+  min-height: calc(44px + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
   background: transparent;
-  pointer-events: none;
-}
-
-.top .iface-toggle {
-  pointer-events: auto;
 }
 
 .username {
@@ -357,7 +349,6 @@ button {
 }
 
 .phone[data-interface="v2"] .top {
-  position: relative;
   z-index: 4;
 }
 
@@ -366,9 +357,7 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  /* Extra top padding clears the overlaid header at rest; on scroll the
-     avatar moves into the glow under .top — no black curtain. */
-  padding: calc(52px + env(safe-area-inset-top, 0px)) 20px 28px;
+  padding: 8px 20px 28px;
   min-height: 0;
   max-width: 100%;
   overflow-x: hidden;
@@ -377,7 +366,7 @@ button {
   overscroll-behavior-x: none;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
-  gap: 28px;
+  gap: 20px;
 }
 
 .hero {
@@ -3511,7 +3500,7 @@ button {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
   touch-action: pan-y;
-  padding: calc(48px + env(safe-area-inset-top, 0px)) 18px 18px;
+  padding: 8px 18px 18px;
   position: relative;
   z-index: 1;
 }
