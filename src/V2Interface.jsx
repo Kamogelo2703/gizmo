@@ -132,7 +132,7 @@ export default function V2Interface() {
                         type="button"
                         onClick={() => selectBot(bot.id)}
                       >
-                        <img src={bot.photo || "/logo.png"} alt="" width="42" height="42" />
+                        <img src={bot.photo || "/logo.png"} alt="" width="40" height="40" />
                         <span>{bot.name}</span>
                       </button>
                     ))
