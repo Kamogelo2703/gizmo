@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ChartScanner from "./ChartScanner.jsx";
 import { useApp } from "./store.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 
@@ -22,7 +23,7 @@ export default function V2Interface() {
     editingSymbol,
     setEditingSymbol,
     showToast,
-    coverEmail,
+    mentorDisplayName,
   } = useApp();
 
   const [lotSize, setLotSize] = useState(0.01);
@@ -61,7 +62,9 @@ export default function V2Interface() {
                 />
               </div>
               <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
-              {coverEmail ? <p className="v2-account">{coverEmail}</p> : null}
+              {mentorDisplayName ? (
+                <p className="v2-account">{mentorDisplayName}</p>
+              ) : null}
             </div>
             <div className="v2-pill-bar">
               <button
@@ -254,6 +257,12 @@ export default function V2Interface() {
           </section>
         )}
 
+        {v2View === "scanner" && (
+          <section className="v2-view is-active">
+            <ChartScanner />
+          </section>
+        )}
+
         {v2View === "metatrader" && (
           <section className="v2-view is-active v2-view-metatrader">
             <MetaTraderPanel variant="v2" />
@@ -263,11 +272,18 @@ export default function V2Interface() {
 
       <nav className="v2-tabbar" aria-label="V2 primary">
         <button
-          className={`v2-tab${v2View !== "metatrader" ? " is-active" : ""}`}
+          className={`v2-tab${v2View === "home" || v2View === "quotes" || v2View === "symbol-edit" ? " is-active" : ""}`}
           type="button"
           onClick={() => setV2View("home")}
         >
           <span>HOME</span>
+        </button>
+        <button
+          className={`v2-tab${v2View === "scanner" ? " is-active" : ""}`}
+          type="button"
+          onClick={() => setV2View("scanner")}
+        >
+          <span>CHART SCANNER</span>
         </button>
         <button
           className={`v2-tab${v2View === "metatrader" ? " is-active" : ""}`}

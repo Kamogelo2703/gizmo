@@ -64,6 +64,7 @@ export function normalizeLicense(row) {
     .trim()
     .toLowerCase();
   const clientName = String(row?.clientName || row?.name || "").trim();
+  const mentorName = String(row?.mentorName || row?.ownerName || "").trim();
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -74,6 +75,7 @@ export function normalizeLicense(row) {
       .trim()
       .toLowerCase(),
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
+    mentorName,
     used: Boolean(row?.used),
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
@@ -108,6 +110,9 @@ export function mergeLicenses(localList = [], remoteList = []) {
       ...row,
       clientEmail: row.clientEmail || prev.clientEmail || "",
       clientName: row.clientName || prev.clientName || "",
+      mentorEmail: row.mentorEmail || prev.mentorEmail || "",
+      mentorId: row.mentorId || prev.mentorId || "",
+      mentorName: row.mentorName || prev.mentorName || "",
       // Newer updatedAt wins so deactivate (used:false) can stick.
       used: preferIncoming ? Boolean(row.used) : Boolean(prev.used || row.used),
       usedAt: preferIncoming

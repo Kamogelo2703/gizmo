@@ -66,6 +66,7 @@ export default function ChartScanner() {
     ensureCatalog,
     mt5Session,
     setZetaView,
+    setV2View,
     showToast,
     setEngineMode,
     setEngineStep,
@@ -354,6 +355,7 @@ export default function ChartScanner() {
     if (!connected) {
       showToast("Connect MT5 first to execute trades");
       setZetaView("metatrader");
+      setV2View("metatrader");
       return;
     }
 
@@ -821,7 +823,10 @@ export default function ChartScanner() {
         <button
           className="cs-connect-link"
           type="button"
-          onClick={() => setZetaView("metatrader")}
+          onClick={() => {
+            setZetaView("metatrader");
+            setV2View("metatrader");
+          }}
         >
           Connect MetaTrader before executing →
         </button>

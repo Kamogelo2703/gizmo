@@ -672,6 +672,79 @@ export function AppProvider({ children }) {
     [coverEmail, signups]
   );
 
+
+  const mentorDisplayName = useMemo(() => {
+    const formatFromEmail = (email) => {
+      const mail = String(email || "").trim();
+      if (!mail.includes("@")) return "";
+      const local = mail.split("@")[0].replace(/[._-]+/g, " ").trim();
+      if (!local) return "";
+      return local
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    };
+
+    const pickFromLicense = (row) => {
+      if (!row) return "";
+      const named = String(row.mentorName || "").trim();
+      if (named) return named;
+      return formatFromEmail(row.mentorEmail);
+    };
+
+    const account = normalizeEmail(coverEmail);
+    const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
+    const eaList = Array.isArray(eas) ? eas : [];
+    const botId = String(activeBot?.id || "").trim();
+
+    // Prefer the mentor tied to the active bot first (multi-bot clients).
+    if (botId) {
+      const forBot = keys.filter(
+        (row) =>
+          String(row.botId || "").trim() === botId ||
+          String(row.bot?.id || "").trim() === botId
+      );
+      forBot.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromBotLicense = pickFromLicense(forBot.find((row) => row?.used) || forBot[0]);
+      if (fromBotLicense) return fromBotLicense;
+    }
+
+    if (account) {
+      const used = keys.filter(
+        (row) => row?.used && normalizeEmail(row.clientEmail) === account
+      );
+      used.sort(
+        (a, b) =>
+          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+      );
+      const fromUsed = pickFromLicense(used[0]);
+      if (fromUsed) return fromUsed;
+
+      const bound = keys.filter((row) => normalizeEmail(row.clientEmail) === account);
+      bound.sort(
+        (a, b) =>
+          Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
+      );
+      const fromBound = pickFromLicense(bound[0]);
+      if (fromBound) return fromBound;
+    }
+
+    if (botId) {
+      const ea =
+        eaList.find((item) => item.id === botId) ||
+        eaList.find((item) => String(item.ownerEmail || "").includes("@"));
+      const fromOwner = formatFromEmail(ea?.ownerEmail);
+      if (fromOwner) return fromOwner;
+    }
+
+    const anyOwner = eaList.find((item) => String(item.ownerEmail || "").includes("@"));
+    return formatFromEmail(anyOwner?.ownerEmail);
+  }, [activeBot, coverEmail, eas, licenseKeys]);
+
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
     if (!signup) {
@@ -866,7 +939,13 @@ export function AppProvider({ children }) {
   const generateLicense = useCallback(
     async (
       botId,
-      { clientEmail = "", clientName = "", mentorEmail = "", mentorId = "" } = {}
+      {
+        clientEmail = "",
+        clientName = "",
+        mentorEmail = "",
+        mentorId = "",
+        mentorName = "",
+      } = {}
     ) => {
       const bot = bots.find((b) => b.id === botId);
       if (!bot) {
@@ -891,6 +970,7 @@ export function AppProvider({ children }) {
           .trim()
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
+      const ownerName = String(mentorName || "").trim();
 
       // Prefer the versioned API photo path so every activation gets the latest
       // picture. Fall back to an embedded data URL only when upload cannot sync.
@@ -925,6 +1005,7 @@ export function AppProvider({ children }) {
         clientName: name,
         mentorEmail: ownerEmail,
         mentorId: ownerId,
+        mentorName: ownerName,
         used: false,
         createdAt: Date.now(),
         usedAt: null,
@@ -1082,6 +1163,8 @@ export function AppProvider({ children }) {
                   // Don't let a logo placeholder from an old key wipe an existing picture.
                   photo: pickProfilePhoto(snapshot.photo, ea.photo),
                   strategy: snapshot.strategy || ea.strategy,
+                  ownerEmail: ea.ownerEmail || entry.mentorEmail || "",
+                  ownerId: ea.ownerId || entry.mentorId || "",
                   symbols:
                     Array.isArray(snapshot.symbols) && snapshot.symbols.length
                       ? snapshot.symbols
@@ -1096,6 +1179,8 @@ export function AppProvider({ children }) {
             name: snapshot.name || entry.botName || "Bot",
             photo: pickProfilePhoto(snapshot.photo),
             strategy: snapshot.strategy || "scalper",
+            ownerEmail: entry.mentorEmail || "",
+            ownerId: entry.mentorId || "",
             symbols: Array.isArray(snapshot.symbols) ? snapshot.symbols : [],
           },
           ...prev,
@@ -1219,6 +1304,7 @@ export function AppProvider({ children }) {
     toggleInterface,
     coverEmail,
     setCoverEmail,
+    mentorDisplayName,
     signups,
     requestSignup,
     setSignupStatus,
