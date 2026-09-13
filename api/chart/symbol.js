@@ -23,19 +23,6 @@ function normalizeSymbol(raw) {
     .replace(/[^A-Z0-9.]/g, "");
 }
 
-function extractSymbolFromText(text) {
-  const upper = String(text || "").toUpperCase();
-  let m = upper.match(/\b((?:XAU|XAG|BTC|ETH)USD(?:\.[A-Z0-9]+)?)\b/);
-  if (m) return normalizeSymbol(m[1]);
-  m = upper.match(/\b((?:US30|US500|NAS100|GER40|UK100)(?:\.[A-Z0-9]+)?)\b/);
-  if (m) return normalizeSymbol(m[1]);
-  m = upper.match(/\b([A-Z]{3})\s*[\/\-]?\s*([A-Z]{3})(\.[A-Z0-9]+)?\b/);
-  if (m) return normalizeSymbol(`${m[1]}${m[2]}${m[3] || ""}`);
-  m = upper.match(/\b([A-Z]{6})(\.[A-Z0-9]+)?\b/);
-  if (m) return normalizeSymbol(`${m[1]}${m[2] || ""}`);
-  return "";
-}
-
 function requireOpenAiKey() {
   const key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "";
   if (!key) {

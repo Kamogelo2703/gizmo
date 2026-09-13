@@ -12,6 +12,7 @@ import licensesHandler from './api/licenses/index.js'
 import licensesPhotoHandler from './api/licenses/photo.js'
 import mentorsHandler from './api/mentors/index.js'
 import chartSymbolHandler from './api/chart/symbol.js'
+import chartAnalyzeHandler from './api/chart/analyze.js'
 import paypalConfigHandler from './api/paypal/config.js'
 import paypalCreateOrderHandler from './api/paypal/create-order.js'
 import paypalCaptureOrderHandler from './api/paypal/capture-order.js'
@@ -47,6 +48,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/chart/symbol' || url.pathname === '/api/chart/symbol/') {
             req.url = `${url.pathname}${url.search}`
             return chartSymbolHandler(req, res)
+          }
+
+          if (url.pathname === '/api/chart/analyze' || url.pathname === '/api/chart/analyze/') {
+            req.url = `${url.pathname}${url.search}`
+            return chartAnalyzeHandler(req, res)
           }
 
           if (url.pathname === '/api/paypal/config' || url.pathname === '/api/paypal/config/') {
