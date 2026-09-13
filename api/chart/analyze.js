@@ -74,16 +74,21 @@ function formatRiskReward(entry, stopLoss, takeProfit) {
  * BUY:  SL < Entry < TP1 < TP2 < TP3
  * SELL: SL > Entry > TP1 > TP2 > TP3
  */
+function minStopDistance(entry) {
+  const e = Math.abs(Number(entry) || 1);
+  return Math.max(
+    e * 0.0055,
+    e >= 1000 ? 12 : e >= 100 ? 2.5 : e >= 10 ? 0.15 : 0.0045
+  );
+}
+
 function ensureMultiTpLevels({ side, entry, stopLoss }) {
   const dir = String(side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let e = toFiniteNumber(entry);
   let sl = toFiniteNumber(stopLoss);
 
   if (e == null) e = 1;
-  const riskMag = Math.max(
-    Math.abs(e) * 0.0025,
-    e >= 1000 ? 3 : e >= 100 ? 1 : e >= 10 ? 0.05 : 0.0015
-  );
+  const riskMag = minStopDistance(e);
 
   if (dir === "BUY") {
     if (sl == null || !(sl < e)) sl = e - riskMag;
@@ -91,7 +96,11 @@ function ensureMultiTpLevels({ side, entry, stopLoss }) {
     sl = e + riskMag;
   }
 
-  const risk = Math.abs(e - sl);
+  let risk = Math.abs(e - sl);
+  if (risk < riskMag) {
+    sl = dir === "BUY" ? e - riskMag : e + riskMag;
+    risk = riskMag;
+  }
   const tp1 = dir === "BUY" ? e + risk * 1 : e - risk * 1;
   const tp2 = dir === "BUY" ? e + risk * 2 : e - risk * 2;
   const tp3 = dir === "BUY" ? e + risk * 3 : e - risk * 3;
@@ -266,7 +275,7 @@ export async function analyzeChartSetupWithOpenAI({
             "ALWAYS provide side, confidence, entry, stopLoss, takeProfit1, takeProfit2, takeProfit3, riskReward, timeframe, and analysis. " +
             "Set take-profit targets using fixed risk/reward multiples of the stop distance: " +
             "TP1 = 1:1, TP2 = 1:2, TP3 = 1:3. Set riskReward to \"1:1 · 1:2 · 1:3\". " +
-            "Read entry and stop from chart structure (support/resistance, swings). " +
+            "Read entry and stop from chart structure (support/resistance, swings). " +"Stop loss MUST stay a meaningful distance from entry — never tight/scalp-close. " +"Prefer SL beyond the nearest swing so risk is at least ~0.5% of entry price. " +
             "BUY must satisfy: stopLoss < entry < takeProfit1 < takeProfit2 < takeProfit3. " +
             "SELL must satisfy: stopLoss > entry > takeProfit1 > takeProfit2 > takeProfit3. " +
             "Read the instrument from the chart header when visible. " +

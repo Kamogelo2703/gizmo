@@ -87,16 +87,23 @@ function formatRiskReward(entry, stopLoss, takeProfit) {
  * BUY:  SL < Entry < TP1 < TP2 < TP3
  * SELL: SL > Entry > TP1 > TP2 > TP3
  */
+/** Minimum stop distance so SL never hugs entry. */
+function minStopDistance(entry) {
+  const e = Math.abs(Number(entry) || 1);
+  // ~0.55% of price, with instrument-class floors (gold/indices/FX).
+  return Math.max(
+    e * 0.0055,
+    e >= 1000 ? 12 : e >= 100 ? 2.5 : e >= 10 ? 0.15 : 0.0045
+  );
+}
+
 function ensureCompleteSetup(partial = {}) {
   const side = String(partial.side || "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY";
   let entry = toFiniteNumber(partial.entry);
   let stopLoss = toFiniteNumber(partial.stopLoss);
 
   if (entry == null) entry = 1;
-  const magnitude = Math.max(
-    Math.abs(entry) * 0.0025,
-    entry >= 1000 ? 3 : entry >= 100 ? 1 : entry >= 10 ? 0.05 : 0.0015
-  );
+  const magnitude = minStopDistance(entry);
 
   if (side === "BUY") {
     if (stopLoss == null || !(stopLoss < entry)) stopLoss = entry - magnitude;
@@ -104,7 +111,12 @@ function ensureCompleteSetup(partial = {}) {
     stopLoss = entry + magnitude;
   }
 
-  const risk = Math.abs(entry - stopLoss);
+  // Always push SL out if the model placed it too close to entry.
+  let risk = Math.abs(entry - stopLoss);
+  if (risk < magnitude) {
+    stopLoss = side === "BUY" ? entry - magnitude : entry + magnitude;
+    risk = magnitude;
+  }
   let takeProfit1;
   let takeProfit2;
   let takeProfit3;
@@ -448,15 +460,15 @@ export const CONNECT_ENGINE_STEPS = [
 ];
 
 export const TRADE_ENGINE_STEPS = [
-  { id: "load", label: "Loading chart into trading engine" },
-  { id: "structure", label: "Reading market structure" },
-  { id: "bias", label: "Detecting directional bias" },
-  { id: "signal", label: "Building entry signal" },
-  { id: "levels", label: "Calculating entry, SL, TP1, TP2 and TP3" },
-  { id: "ready", label: "Trade setup ready" },
+  { id: "load", label: "LIVE · Loading chart into trading engine" },
+  { id: "structure", label: "LIVE · Reading market structure" },
+  { id: "bias", label: "LIVE · Detecting directional bias" },
+  { id: "signal", label: "LIVE · Building entry signal" },
+  { id: "levels", label: "LIVE · Calculating entry, SL, TP1, TP2 and TP3" },
+  { id: "ready", label: "LIVE · Trade setup ready" },
 ];
 
 export const EXECUTE_ENGINE_STEPS = [
-  { id: "route", label: "Routing order to connected MT5" },
-  { id: "fill", label: "Confirming broker fill" },
+  { id: "route", label: "LIVE · Routing market order to connected MT5" },
+  { id: "fill", label: "LIVE · Confirming broker fill" },
 ];

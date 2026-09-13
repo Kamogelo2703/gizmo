@@ -15,6 +15,11 @@ import {
   saveTradeManagement,
   splitVolumeAcrossTargets,
 } from "./tradeManagement.js";
+import {
+  addScanHistoryEntry,
+  formatScanTime,
+  loadScanHistory,
+} from "./scanHistory.js";
 
 const SCANS_KEY = "apexea-scans-left";
 const DEFAULT_SCANS = 25;
@@ -111,6 +116,9 @@ export default function ChartScanner({ variant = "default" }) {
   const [busy, setBusy] = useState(false);
   const [engineProgress, setEngineProgress] = useState(0);
   const [tradeManagement, setTradeManagement] = useState(() => loadTradeManagement());
+  const [scanHistory, setScanHistory] = useState(() => loadScanHistory());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState(null);
 
   useEffect(() => {
     if (!symbol) return;
@@ -311,6 +319,18 @@ export default function ChartScanner({ variant = "default" }) {
       persistTradeSettings(trades, lotSize, tradeSymbol);
 
       setSignal(result);
+      try {
+        const nextHistory = await addScanHistoryEntry({
+          ...result,
+          symbol: tradeSymbol,
+          image: preview,
+          analysis: result.analysis || result.reasons?.[0] || "",
+          reasons: result.reasons || [],
+        });
+        setScanHistory(nextHistory);
+      } catch {
+        // History save should never block a successful scan.
+      }
       setEngineStep(TRADE_ENGINE_STEPS.length - 1);
       setEngineProgress(100);
       pushEngineLog(
@@ -502,6 +522,21 @@ export default function ChartScanner({ variant = "default" }) {
           ) : null}
         </div>
         <div className="cs-head-meta">
+          <span className="cs-live-pill" title="Orders go to your connected MetaTrader account">
+            <span className="cs-live-dot" aria-hidden="true" />
+            LIVE
+          </span>
+          <button
+            className="cs-history-btn"
+            type="button"
+            onClick={() => {
+              setHistoryOpen(true);
+              setSelectedHistory(null);
+            }}
+          >
+            History
+            {scanHistory.length ? <em>{scanHistory.length}</em> : null}
+          </button>
           {variant === "v2" ? (
             <button
               className="cs-settings-btn"
@@ -603,7 +638,7 @@ export default function ChartScanner({ variant = "default" }) {
             {engineActive ? (
               <div className="cs-engine-chip">
                 <span className="cs-engine-pulse" />
-                <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
+                <span>{engineMode === "scanning" ? "LIVE Scan" : "LIVE Trade"}</span>
               </div>
             ) : null}
             {variant === "v2" && preview && engineActive ? (
@@ -713,7 +748,7 @@ export default function ChartScanner({ variant = "default" }) {
               </span>
             ) : null}
             <div>
-              <p className="cs-engine-kicker">Trading Engine</p>
+              <p className="cs-engine-kicker">Live Trading Engine</p>
               <p className="cs-engine-status">
                 {engineActive
                   ? activeStepLabel
@@ -910,14 +945,14 @@ export default function ChartScanner({ variant = "default" }) {
           {busy && engineMode === "trading"
             ? "Sending to MetaTrader…"
             : !connected
-              ? "Connect MT5 to Execute"
-              : "Execute Trade"}
+              ? "Connect MT5 to Execute LIVE"
+              : "Execute LIVE Trade"}
         </button>
       )}
 
       {setupReady && !engineActive ? (
         <div className={`cs-result cs-result--${String(signal.side).toLowerCase()}`}>
-          <p className="cs-result-kicker">Trade Signal</p>
+          <p className="cs-result-kicker">LIVE Trade Signal</p>
           <strong>
             {signal.side} {signal.symbol}
           </strong>
@@ -985,6 +1020,226 @@ export default function ChartScanner({ variant = "default" }) {
         >
           Connect MetaTrader before executing →
         </button>
+      ) : null}
+
+      <section className="cs-history-block" aria-label="Scan history">
+        <div className="cs-history-block-head">
+          <div>
+            <p className="cs-history-kicker">Scan History</p>
+            <h3>Your recent scans</h3>
+          </div>
+          <button
+            className="cs-history-btn"
+            type="button"
+            onClick={() => {
+              setHistoryOpen(true);
+              setSelectedHistory(null);
+            }}
+          >
+            Open all
+            {scanHistory.length ? <em>{scanHistory.length}</em> : null}
+          </button>
+        </div>
+
+        {scanHistory.length === 0 ? (
+          <p className="cs-history-empty-inline">
+            No scans yet. After you scan a chart, it appears here with Entry, SL, TPs, reason, and the image.
+          </p>
+        ) : (
+          <div className="cs-history-rail">
+            {scanHistory.slice(0, 8).map((item) => (
+              <button
+                key={item.id}
+                className="cs-history-card"
+                type="button"
+                onClick={() => {
+                  setSelectedHistory(item);
+                  setHistoryOpen(true);
+                }}
+              >
+                {item.image ? (
+                  <img src={item.image} alt="" />
+                ) : (
+                  <span className="cs-history-thumb" aria-hidden="true" />
+                )}
+                <span className="cs-history-card-copy">
+                  <strong>
+                    {item.side} {item.symbol}
+                  </strong>
+                  <small>
+                    Entry {formatSetupPrice(item.entry)} · SL {formatSetupPrice(item.stopLoss)}
+                  </small>
+                  <small>
+                    TP1 {formatSetupPrice(item.takeProfit1)} · TP2 {formatSetupPrice(item.takeProfit2)}
+                  </small>
+                  <small>{formatScanTime(item.createdAt)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {historyOpen ? (
+        <div className="cs-history-sheet" role="dialog" aria-modal="true" aria-label="Scan history">
+          <button
+            className="cs-history-backdrop"
+            type="button"
+            aria-label="Close history"
+            onClick={() => {
+              setHistoryOpen(false);
+              setSelectedHistory(null);
+            }}
+          />
+          <div className="cs-history-panel">
+            <header className="cs-history-head">
+              <div>
+                <p className="cs-history-kicker">Scan History</p>
+                <h3>{selectedHistory ? "Setup detail" : "Recent scans"}</h3>
+              </div>
+              <button
+                className="cs-history-close"
+                type="button"
+                onClick={() => {
+                  if (selectedHistory) setSelectedHistory(null);
+                  else setHistoryOpen(false);
+                }}
+              >
+                {selectedHistory ? "Back" : "Close"}
+              </button>
+            </header>
+
+            {selectedHistory ? (
+              <div className="cs-history-detail">
+                {selectedHistory.image ? (
+                  <img
+                    className="cs-history-chart"
+                    src={selectedHistory.image}
+                    alt={`${selectedHistory.side} ${selectedHistory.symbol} chart`}
+                  />
+                ) : (
+                  <div className="cs-history-chart is-empty">No chart image saved</div>
+                )}
+                <div className="cs-history-badge-row">
+                  <span className={`cs-history-side is-${String(selectedHistory.side).toLowerCase()}`}>
+                    {selectedHistory.side} {selectedHistory.symbol}
+                  </span>
+                  <span className="cs-live-pill is-compact">LIVE</span>
+                  <span className="cs-history-time">{formatScanTime(selectedHistory.createdAt)}</span>
+                </div>
+                <p className="cs-history-meta">
+                  Confidence {selectedHistory.confidence || "—"}% · {selectedHistory.timeframe || "M15"}
+                </p>
+                <div className="cs-history-levels-wrap">
+                  <h4>Trade levels</h4>
+                  <div className="cs-setup-grid cs-history-levels">
+                    <span>
+                      <em>Entry</em>
+                      {formatSetupPrice(selectedHistory.entry)}
+                    </span>
+                    <span>
+                      <em>Stop Loss</em>
+                      {formatSetupPrice(selectedHistory.stopLoss)}
+                    </span>
+                    <span className="cs-tp cs-tp--1">
+                      <em>TP1 · 1:1</em>
+                      {formatSetupPrice(selectedHistory.takeProfit1)}
+                    </span>
+                    <span className="cs-tp cs-tp--2">
+                      <em>TP2 · 1:2</em>
+                      {formatSetupPrice(selectedHistory.takeProfit2)}
+                    </span>
+                    <span className="cs-tp cs-tp--3">
+                      <em>TP3 · 1:3</em>
+                      {formatSetupPrice(selectedHistory.takeProfit3)}
+                    </span>
+                    <span>
+                      <em>Risk / Reward</em>
+                      {selectedHistory.riskReward || "1:1 · 1:2 · 1:3"}
+                    </span>
+                  </div>
+                </div>
+                <div className="cs-history-reason">
+                  <h4>Reason for trade</h4>
+                  <p>
+                    {selectedHistory.analysis ||
+                      selectedHistory.reasons?.[0] ||
+                      "Setup from chart structure"}
+                  </p>
+                  {(() => {
+                    const primary = String(
+                      selectedHistory.analysis || selectedHistory.reasons?.[0] || ""
+                    ).trim();
+                    const extras = (selectedHistory.reasons || [])
+                      .map((r) => String(r).trim())
+                      .filter((r) => r && r !== primary)
+                      .slice(0, 4);
+                    if (!extras.length) return null;
+                    return (
+                      <ul>
+                        {extras.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
+                <button
+                  className="cs-run-btn"
+                  type="button"
+                  onClick={() => {
+                    setSignal({
+                      ...selectedHistory,
+                      reasons: selectedHistory.reasons || [],
+                    });
+                    if (selectedHistory.image) setPreview(selectedHistory.image);
+                    if (selectedHistory.symbol) setSymbol(selectedHistory.symbol);
+                    setHistoryOpen(false);
+                    setSelectedHistory(null);
+                    showToast("Loaded scan into scanner");
+                  }}
+                >
+                  Load this setup
+                </button>
+              </div>
+            ) : scanHistory.length === 0 ? (
+              <p className="cs-history-empty">No scans yet — run a chart scan to build history.</p>
+            ) : (
+              <div className="cs-history-list">
+                {scanHistory.map((item) => (
+                  <button
+                    key={item.id}
+                    className="cs-history-row"
+                    type="button"
+                    onClick={() => setSelectedHistory(item)}
+                  >
+                    {item.image ? (
+                      <img src={item.image} alt="" />
+                    ) : (
+                      <span className="cs-history-thumb" aria-hidden="true" />
+                    )}
+                    <span className="cs-history-copy">
+                      <strong>
+                        {item.side} {item.symbol}
+                      </strong>
+                      <small>
+                        Entry {formatSetupPrice(item.entry)} · SL {formatSetupPrice(item.stopLoss)}
+                      </small>
+                      <small>
+                        TP1 {formatSetupPrice(item.takeProfit1)} · TP2{" "}
+                        {formatSetupPrice(item.takeProfit2)} · TP3 {formatSetupPrice(item.takeProfit3)}
+                      </small>
+                      <small>{formatScanTime(item.createdAt)}</small>
+                    </span>
+                    <span className="cs-history-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       ) : null}
     </section>
   );
