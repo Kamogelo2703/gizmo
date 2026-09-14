@@ -5979,6 +5979,413 @@ html:has(.phone[data-interface="v2"]) body {
   }
 }
 
+/* —— Zeta Chart Scanner (Interface 1) — neon glass HUD; leave .cs-v2 alone —— */
+.view-scanner:not(.cs-v2) {
+  gap: 12px;
+  padding: 6px 8px 16px;
+}
+
+.view-scanner:not(.cs-v2) .cs-tagline {
+  margin: 6px 0 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.view-scanner:not(.cs-v2) .cs-head-meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 7px 8px;
+  justify-items: end;
+  align-items: center;
+}
+
+.view-scanner:not(.cs-v2) .cs-settings-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.view-scanner:not(.cs-v2) .cs-settings-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.view-scanner:not(.cs-v2) .cs-settings-btn:active {
+  transform: scale(0.94);
+}
+
+.view-scanner:not(.cs-v2) .cs-scans-left {
+  grid-column: 1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--pink-soft-rgb), 0.55);
+  background:
+    linear-gradient(135deg, rgba(var(--pink-rgb), 0.42), rgba(var(--pink-hot-rgb), 0.28));
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    0 10px 22px rgba(var(--pink-rgb), 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.view-scanner:not(.cs-v2) .cs-scans-icon {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.view-scanner:not(.cs-v2) .cs-scans-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.view-scanner:not(.cs-v2) .cs-mt-pill {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.view-scanner:not(.cs-v2) .cs-mt-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff3b4a;
+  box-shadow: 0 0 8px rgba(255, 59, 74, 0.55);
+}
+
+.view-scanner:not(.cs-v2) .cs-mt-pill.is-on {
+  color: #9dffc4;
+}
+
+.view-scanner:not(.cs-v2) .cs-mt-pill.is-on .cs-mt-dot {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.55);
+}
+
+.view-scanner:not(.cs-v2) .cs-stage {
+  padding: 14px 12px;
+  border-radius: 24px;
+  gap: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--pink-rgb), 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(14, 10, 18, 0.92), rgba(6, 6, 10, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+}
+
+.view-scanner:not(.cs-v2) .cs-viewport {
+  aspect-ratio: 1 / 1;
+  max-height: min(42vh, 280px);
+  min-height: 200px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(var(--pink-rgb), 0.12), transparent 55%),
+    #05060a;
+}
+
+.view-scanner:not(.cs-v2) .cs-stage.has-chart .cs-viewport,
+.view-scanner:not(.cs-v2) .cs-stage:has(.cs-chart) .cs-viewport {
+  aspect-ratio: 16 / 11;
+  max-height: min(36vh, 250px);
+  min-height: 170px;
+}
+
+.view-scanner:not(.cs-v2) .cs-empty {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 8px;
+}
+
+.view-scanner:not(.cs-v2) .cs-slogan {
+  margin: 0;
+  max-width: 2.4rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  line-height: 1.35;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.view-scanner:not(.cs-v2) .cs-slogan::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--pink-soft);
+  box-shadow: 0 0 8px rgba(var(--pink-soft-rgb), 0.8);
+  transform: translateX(-50%) rotate(90deg);
+}
+
+.view-scanner:not(.cs-v2) .cs-slogan--right {
+  transform: none;
+  writing-mode: vertical-rl;
+}
+
+.view-scanner:not(.cs-v2) .cs-slogan--right::after {
+  bottom: auto;
+  top: -10px;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-frame {
+  position: relative;
+  width: clamp(132px, 38vw, 176px);
+  height: clamp(132px, 38vw, 176px);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-glow {
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(var(--pink-rgb), 0.45) 0%, transparent 62%),
+    radial-gradient(circle, rgba(var(--pink-hot-rgb), 0.28) 0%, transparent 70%);
+  filter: blur(6px);
+  animation: cs-breathe 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-orb {
+  width: 100%;
+  height: 100%;
+  order: 0;
+  overflow: hidden;
+  background: #0a0a0e;
+  box-shadow:
+    0 0 0 3px rgba(var(--pink-rgb), 0.95),
+    0 0 0 6px rgba(8, 6, 12, 0.95),
+    0 0 28px rgba(var(--pink-rgb), 0.85),
+    0 0 64px rgba(var(--pink-hot-rgb), 0.45),
+    inset 0 0 24px rgba(var(--pink-rgb), 0.25);
+  animation: cs-breathe 3.6s ease-in-out infinite;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-orb .stop-energy {
+  z-index: 2;
+  transform: scale(1.08);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-orb::before,
+.view-scanner:not(.cs-v2) .cs-robot-orb::after {
+  inset: -10px;
+  border-color: rgba(var(--pink-soft-rgb), 0.55);
+  box-shadow: 0 0 18px rgba(var(--pink-rgb), 0.4);
+}
+
+.view-scanner:not(.cs-v2) .cs-robot-orb::after {
+  inset: -20px;
+  border-color: rgba(var(--pink-rgb), 0.28);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-row {
+  gap: 10px;
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-btn {
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  justify-content: flex-start;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-text {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-text strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-text em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-chevron {
+  margin-left: auto;
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-btn.is-primary {
+  border-color: rgba(var(--pink-soft-rgb), 0.55);
+  background:
+    linear-gradient(180deg, rgba(var(--pink-rgb), 0.22), rgba(255, 255, 255, 0.04));
+  box-shadow:
+    0 10px 28px rgba(var(--pink-rgb), 0.28),
+    inset 0 0 0 1px rgba(var(--pink-soft-rgb), 0.18);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-btn.is-primary .cs-capture-icon,
+.view-scanner:not(.cs-v2) .cs-capture-btn.is-primary .cs-capture-chevron {
+  color: var(--pink-soft);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-btn.is-ghost {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-icon {
+  width: 22px;
+  height: 22px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.view-scanner:not(.cs-v2) .cs-capture-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.view-scanner:not(.cs-v2) .cs-engine {
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.view-scanner:not(.cs-v2) .cs-engine-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-scanner:not(.cs-v2) .cs-engine-gear {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--pink-soft);
+  background: rgba(var(--pink-rgb), 0.14);
+  border: 1px solid rgba(var(--pink-soft-rgb), 0.35);
+  flex-shrink: 0;
+}
+
+.view-scanner:not(.cs-v2) .cs-engine-gear svg {
+  width: 18px;
+  height: 18px;
+}
+
+.view-scanner:not(.cs-v2) .cs-tp-config-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-scanner:not(.cs-v2) .cs-tp-config-icon {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--pink-soft);
+}
+
+.view-scanner:not(.cs-v2) .cs-tp-config-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-height: 760px) {
+  .view-scanner:not(.cs-v2) .cs-viewport {
+    max-height: min(34vh, 220px);
+    min-height: 170px;
+  }
+
+  .view-scanner:not(.cs-v2) .cs-robot-frame {
+    width: clamp(110px, 34vw, 148px);
+    height: clamp(110px, 34vw, 148px);
+  }
+
+  .view-scanner:not(.cs-v2) .cs-capture-btn {
+    min-height: 56px;
+  }
+}
+
+@media (max-width: 360px) {
+  .view-scanner:not(.cs-v2) .cs-slogan {
+    font-size: 0.5rem;
+    max-width: 1.9rem;
+  }
+
+  .view-scanner:not(.cs-v2) .cs-capture-text strong {
+    font-size: 0.7rem;
+  }
+}
+
 /* —— V2 Chart Scanner only (Zeta / default untouched) —— */
 /* Exact light glass reference: lavender field + blue→purple accents */
 .phone[data-interface="v2"]:has(.view-scanner.cs-v2) {
