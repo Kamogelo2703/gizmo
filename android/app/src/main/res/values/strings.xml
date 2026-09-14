@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ZETA SCALPER AI</string>
-    <string name="title_activity_main">ZETA SCALPER AI</string>
+    <string name="app_name">apex-ea</string>
+    <string name="title_activity_main">apex-ea</string>
     <string name="package_name">com.apexea.zetascalper</string>
     <string name="custom_url_scheme">com.apexea.zetascalper</string>
 </resources>

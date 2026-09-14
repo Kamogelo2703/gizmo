@@ -1,6 +1,6 @@
 {
   "appId": "com.apexea.zetascalper",
-  "appName": "ZETA SCALPER AI",
+  "appName": "apex-ea",
   "webDir": "dist",
   "server": {
     "cleartext": false,

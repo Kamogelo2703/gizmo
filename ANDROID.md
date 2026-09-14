@@ -1,4 +1,4 @@
-# Android APK (ZETA SCALPER AI)
+# Android APK (apex-ea)
 
 Capacitor shell for the **client trading app only** (not the mentor portal).
 
@@ -13,11 +13,13 @@ is baked into the APK.
 
 - **Android:** 7.0+ (API 24 and up) — Capacitor 8 minimum
 - **Portal:** `/admin` is blocked in the native shell
+- **Install name:** `apex-ea` (launcher icon + splash use the ApexEA logo)
 
 ## Download
 
-- Sideload file: `public/ZETA-SCALPER-AI.apk`
-- After deploy: https://www.apex-ea.com/ZETA-SCALPER-AI.apk
+- Sideload file: `public/apex-ea.apk`
+- After deploy: https://www.apex-ea.com/apex-ea.apk
+- Legacy URL (same package): https://www.apex-ea.com/ZETA-SCALPER-AI.apk
 
 ## Rebuild
 
@@ -26,7 +28,8 @@ cp android/keystore/signing.properties.example android/keystore/signing.properti
 # set passwords + ensure apexea-release.jks exists under android/keystore/
 export ANDROID_HOME=/home/ubuntu/android-sdk
 npm run android:apk
-cp android/app/build/outputs/apk/release/app-release.apk public/ZETA-SCALPER-AI.apk
+cp android/app/build/outputs/apk/release/app-release.apk public/apex-ea.apk
+cp public/apex-ea.apk public/ZETA-SCALPER-AI.apk
 ```
 
 APK output: `android/app/build/outputs/apk/release/app-release.apk`

@@ -465,7 +465,7 @@ export function AppProvider({ children }) {
     if (typeof document === "undefined") return undefined;
     const previous = document.title;
     if (adminOpen) document.title = "Admin — APEX EA";
-    else document.title = previous.includes("Admin") ? "ZETA SCALPER AI — ApexEA" : previous;
+    else document.title = previous.includes("Admin") ? "apex-ea" : previous;
     return () => {
       document.title = previous;
     };
