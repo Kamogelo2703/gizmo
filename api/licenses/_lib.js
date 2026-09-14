@@ -184,7 +184,7 @@ function dataUrlFromPhoto(photo) {
 }
 
 /** Cap embedded license photos so licenses.json stays usable. */
-function shrinkDataUrl(dataUrl, maxChars = 60_000) {
+function shrinkDataUrl(dataUrl, maxChars = 900_000) {
   const value = String(dataUrl || "");
   if (!value.startsWith("data:image/") || value.length <= maxChars) return value;
   // Already over budget — keep a truncated marker so callers fall back cleanly.
@@ -283,8 +283,9 @@ export async function persistBotPhoto(botId, photo) {
     return botPhotoApiPath(id);
   } catch (error) {
     console.warn("ea photo upload failed", error.message);
-    // GitHub unavailable — embed the image so license activation still shows it.
-    return shrinkDataUrl(`data:${parsed.mime};base64,${parsed.base64}`) || "/logo.png";
+    // Keep serving full-quality bytes from memory/local via the API path.
+    // Do not crush the artwork into a tiny data URL — that makes Home look blurry.
+    return botPhotoApiPath(id);
   }
 }
 
@@ -366,8 +367,10 @@ function shouldReplacePhoto(prevPhoto, nextPhoto) {
   // Prefer durable API path over a stale embedded data URL from device migration.
   if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return true;
   if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return false;
-  // Existing key POST from migration must not clobber an already-good photo.
-  if (next.startsWith("data:") && prev.startsWith("data:")) return false;
+  // Prefer the larger (sharper) embedded artwork when both are data URLs.
+  if (next.startsWith("data:") && prev.startsWith("data:")) {
+    return next.length > prev.length + 2048;
+  }
   return next !== prev;
 }
 

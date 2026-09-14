@@ -186,7 +186,8 @@ function pickProfilePhoto(...candidates) {
 function persistablePhoto(value) {
   const photo = String(value || "").trim();
   if (!photo) return "/logo.png";
-  if (photo.startsWith("data:image/") && photo.length > 450_000) return "/logo.png";
+  // Prefer API paths; allow larger data URLs so full-bleed heroes stay sharp.
+  if (photo.startsWith("data:image/") && photo.length > 1_200_000) return "/logo.png";
   return photo;
 }
 
@@ -217,28 +218,17 @@ function stripHeavyPhotos(payload) {
   };
 }
 
-/** Turn an API photo URL into a data URL so the license JSON carries the image. */
+/** Prefer durable API photo paths so Home can show full-quality bytes. */
 async function materializePhotoForLicense(photo) {
   const value = String(photo || "").trim();
   if (!value || value === "/logo.png") return "/logo.png";
+  // Keep API / remote URLs as-is — embedding as data URLs crushed artwork to
+  // ~256px and made the Interface 2 hero look blurry on phones.
+  if (value.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(value)) {
+    return value;
+  }
   if (value.startsWith("data:image/")) return value;
-  if (!value.startsWith("/api/licenses/photo") && !/^https?:\/\//i.test(value)) {
-    return value;
-  }
-  try {
-    const response = await fetch(value, { cache: "no-store" });
-    if (!response.ok) return value;
-    const blob = await response.blob();
-    if (!blob || !String(blob.type || "").startsWith("image/")) return value;
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || value));
-      reader.onerror = () => resolve(value);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return value;
-  }
+  return value;
 }
 
 function saveState(payload) {

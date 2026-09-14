@@ -7,6 +7,17 @@ import TopBar from "./TopBar.jsx";
 import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
 import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 
+function resolveHeroPhoto(bot) {
+  const photo = String(bot?.photo || "").trim();
+  const id = String(bot?.id || "").trim();
+  // Prefer the full-quality API file over tiny legacy data-URL embeds.
+  if (id && photo.startsWith("data:image/")) {
+    return `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`;
+  }
+  if (photo) return photo;
+  return "/zeta-fire-portal.jpg";
+}
+
 export default function V2Interface() {
   const {
     activeBot,
@@ -38,11 +49,16 @@ export default function V2Interface() {
   const [platform, setPlatform] = useState("MT5");
   const [trades, setTrades] = useState(1);
   const [floatCycle, setFloatCycle] = useState(false);
+  const [heroBroken, setHeroBroken] = useState("");
 
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
-  const heroSrc = activeBot?.photo || "/zeta-fire-portal.jpg";
+  const preferredHero = resolveHeroPhoto(activeBot);
+  const heroSrc =
+    heroBroken === preferredHero
+      ? activeBot?.photo || "/zeta-fire-portal.jpg"
+      : preferredHero;
   const floatSrc = activeBot?.photo || "/logo.png";
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
@@ -88,7 +104,19 @@ export default function V2Interface() {
             <div className="v2-home-header">
               <div className="v2-home-hero">
                 <div className="v2-home-hero-media" aria-hidden="true">
-                  <img className="v2-home-hero-img" src={heroSrc} alt="" />
+                  <img
+                    className="v2-home-hero-img"
+                    key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
+                    src={heroSrc}
+                    alt=""
+                    decoding="async"
+                    fetchPriority="high"
+                    onError={() => {
+                      if (preferredHero && heroBroken !== preferredHero) {
+                        setHeroBroken(preferredHero);
+                      }
+                    }}
+                  />
                 </div>
                 <div className="v2-home-hero-copy">
                   <p className="v2-home-hero-kicker">You are trading with</p>

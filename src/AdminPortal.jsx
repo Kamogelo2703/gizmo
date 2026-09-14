@@ -538,9 +538,9 @@ export default function AdminPortal() {
       const dataUrl = String(reader.result || "");
       const img = new Image();
       img.onload = () => {
-        // Keep the full artwork (no square crop). Cap the longest edge so
-        // Home can show a large portrait hero at near-original quality.
-        const maxEdge = 1400;
+        // Keep the full artwork (no square crop). Cap the longest edge high so
+        // Interface 2's full-bleed hero stays sharp on retina phones.
+        const maxEdge = 2400;
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height, 1));
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -569,7 +569,7 @@ export default function AdminPortal() {
         setPhoto(
           preferPng
             ? canvas.toDataURL("image/png")
-            : canvas.toDataURL("image/jpeg", 0.92)
+            : canvas.toDataURL("image/jpeg", 0.96)
         );
         setPhotoUploaded(true);
         showToast("Picture ready");

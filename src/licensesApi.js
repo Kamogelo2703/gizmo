@@ -202,8 +202,12 @@ export function photoFreshness(photo) {
   if (version) return Number(version[1]) || 1;
   if (value.startsWith("/api/licenses/photo")) return 2;
   if (/^https?:\/\//i.test(value)) return 2;
-  // Unversioned data URLs are real, but lose to a fresh versioned API path.
-  if (value.startsWith("data:image/")) return 1;
+  // Longer data URLs are usually higher-res artwork (tiny embeds look blurry on Home).
+  if (value.startsWith("data:image/")) {
+    if (value.length > 200_000) return 1.5;
+    if (value.length > 80_000) return 1.2;
+    return 1;
+  }
   return 0;
 }
 

@@ -3720,6 +3720,10 @@ html:has(.phone[data-interface="v2"]) body {
   transform: none;
   filter: none;
   animation: none !important;
+  /* Keep photographic artwork sharp when scaled to the phone width */
+  image-rendering: auto;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Shade kept in DOM for compatibility but fully transparent — photo stays natural */
