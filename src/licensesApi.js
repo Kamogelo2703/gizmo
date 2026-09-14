@@ -111,6 +111,7 @@ export function normalizeLicense(row) {
   const clientName = String(row?.clientName || row?.name || "").trim();
   const mentorName = String(row?.mentorName || row?.ownerName || "").trim();
   const mainText = String(row?.mainText || row?.username || clientName || "").trim();
+  const deviceId = String(row?.deviceId || "").trim() || null;
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -132,6 +133,12 @@ export function normalizeLicense(row) {
       : Number(row.expiresAt) || null,
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    deviceId,
+    boundAt: row?.boundAt
+      ? Number(row.boundAt)
+      : deviceId
+        ? Number(row?.usedAt) || null
+        : null,
     updatedAt: Number(row?.updatedAt || row?.usedAt || row?.createdAt) || Date.now(),
     bot: bot
       ? {
@@ -180,6 +187,16 @@ export function mergeLicenses(localList = [], remoteList = []) {
           ? row.usedAt || prev.usedAt || null
           : null
         : row.usedAt || prev.usedAt || null,
+      deviceId: preferIncoming
+        ? row.used
+          ? row.deviceId || prev.deviceId || null
+          : null
+        : row.deviceId || prev.deviceId || null,
+      boundAt: preferIncoming
+        ? row.used
+          ? row.boundAt || prev.boundAt || null
+          : null
+        : row.boundAt || prev.boundAt || null,
       commissionEligible: preferIncoming
         ? Boolean(row.commissionEligible)
         : Boolean(prev.commissionEligible || row.commissionEligible),
@@ -292,10 +309,16 @@ export async function uploadBotPhotoRemote(botId, photo) {
   return String(data?.photo || "/logo.png");
 }
 
-export async function markLicenseUsedRemote(key) {
+export async function markLicenseUsedRemote(key, { deviceId = "", email = "" } = {}) {
   const data = await apiFetch("", {
     method: "PATCH",
-    body: { key: normalizeLicenseKey(key) },
+    body: {
+      key: normalizeLicenseKey(key),
+      deviceId: String(deviceId || "").trim(),
+      email: String(email || "")
+        .trim()
+        .toLowerCase(),
+    },
   });
   return normalizeLicense(data?.license);
 }

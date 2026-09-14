@@ -63,7 +63,10 @@ export default async function handler(req, res) {
         action === "deactivate" || body.used === false || body.deactivate === true;
       const license = shouldDeactivate
         ? await deactivateLicense(body.key)
-        : await markLicenseUsed(body.key);
+        : await markLicenseUsed(body.key, {
+            deviceId: body.deviceId || "",
+            email: body.email || body.clientEmail || "",
+          });
       sendJson(res, 200, { license });
       return;
     }

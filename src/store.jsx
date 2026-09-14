@@ -31,6 +31,7 @@ import {
   pickFresherPhoto,
   uploadBotPhotoRemote,
 } from "./licensesApi.js";
+import { getOrCreateDeviceId } from "./deviceId.js";
 import { fetchMentors } from "./mentorsApi.js";
 import {
   DEFAULT_APP_COLOR,
@@ -1405,6 +1406,8 @@ export function AppProvider({ children }) {
         expiresAt: timing.expiresAt,
         createdAt,
         usedAt: null,
+        deviceId: null,
+        boundAt: null,
         updatedAt: Date.now(),
         bot: {
           id: bot.id,
@@ -1527,22 +1530,32 @@ export function AppProvider({ children }) {
         return false;
       }
 
-      const licenseEmail = normalizeEmail(entry.clientEmail);
-      if (licenseEmail && licenseEmail !== accountEmail) {
-        showToast(`This key is bound to ${licenseEmail}, not ${accountEmail}`);
-        return false;
-      }
-      if (!licenseEmail) {
-        showToast("This key has no client email — generate a new key with email + name");
-        return false;
-      }
-      if (entry.used) {
-        showToast("License key already used");
-        return false;
-      }
       if (isLicenseExpired(entry)) {
         showToast("License key has expired — ask your mentor for a new one");
         return false;
+      }
+
+      const deviceId = getOrCreateDeviceId();
+      const boundDevice = String(entry.deviceId || "").trim();
+      if (entry.used && boundDevice && boundDevice !== deviceId) {
+        showToast("This license is locked to another phone");
+        return false;
+      }
+
+      // Bind to this phone first so another device cannot claim the same key.
+      let remote = null;
+      try {
+        remote = await markLicenseUsedRemote(entry.key || key, {
+          deviceId,
+          email: accountEmail,
+        });
+      } catch (error) {
+        showToast(error.message || "Could not lock license to this phone");
+        return false;
+      }
+      if (remote) {
+        entry = remote;
+        setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
       }
 
       const snapshot = entry.bot || {
@@ -1614,7 +1627,7 @@ export function AppProvider({ children }) {
         ];
       });
 
-      const usedAt = Date.now();
+      const usedAt = Number(entry.usedAt) || Date.now();
       const priorUsed = licenseKeys.some(
         (item) =>
           normalizeEmail(item.clientEmail) === accountEmail &&
@@ -1638,9 +1651,15 @@ export function AppProvider({ children }) {
             ...entry,
             used: true,
             usedAt,
+            deviceId: entry.deviceId || deviceId,
+            boundAt: entry.boundAt || usedAt,
             updatedAt: usedAt,
-            commissionEligible,
-            commissionReason,
+            commissionEligible:
+              entry.commissionEligible != null
+                ? Boolean(entry.commissionEligible)
+                : commissionEligible,
+            commissionReason: entry.commissionReason || commissionReason,
+            clientEmail: entry.clientEmail || accountEmail,
           },
         ])
       );
@@ -1655,13 +1674,6 @@ export function AppProvider({ children }) {
           },
         ])
       );
-
-      try {
-        const remote = await markLicenseUsedRemote(entry.key || key);
-        if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
-      } catch (error) {
-        showToast(error.message || "Could not sync license use");
-      }
 
       showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
       return true;
@@ -1685,6 +1697,8 @@ export function AppProvider({ children }) {
         key: local?.key || key,
         used: false,
         usedAt: null,
+        deviceId: null,
+        boundAt: null,
         updatedAt: Date.now(),
       };
       setLicenseKeys((prev) => mergeLicenses(prev, [cleared]));
