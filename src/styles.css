@@ -7460,6 +7460,11 @@ html:has(.phone[data-interface="v2"]) body {
   font-size: 0.82rem;
 }
 
+.econ-cal-directions-body.is-empty {
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+}
+
 .econ-cal-hint {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.5);

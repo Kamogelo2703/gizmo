@@ -1,14 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatEventDay } from "./economicCalendarApi.js";
 import {
-  fetchEconomicEvents,
-  formatEventDay,
-  todayDateKey,
-} from "./economicCalendarApi.js";
-import {
+  getMentorSignalForEvent,
   getNextOfficialEvent,
-  matchMentorDirection,
+  SA_TIMEZONE,
 } from "./economicCalendarSchedule.js";
 import { useApp } from "./store.jsx";
+
+function todaySaDateKey(now = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: SA_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const y = parts.find((p) => p.type === "year")?.value;
+    const m = parts.find((p) => p.type === "month")?.value;
+    const d = parts.find((p) => p.type === "day")?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    // fall through
+  }
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }) {
   const normalize = (value) =>
@@ -64,7 +82,6 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     [activeBot, coverEmail, eas, licenseKeys]
   );
 
-  // Refresh "today" across midnight so the next event advances automatically.
   useEffect(() => {
     const timer = setInterval(() => setNowTick(Date.now()), 60_000);
     return () => clearInterval(timer);
@@ -76,6 +93,7 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     (async () => {
       setLoading(true);
       try {
+        const { fetchEconomicEvents } = await import("./economicCalendarApi.js");
         const list = await fetchEconomicEvents(mentorEmail);
         if (!cancelled) setMentorEvents(list);
       } catch {
@@ -90,12 +108,13 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
   }, [open, mentorEmail]);
 
   const now = useMemo(() => new Date(nowTick), [nowTick]);
-  const today = todayDateKey(now);
+  const today = todaySaDateKey(now);
   const nextEvent = useMemo(() => getNextOfficialEvent(now), [now]);
   const isToday = Boolean(nextEvent && nextEvent.date === today);
-  const directions = useMemo(
-    () => matchMentorDirection(nextEvent, mentorEvents),
-    [nextEvent, mentorEvents]
+  // Show mentor signal for the current/next event until the day after (then it clears).
+  const signal = useMemo(
+    () => getMentorSignalForEvent(nextEvent, mentorEvents, now),
+    [nextEvent, mentorEvents, now]
   );
 
   return (
@@ -152,21 +171,21 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
                 </p>
                 <p className="econ-cal-copy">
                   {isToday
-                    ? directions
-                      ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Follow your mentor’s signal direction below.`
-                      : `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Come back once your mentor posts a signal direction.`
-                    : `The next event is on ${formatEventDay(nextEvent.date)} (${nextEvent.title}). Come back on the day for directions.`}
+                    ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}.`
+                    : `The next event is on ${formatEventDay(nextEvent.date)} (${nextEvent.title}).`}
                 </p>
-                {isToday && directions ? (
-                  <div className="econ-cal-directions">
-                    <p className="econ-cal-directions-label">Signal direction</p>
-                    <p className="econ-cal-directions-body">{directions}</p>
-                  </div>
-                ) : null}
-                <p className="econ-cal-hint">
-                  Shows one event at a time (NFP, PPI, CPI, or FOMC). After this day it updates
-                  automatically. Signal directions remove themselves the day after the event.
-                </p>
+                <div className="econ-cal-directions">
+                  <p className="econ-cal-directions-label">Signal direction</p>
+                  {signal ? (
+                    <p className="econ-cal-directions-body">{signal}</p>
+                  ) : (
+                    <p className="econ-cal-directions-body is-empty">
+                      {isToday
+                        ? "No signal direction from your mentor yet."
+                        : "No signal direction yet — your mentor will add it from their portal."}
+                    </p>
+                  )}
+                </div>
               </>
             )}
           </div>

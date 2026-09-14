@@ -267,9 +267,10 @@ export function findOfficialEvent({ id = "", date = "", title = "" } = {}) {
   );
 }
 
-export function matchMentorDirection(official, mentorEvents = [], now = new Date()) {
+export function getMentorSignalForEvent(official, mentorEvents = [], now = new Date()) {
   if (!official) return "";
-  if (!isSignalDirectionVisibleToday(official, now)) return "";
+  // Cleared the day after the event.
+  if (isSignalDirectionExpired(official, now)) return "";
   const list = Array.isArray(mentorEvents) ? mentorEvents : [];
   const exact = list.find(
     (row) =>
@@ -279,6 +280,13 @@ export function matchMentorDirection(official, mentorEvents = [], now = new Date
         normalizeMacroTitle(row.title) === official.title)
   );
   return String(exact?.directions || "").trim();
+}
+
+export function matchMentorDirection(official, mentorEvents = [], now = new Date()) {
+  if (!official) return "";
+  // Client day-of display: only on the event day.
+  if (!isSignalDirectionVisibleToday(official, now)) return "";
+  return getMentorSignalForEvent(official, mentorEvents, now);
 }
 
 export function filterActiveMentorDirections(mentorEvents = [], now = new Date()) {
