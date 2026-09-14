@@ -1,8 +1,80 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChartScanner from "./ChartScanner.jsx";
+import { buildBotTradeComment } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
+
+const FLOAT_POS_KEY = "apexea-v2-float-pos";
+const FLOAT_SIZE = 58;
+const DRAG_THRESHOLD = 8;
+
+function loadFloatPos() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FLOAT_POS_KEY) || "null");
+    if (raw && Number.isFinite(raw.x) && Number.isFinite(raw.y)) {
+      return { x: raw.x, y: raw.y };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function saveFloatPos(pos) {
+  try {
+    localStorage.setItem(FLOAT_POS_KEY, JSON.stringify(pos));
+  } catch {
+    // ignore
+  }
+}
+
+function buildOpenTradeScript({ botName, comment, symbol, lotSize, trades, action }) {
+  const name = botName || "Bot";
+  const sym = symbol || "XAUUSD";
+  const lot = Number(lotSize) > 0 ? Number(lotSize) : 0.01;
+  const count = Math.max(1, Math.floor(Number(trades) || 1));
+  const mode = String(action || "BOTH").toUpperCase();
+  return `// ApexEA · open-trade script
+// Robot: ${name}
+// Used when this bot opens MetaTrader fills
+
+#property strict
+
+input string InpBotName      = "${name}";
+input string InpTradeComment = "${comment}";
+input string InpSymbol       = "${sym}";
+input double InpLotSize      = ${lot};
+input int    InpTrades       = ${count};
+input string InpAction       = "${mode}"; // BUY | SELL | BOTH
+
+bool OpenApexTrade(ENUM_ORDER_TYPE type, double sl, double tp, string tag)
+{
+   MqlTradeRequest req = {};
+   MqlTradeResult  res = {};
+
+   req.action    = TRADE_ACTION_DEAL;
+   req.symbol    = InpSymbol;
+   req.volume    = InpLotSize;
+   req.type      = type;
+   req.price     = (type == ORDER_TYPE_BUY)
+                     ? SymbolInfoDouble(InpSymbol, SYMBOL_ASK)
+                     : SymbolInfoDouble(InpSymbol, SYMBOL_BID);
+   req.sl        = sl;
+   req.tp        = tp;
+   req.deviation = 20;
+   req.magic     = 2703;
+   req.comment   = StringFormat("%s|%s", InpTradeComment, tag);
+
+   return OrderSend(req, res);
+}
+
+// Scanner / bot fill pattern:
+// OpenApexTrade(ORDER_TYPE_BUY,  sl, tp1, "TP1");
+// OpenApexTrade(ORDER_TYPE_BUY,  sl, tp2, "TP2");
+// OpenApexTrade(ORDER_TYPE_BUY,  sl, tp3, "TP3");
+`;
+}
 
 export default function V2Interface() {
   const {
@@ -34,12 +106,124 @@ export default function V2Interface() {
   const [platform, setPlatform] = useState("MT5");
   const [trades, setTrades] = useState(1);
   const [floatCycle, setFloatCycle] = useState(false);
+  const [floatPos, setFloatPos] = useState(() => loadFloatPos());
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const floatRef = useRef(null);
+  const dragRef = useRef({
+    active: false,
+    moved: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    origX: 0,
+    origY: 0,
+  });
 
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const heroSrc = activeBot?.photo || "/zeta-fire-portal.jpg";
   const floatSrc = activeBot?.photo || "/logo.png";
+  const tradeComment = buildBotTradeComment(activeBot?.name);
+  const scriptSymbol =
+    editingSymbol ||
+    (activeBot?.symbols && activeBot.symbols[0]) ||
+    catalog[0] ||
+    "XAUUSD";
+  const scriptMeta = getSymbolMeta(scriptSymbol);
+  const openTradeScript = buildOpenTradeScript({
+    botName: activeBot?.name || "Bot",
+    comment: tradeComment,
+    symbol: scriptSymbol,
+    lotSize: scriptMeta?.lotSize ?? lotSize,
+    trades: scriptMeta?.trades ?? trades,
+    action: scriptMeta?.action ?? action,
+  });
+
+  useEffect(() => {
+    if (!scriptOpen) return undefined;
+    function onKey(event) {
+      if (event.key === "Escape") setScriptOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [scriptOpen]);
+
+  function clampFloatPos(x, y) {
+    const layer = floatRef.current?.offsetParent;
+    const width = layer?.clientWidth || window.innerWidth;
+    const height = layer?.clientHeight || window.innerHeight;
+    const maxX = Math.max(8, width - FLOAT_SIZE - 8);
+    const maxY = Math.max(8, height - FLOAT_SIZE - 8);
+    return {
+      x: Math.min(maxX, Math.max(8, x)),
+      y: Math.min(maxY, Math.max(8, y)),
+    };
+  }
+
+  function onFloatPointerDown(event) {
+    if (event.button != null && event.button !== 0) return;
+    const node = floatRef.current;
+    if (!node) return;
+    const parent = node.offsetParent;
+    const parentRect = parent?.getBoundingClientRect();
+    const rect = node.getBoundingClientRect();
+    const current = floatPos || {
+      x: rect.left - (parentRect?.left || 0),
+      y: rect.top - (parentRect?.top || 0),
+    };
+    dragRef.current = {
+      active: true,
+      moved: false,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      origX: current.x,
+      origY: current.y,
+    };
+    node.setPointerCapture?.(event.pointerId);
+  }
+
+  function onFloatPointerMove(event) {
+    const drag = dragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    drag.moved = true;
+    const next = clampFloatPos(drag.origX + dx, drag.origY + dy);
+    setFloatPos(next);
+  }
+
+  function onFloatPointerUp(event) {
+    const drag = dragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    drag.active = false;
+    try {
+      floatRef.current?.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // ignore
+    }
+    if (drag.moved) {
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      const next = clampFloatPos(drag.origX + dx, drag.origY + dy);
+      setFloatPos(next);
+      saveFloatPos(next);
+      return;
+    }
+    // Tap: show open-trade script — do not stop the robot.
+    setScriptOpen(true);
+  }
+
+  async function copyOpenTradeScript() {
+    try {
+      await navigator.clipboard.writeText(openTradeScript);
+      showToast("Trade script copied");
+    } catch {
+      showToast("Could not copy script");
+    }
+  }
 
   function openLicense() {
     const signup = getSignup(coverEmail);
@@ -367,21 +551,60 @@ export default function V2Interface() {
 
       {(floatCycle || v2Running) && v2View === "home" ? (
         <button
-          className="v2-float-cycle is-on"
+          ref={floatRef}
+          className={`v2-float-cycle is-on${floatPos ? " is-placed" : ""}`}
           type="button"
-          aria-label={`${activeBot?.name || "Bot"} live profile`}
-          onClick={() => {
-            setFloatCycle(false);
-            if (v2Running) {
-              setV2Running(false);
-              showToast("Bot stopped");
-            }
+          aria-label={`${activeBot?.name || "Bot"} trade script`}
+          title="Drag to move · tap for trade script"
+          style={
+            floatPos
+              ? { left: `${floatPos.x}px`, top: `${floatPos.y}px`, right: "auto", bottom: "auto" }
+              : undefined
+          }
+          onPointerDown={onFloatPointerDown}
+          onPointerMove={onFloatPointerMove}
+          onPointerUp={onFloatPointerUp}
+          onPointerCancel={onFloatPointerUp}
+          onClick={(event) => {
+            // Handled in pointer up — block default button click.
+            event.preventDefault();
           }}
         >
           <span className="v2-float-cycle-ring" aria-hidden="true" />
           <span className="v2-float-cycle-ring v2-float-cycle-ring--outer" aria-hidden="true" />
-          <img className="v2-float-cycle-photo" src={floatSrc} alt="" />
+          <img className="v2-float-cycle-photo" src={floatSrc} alt="" draggable={false} />
         </button>
+      ) : null}
+
+      {scriptOpen ? (
+        <div className="v2-script-sheet" role="dialog" aria-modal="true" aria-label="Open trade script">
+          <button
+            className="v2-script-backdrop"
+            type="button"
+            aria-label="Close script"
+            onClick={() => setScriptOpen(false)}
+          />
+          <div className="v2-script-panel">
+            <header className="v2-script-head">
+              <div>
+                <p className="v2-script-kicker">Opening trades</p>
+                <h2>{activeBot?.name || "Bot"} script</h2>
+              </div>
+              <button className="v2-script-close" type="button" onClick={() => setScriptOpen(false)}>
+                Close
+              </button>
+            </header>
+            <p className="v2-script-note">
+              Comment tag <strong>{tradeComment}</strong> · robot stays running
+            </p>
+            <pre className="v2-script-code">{openTradeScript}</pre>
+            <div className="v2-script-actions">
+              <button className="v2-script-copy" type="button" onClick={copyOpenTradeScript}>
+                Copy script
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
