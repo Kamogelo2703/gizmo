@@ -6,6 +6,7 @@ const DRAG_THRESHOLD = 8;
 const TYPE_MS = 22;
 const POPOVER_GAP = 10;
 const POPOVER_WIDTH = 280;
+const WELCOME_TEXT = "Welcome back";
 
 function loadFloatPos(storageKey) {
   try {
@@ -50,6 +51,8 @@ export default function TradeScriptOrb({
   botName = "Bot",
   script,
   comment,
+  openingTrades = false,
+  tradeLive = null,
   storageKey = "apexea-float-pos",
   showToast,
 }) {
@@ -69,9 +72,25 @@ export default function TradeScriptOrb({
     origX: 0,
     origY: 0,
   });
+  const wasOpeningRef = useRef(false);
 
-  const fullScript = script || "";
-  const tradeComment = comment || buildBotTradeComment(botName);
+  const live = tradeLive && typeof tradeLive === "object" ? tradeLive : null;
+  const isOpening = Boolean(openingTrades || live);
+  const displayName = String(live?.botName || botName || "Bot").trim() || "Bot";
+  const tradeComment =
+    String(live?.comment || comment || buildBotTradeComment(displayName)).trim() ||
+    buildBotTradeComment(displayName);
+  const fullScript = isOpening
+    ? live
+      ? buildShortOpenTradeScript({
+          botName: displayName,
+          comment: tradeComment,
+          symbol: live.symbol,
+          lotSize: live.lotSize,
+          action: live.action || live.side || "BOTH",
+        })
+      : script || ""
+    : WELCOME_TEXT;
 
   function measurePopover() {
     const orb = floatRef.current;
@@ -107,7 +126,7 @@ export default function TradeScriptOrb({
     const onResize = () => measurePopover();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [scriptOpen, floatPos, typed, visible]);
+  }, [scriptOpen, floatPos, typed, visible, isOpening]);
 
   useEffect(() => {
     if (!scriptOpen) {
@@ -128,6 +147,14 @@ export default function TradeScriptOrb({
     }, TYPE_MS);
     return () => window.clearInterval(id);
   }, [scriptOpen, fullScript]);
+
+  // When the robot starts opening trades, open the panel and type the trade script.
+  useEffect(() => {
+    if (isOpening && !wasOpeningRef.current && visible) {
+      setScriptOpen(true);
+    }
+    wasOpeningRef.current = isOpening;
+  }, [isOpening, visible]);
 
   useEffect(() => {
     if (!scriptOpen) return undefined;
@@ -204,6 +231,7 @@ export default function TradeScriptOrb({
   }
 
   async function copyScript() {
+    if (!isOpening || !fullScript) return;
     try {
       await navigator.clipboard.writeText(fullScript);
       showToast?.("Trade script copied");
@@ -219,10 +247,12 @@ export default function TradeScriptOrb({
       {visible ? (
         <button
           ref={floatRef}
-          className={`trade-float-orb is-on${floatPos ? " is-placed" : ""}${scriptOpen ? " is-open" : ""}`}
+          className={`trade-float-orb is-on${floatPos ? " is-placed" : ""}${scriptOpen ? " is-open" : ""}${
+            isOpening ? " is-trading" : ""
+          }`}
           type="button"
-          aria-label={`${botName} trade script`}
-          title="Drag to move · tap for trade script"
+          aria-label={isOpening ? `${displayName} opening trades` : `${displayName} welcome`}
+          title={isOpening ? "Drag to move · tap for trade script" : "Drag to move · tap to open"}
           style={
             floatPos
               ? { left: `${floatPos.x}px`, top: `${floatPos.y}px`, right: "auto", bottom: "auto" }
@@ -241,16 +271,21 @@ export default function TradeScriptOrb({
       ) : null}
 
       {scriptOpen ? (
-        <div className="trade-script-sheet is-anchored" role="dialog" aria-modal="true" aria-label="Open trade script">
+        <div
+          className="trade-script-sheet is-anchored"
+          role="dialog"
+          aria-modal="true"
+          aria-label={isOpening ? "Open trade script" : "Welcome back"}
+        >
           <button
             className="trade-script-backdrop"
             type="button"
-            aria-label="Close script"
+            aria-label="Close"
             onClick={() => setScriptOpen(false)}
           />
           <div
             ref={panelRef}
-            className="trade-script-panel is-anchored"
+            className={`trade-script-panel is-anchored${isOpening ? " is-opening" : " is-welcome"}`}
             style={{
               left: `${popoverPos.left}px`,
               top: `${popoverPos.top}px`,
@@ -261,25 +296,44 @@ export default function TradeScriptOrb({
             <span className="trade-script-arrow" aria-hidden="true" />
             <header className="trade-script-head">
               <div>
-                <p className="trade-script-kicker">Opening trades</p>
-                <h2>{botName} script</h2>
+                {isOpening ? (
+                  <>
+                    <p className="trade-script-kicker">Opening trades</p>
+                    <h2>{displayName} script</h2>
+                  </>
+                ) : (
+                  <>
+                    <p className="trade-script-kicker">Ready</p>
+                    <h2>{displayName}</h2>
+                  </>
+                )}
               </div>
               <button className="trade-script-close" type="button" onClick={() => setScriptOpen(false)}>
                 Close
               </button>
             </header>
-            <p className="trade-script-note">
-              Comment tag <strong>{tradeComment}</strong>
-            </p>
-            <pre className={`trade-script-code${typingDone ? " is-done" : " is-typing"}`}>
+            {isOpening ? (
+              <p className="trade-script-note">
+                Comment tag <strong>{tradeComment}</strong>
+              </p>
+            ) : (
+              <p className="trade-script-note">Your robot is standing by.</p>
+            )}
+            <pre
+              className={`trade-script-code${typingDone ? " is-done" : " is-typing"}${
+                isOpening ? "" : " is-welcome"
+              }`}
+            >
               {typed}
               <span className="trade-script-caret" aria-hidden="true" />
             </pre>
-            <div className="trade-script-actions">
-              <button className="trade-script-copy" type="button" onClick={copyScript}>
-                Copy script
-              </button>
-            </div>
+            {isOpening ? (
+              <div className="trade-script-actions">
+                <button className="trade-script-copy" type="button" onClick={copyScript}>
+                  Copy script
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

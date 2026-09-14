@@ -309,6 +309,7 @@ export function AppProvider({ children }) {
   const [engineMode, setEngineMode] = useState("idle");
   const [engineStep, setEngineStep] = useState(0);
   const [engineLogs, setEngineLogs] = useState([]);
+  const [orbTradeLive, setOrbTradeLive] = useState(null);
   const persistReady = useRef(false);
 
   const syncAdminPath = useCallback((open) => {
@@ -1512,6 +1513,22 @@ export function AppProvider({ children }) {
     setV2View("home");
   }, []);
 
+  const publishOrbTrade = useCallback((details = {}) => {
+    setOrbTradeLive({
+      botName: String(details.botName || "").trim(),
+      comment: String(details.comment || "").trim(),
+      symbol: String(details.symbol || "").trim().toUpperCase(),
+      lotSize: Number(details.lotSize) > 0 ? Number(details.lotSize) : 0.01,
+      action: String(details.action || details.side || "BOTH").toUpperCase(),
+      side: String(details.side || "").toUpperCase(),
+      at: Date.now(),
+    });
+  }, []);
+
+  const clearOrbTrade = useCallback(() => {
+    setOrbTradeLive(null);
+  }, []);
+
   const value = {
     activeInterface,
     toggleInterface,
@@ -1585,6 +1602,9 @@ export function AppProvider({ children }) {
     engineLogs,
     setEngineLogs,
     pushEngineLog,
+    orbTradeLive,
+    publishOrbTrade,
+    clearOrbTrade,
     STRATEGY_LABELS,
   };
 

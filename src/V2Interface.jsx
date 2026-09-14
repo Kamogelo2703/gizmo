@@ -42,6 +42,8 @@ export default function V2Interface() {
     getSignup,
     coverEmail,
     v2ScannerPremium,
+    orbTradeLive,
+    clearOrbTrade,
   } = useApp();
 
   const [lotSize, setLotSize] = useState(0.01);
@@ -70,9 +72,9 @@ export default function V2Interface() {
   const openTradeScript = buildShortOpenTradeScript({
     botName: activeBot?.name || "Bot",
     comment: tradeComment,
-    symbol: scriptSymbol,
-    lotSize: scriptMeta?.lotSize ?? lotSize,
-    action: scriptMeta?.action ?? action,
+    symbol: orbTradeLive?.symbol || scriptSymbol,
+    lotSize: orbTradeLive?.lotSize ?? scriptMeta?.lotSize ?? lotSize,
+    action: orbTradeLive?.action || scriptMeta?.action || action,
   });
 
   function openLicense() {
@@ -133,6 +135,7 @@ export default function V2Interface() {
                   setV2Running(next);
                   // Floating cycle profile pops in immediately with TRADE.
                   setFloatCycle(next);
+                  if (!next) clearOrbTrade?.();
                   showToast(next ? `${activeBot?.name || "Bot"} started` : "Bot stopped");
                 }}
               >
@@ -420,6 +423,8 @@ export default function V2Interface() {
         botName={activeBot?.name || "Bot"}
         script={openTradeScript}
         comment={tradeComment}
+        openingTrades={Boolean(orbTradeLive)}
+        tradeLive={orbTradeLive}
         storageKey="apexea-float-pos-v2"
         showToast={showToast}
       />

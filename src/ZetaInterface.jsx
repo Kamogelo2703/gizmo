@@ -22,6 +22,8 @@ export default function ZetaInterface() {
     coverEmail,
     catalog,
     getSymbolMeta,
+    orbTradeLive,
+    clearOrbTrade,
   } = useApp();
 
   const running = v2Running;
@@ -33,14 +35,15 @@ export default function ZetaInterface() {
   const openTradeScript = buildShortOpenTradeScript({
     botName: activeBot?.name || "Bot",
     comment: tradeComment,
-    symbol: scriptSymbol,
-    lotSize: scriptMeta?.lotSize ?? 0.01,
-    action: scriptMeta?.action ?? "BOTH",
+    symbol: orbTradeLive?.symbol || scriptSymbol,
+    lotSize: orbTradeLive?.lotSize ?? scriptMeta?.lotSize ?? 0.01,
+    action: orbTradeLive?.action || scriptMeta?.action || "BOTH",
   });
 
   function toggleRun() {
     const next = !running;
     setV2Running(next);
+    if (!next) clearOrbTrade?.();
     showToast(next ? `${activeBot?.name || "Bot"} started` : "Bot stopped");
   }
 
@@ -164,6 +167,8 @@ export default function ZetaInterface() {
         botName={activeBot?.name || "Bot"}
         script={openTradeScript}
         comment={tradeComment}
+        openingTrades={Boolean(orbTradeLive)}
+        tradeLive={orbTradeLive}
         storageKey="apexea-float-pos-zeta"
         showToast={showToast}
       />

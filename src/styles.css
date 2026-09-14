@@ -4361,6 +4361,22 @@ html:has(.phone[data-interface="v2"]) body {
   -webkit-overflow-scrolling: touch;
 }
 
+.trade-script-code.is-welcome {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  white-space: pre-wrap;
+}
+
+.trade-script-panel.is-welcome .trade-script-kicker {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .trade-script-caret {
   display: inline-block;
   width: 0.55ch;

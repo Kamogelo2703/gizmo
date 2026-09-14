@@ -142,6 +142,8 @@ export default function ChartScanner({ variant = "default" }) {
     engineStep,
     engineLogs,
     toggleInterface,
+    publishOrbTrade,
+    clearOrbTrade,
   } = useApp();
 
   const uploadRef = useRef(null);
@@ -463,6 +465,17 @@ export default function ChartScanner({ variant = "default" }) {
     setEngineStep(0);
     setEngineProgress(12);
     persistTradeSettings(tradeCount, lot, tradeSymbol);
+    publishOrbTrade?.({
+      botName: activeBot?.name || "Bot",
+      comment: tradeComment,
+      symbol: tradeSymbol,
+      lotSize: lot,
+      action: side || action,
+      side,
+    });
+    // Show the floating script on Home while trades are opening.
+    if (variant === "v2") setV2View("home");
+    else setZetaView("home");
 
     try {
       pushEngineLog(
@@ -541,9 +554,12 @@ export default function ChartScanner({ variant = "default" }) {
       }
       await sleep(700);
       setEngineMode("idle");
+      // Keep the opening-trades script visible briefly, then return to welcome.
+      window.setTimeout(() => clearOrbTrade?.(), 12000);
     } catch (error) {
       setEngineMode("idle");
       setEngineProgress(0);
+      clearOrbTrade?.();
       showToast(error.message || "Execution failed");
     } finally {
       setBusy(false);
