@@ -16,26 +16,84 @@ import {
   splitVolumeAcrossTargets,
 } from "./tradeManagement.js";
 
-const SCANS_KEY = "apexea-scans-left";
-const DEFAULT_SCANS = 25;
+/** Daily scan quotas — Interface 1 (Zeta) vs Interface 2 (V2). */
+const SCAN_QUOTA_ZETA = 9;
+const SCAN_QUOTA_V2 = 20;
+const SCANS_STORE_KEY = "apexea-daily-scans-v1";
 
-function loadScansLeft() {
+function todayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function scanBucket(variant) {
+  return variant === "v2" ? "v2" : "zeta";
+}
+
+function scanQuota(variant) {
+  return scanBucket(variant) === "v2" ? SCAN_QUOTA_V2 : SCAN_QUOTA_ZETA;
+}
+
+function readScanStore() {
   try {
-    const raw = localStorage.getItem(SCANS_KEY);
-    if (raw == null) return DEFAULT_SCANS;
-    const n = Number(raw);
-    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : DEFAULT_SCANS;
+    const raw = localStorage.getItem(SCANS_STORE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+    return data;
   } catch {
-    return DEFAULT_SCANS;
+    return null;
   }
 }
 
-function saveScansLeft(value) {
+function writeScanStore(data) {
   try {
-    localStorage.setItem(SCANS_KEY, String(value));
+    localStorage.setItem(SCANS_STORE_KEY, JSON.stringify(data));
   } catch {
     // ignore
   }
+}
+
+/** Remaining scans for this interface today (resets each local calendar day). */
+function loadScansLeft(variant) {
+  const bucket = scanBucket(variant);
+  const quota = scanQuota(variant);
+  const day = todayKey();
+  const prev = readScanStore();
+  if (!prev || prev.day !== day) {
+    const fresh = { day, zeta: SCAN_QUOTA_ZETA, v2: SCAN_QUOTA_V2 };
+    writeScanStore(fresh);
+    return fresh[bucket];
+  }
+  const value = Number(prev[bucket]);
+  if (!Number.isFinite(value)) {
+    const next = { ...prev, day, [bucket]: quota };
+    writeScanStore(next);
+    return quota;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function saveScansLeft(variant, value) {
+  const bucket = scanBucket(variant);
+  const day = todayKey();
+  const prev = readScanStore();
+  const next = {
+    day,
+    zeta:
+      prev?.day === day && Number.isFinite(Number(prev.zeta))
+        ? Math.max(0, Math.floor(Number(prev.zeta)))
+        : SCAN_QUOTA_ZETA,
+    v2:
+      prev?.day === day && Number.isFinite(Number(prev.v2))
+        ? Math.max(0, Math.floor(Number(prev.v2)))
+        : SCAN_QUOTA_V2,
+  };
+  next[bucket] = Math.max(0, Math.floor(Number(value) || 0));
+  writeScanStore(next);
 }
 
 function clampTrades(value) {
@@ -105,12 +163,16 @@ export default function ChartScanner({ variant = "default" }) {
   const [detectingSymbol, setDetectingSymbol] = useState(false);
   const [trades, setTrades] = useState(1);
   const [lotSize, setLotSize] = useState(0.01);
-  const [scansLeft, setScansLeft] = useState(() => loadScansLeft());
+  const [scansLeft, setScansLeft] = useState(() => loadScansLeft(variant));
   const [signal, setSignal] = useState(null);
   const [fills, setFills] = useState([]);
   const [busy, setBusy] = useState(false);
   const [engineProgress, setEngineProgress] = useState(0);
   const [tradeManagement, setTradeManagement] = useState(() => loadTradeManagement());
+
+  useEffect(() => {
+    setScansLeft(loadScansLeft(variant));
+  }, [variant]);
 
   useEffect(() => {
     if (!symbol) return;
@@ -245,7 +307,11 @@ export default function ChartScanner({ variant = "default" }) {
       return;
     }
     if (scansLeft <= 0) {
-      showToast("No scans left");
+      showToast(
+        variant === "v2"
+          ? "No scans left today (20 / day)"
+          : "No scans left today (9 / day)"
+      );
       return;
     }
     if (
@@ -266,7 +332,7 @@ export default function ChartScanner({ variant = "default" }) {
 
     const nextScans = Math.max(0, scansLeft - 1);
     setScansLeft(nextScans);
-    saveScansLeft(nextScans);
+    saveScansLeft(variant, nextScans);
 
     try {
       for (let i = 0; i < TRADE_ENGINE_STEPS.length; i += 1) {
@@ -537,7 +603,7 @@ export default function ChartScanner({ variant = "default" }) {
                 </svg>
               </span>
             ) : null}
-            {variant === "v2" ? `${scansLeft} scans left` : `${scansLeft} scans left`}
+            {`${scansLeft} scans left`}
           </span>
           <span className={`cs-mt-pill${connected ? " is-on" : ""}`}>
             {variant === "v2" ? <span className="cs-mt-dot" aria-hidden="true" /> : null}
