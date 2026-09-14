@@ -37,7 +37,15 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/|apex-ea\\.apk|ZETA-SCALPER-AI\\.apk).*)",
+      "source": "/download",
+      "destination": "/download.html"
+    },
+    {
+      "source": "/download/",
+      "destination": "/download.html"
+    },
+    {
+      "source": "/((?!api/|apex-ea\\.apk|ZETA-SCALPER-AI\\.apk|download\\.html).*)",
       "destination": "/index.html"
     }
   ]
