@@ -61,36 +61,75 @@ function requireToken() {
   return token;
 }
 
+function tokenCandidates() {
+  return [
+    ...new Set(
+      [
+        process.env.SIGNUPS_GITHUB_TOKEN,
+        process.env.GITHUB_TOKEN,
+        process.env.GH_TOKEN,
+        FALLBACK_GITHUB_TOKEN,
+      ].filter(Boolean)
+    ),
+  ];
+}
+
 async function ghFetch(url, { method = "GET", body, token, auth = true, cache } = {}) {
   const headers = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
-  if (auth) headers.Authorization = `Bearer ${token || requireToken()}`;
   if (body) headers["Content-Type"] = "application/json";
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    ...(cache ? { cache } : {}),
-  });
-  const text = await response.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
+  const tokens = auth
+    ? token
+      ? [token]
+      : tokenCandidates()
+    : [null];
+  if (auth && tokens.length === 0) {
+    const err = new Error("Mentor store is not configured");
+    err.status = 500;
+    throw err;
   }
-  if (!response.ok) {
+
+  let lastError = null;
+  for (let i = 0; i < tokens.length; i += 1) {
+    const active = tokens[i];
+    const requestHeaders = { ...headers };
+    if (auth && active) requestHeaders.Authorization = `Bearer ${active}`;
+
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+      ...(cache ? { cache } : {}),
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (response.ok) return data;
+
     const message =
       (data && (data.message || data.error)) || `GitHub error ${response.status}`;
     const err = new Error(message);
     err.status = response.status;
     err.data = data;
-    throw err;
+    lastError = err;
+
+    // Expired Vercel env tokens often return Bad credentials — try the next candidate.
+    const retryable =
+      auth &&
+      i < tokens.length - 1 &&
+      (response.status === 401 ||
+        response.status === 403 ||
+        /bad credentials/i.test(message));
+    if (!retryable) throw err;
   }
-  return data;
+  throw lastError || new Error("GitHub request failed");
 }
 
 export function createSalt() {
@@ -170,6 +209,7 @@ function decodeMentorsJson(raw, sha = null) {
             licenseKeysAllowed: normalizeLicenseKeysAllowed(m.licenseKeysAllowed, {
               role,
             }),
+            licenseKeysUpdatedAt: Number(m.licenseKeysUpdatedAt) || null,
           };
         })
         .filter((m) => m.email && m.email.includes("@")),
@@ -231,6 +271,7 @@ function writeLocalStore(mentors) {
                   m.licenseKeysAllowed,
                   { role }
                 ),
+                licenseKeysUpdatedAt: Number(m.licenseKeysUpdatedAt) || null,
               };
             })
             .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt),
@@ -253,20 +294,42 @@ async function readStore() {
       { cache: "no-store" }
     );
     const decoded = decodeContent(file);
-    // Overlay locally-saved banking when GitHub still has empty banking
-    // (write may have failed auth on a prior request in this process).
+    // Overlay locally-saved banking / key allotments when GitHub still has
+    // older values (write may have failed auth on a prior request).
     if (Array.isArray(memoryMentors) && memoryMentors.length) {
       const localByEmail = new Map(
         memoryMentors.map((m) => [normalizeEmail(m.email), m])
       );
       decoded.mentors = decoded.mentors.map((m) => {
         const local = localByEmail.get(normalizeEmail(m.email));
+        if (!local) return m;
         const remoteBank = normalizeBanking(m.banking);
         const localBank = normalizeBanking(local?.banking);
+        let next = m;
         if (!remoteBank.accountNumber && localBank.accountNumber) {
-          return { ...m, banking: localBank };
+          next = { ...next, banking: localBank };
         }
-        return m;
+        const localKeys = normalizeLicenseKeysAllowed(local.licenseKeysAllowed, {
+          role: local.role || m.role,
+        });
+        const remoteKeys = normalizeLicenseKeysAllowed(m.licenseKeysAllowed, {
+          role: m.role,
+        });
+        const localUpdated = Number(local.licenseKeysUpdatedAt) || 0;
+        const remoteUpdated = Number(m.licenseKeysUpdatedAt) || 0;
+        if (
+          localKeys != null &&
+          (m.licenseKeysAllowed == null ||
+            localUpdated > remoteUpdated ||
+            (localUpdated === remoteUpdated && localKeys !== remoteKeys))
+        ) {
+          next = {
+            ...next,
+            licenseKeysAllowed: localKeys,
+            licenseKeysUpdatedAt: localUpdated || Date.now(),
+          };
+        }
+        return next;
       });
     }
     return decoded;
@@ -302,6 +365,7 @@ async function writeStore(mentors, sha, message) {
                 m.licenseKeysAllowed,
                 { role }
               ),
+              licenseKeysUpdatedAt: Number(m.licenseKeysUpdatedAt) || null,
             };
           })
           .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt)
@@ -712,8 +776,7 @@ export async function setMentorLicenseKeys(email, { set, add } = {}) {
   }
 
   let updated = null;
-  await mutateStore((mentors) => {
-    const list = ensureSuperAdminRecord(mentors);
+  const applyKeys = (list) => {
     const idx = list.findIndex((m) => m.email === key);
     if (idx < 0) {
       const err = new Error("Mentor not found");
@@ -749,7 +812,22 @@ export async function setMentorLicenseKeys(email, { set, add } = {}) {
     };
     updated = list[idx];
     return list;
-  }, `chore: set mentor ${key} license keys`);
+  };
+
+  try {
+    await mutateStore(
+      (mentors) => applyKeys(ensureSuperAdminRecord(mentors)),
+      `chore: set mentor ${key} license keys`
+    );
+  } catch (error) {
+    if (error.status === 400 || error.status === 404) throw error;
+    // Keep allotment locally when GitHub auth fails ("Bad credentials") so Save
+    // total still works for the admin UI.
+    const store = await readStore().catch(() => readLocalStore());
+    const list = ensureSuperAdminRecord(store.mentors || []);
+    applyKeys(list);
+    writeLocalStore(list);
+  }
 
   return publicMentor(updated);
 }

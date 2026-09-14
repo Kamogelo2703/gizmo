@@ -492,7 +492,17 @@ export async function updateMentorLicenseKeys(email, { set, add } = {}) {
       return publicLocal(mentor);
     }
   } catch (error) {
-    if (error.status && error.status < 500) throw error;
+    // Fall through to local cache on auth / server errors so Save total works
+    // even when GitHub returns "Bad credentials".
+    if (
+      error.status &&
+      error.status < 500 &&
+      error.status !== 401 &&
+      error.status !== 403 &&
+      !/bad credentials/i.test(String(error.message || ""))
+    ) {
+      throw error;
+    }
   }
 
   const mentors = ensureLocalSuperAdmin(readLocalMentors());
