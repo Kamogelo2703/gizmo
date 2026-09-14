@@ -420,6 +420,7 @@ function normalizeLicense(row) {
   const clientEmail = normalizeEmail(row?.clientEmail || row?.email || "");
   const clientName = String(row?.clientName || row?.name || "").trim();
   const mainText = String(row?.mainText || row?.username || clientName || "").trim();
+  const deviceId = String(row?.deviceId || "").trim() || null;
   return {
     key,
     botId: String(row?.botId || bot?.id || "").trim(),
@@ -440,6 +441,12 @@ function normalizeLicense(row) {
         : Number(row.expiresAt) || null,
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
+    deviceId,
+    boundAt: row?.boundAt
+      ? Number(row.boundAt)
+      : deviceId
+        ? Number(row?.usedAt) || null
+        : null,
     updatedAt:
       Number(row?.updatedAt || row?.usedAt || row?.createdAt) || Date.now(),
     bot: bot
@@ -801,6 +808,8 @@ export async function createLicense(payload = {}) {
       expiresAt: durationPayload.expiresAt,
       createdAt,
       usedAt: null,
+      deviceId: null,
+      boundAt: null,
       updatedAt: Date.now(),
       bot,
     };
@@ -810,10 +819,22 @@ export async function createLicense(payload = {}) {
   return result;
 }
 
-export async function markLicenseUsed(rawKey) {
+/**
+ * Bind a license to the first phone that activates it.
+ * Same phone can re-open; any other phone is rejected.
+ * Email is not a hard gate — keys work for any robot once the app is unlocked.
+ */
+export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}) {
   const variants = licenseKeyVariants(rawKey);
   if (!variants.length) {
     const err = new Error("License key is required");
+    err.status = 400;
+    throw err;
+  }
+
+  const claimDevice = String(deviceId || "").trim();
+  if (!claimDevice) {
+    const err = new Error("Device id is required");
     err.status = 400;
     throw err;
   }
@@ -827,11 +848,40 @@ export async function markLicenseUsed(rawKey) {
     err.status = 404;
     throw err;
   }
-  if (current.used) {
-    return current;
+
+  const boundDevice = String(current.deviceId || "").trim();
+  if (current.used && boundDevice && boundDevice !== claimDevice) {
+    const err = new Error("This license is locked to another phone");
+    err.status = 403;
+    throw err;
   }
 
-  const clientEmail = normalizeEmail(current.clientEmail);
+  // Same phone re-open, or legacy used key with no device yet → claim/keep.
+  if (current.used && (!boundDevice || boundDevice === claimDevice)) {
+    let claimed = current;
+    if (!boundDevice) {
+      await mutateStore((licenses) => {
+        const idx = licenses.findIndex((row) => variants.includes(row.key));
+        if (idx < 0) return licenses;
+        const row = licenses[idx];
+        const next = {
+          ...row,
+          used: true,
+          usedAt: row.usedAt || Date.now(),
+          deviceId: claimDevice,
+          boundAt: row.boundAt || Date.now(),
+          updatedAt: Date.now(),
+        };
+        licenses[idx] = next;
+        claimed = next;
+        return licenses;
+      }, `license device claim: ${variants[0]}`);
+    }
+    return claimed;
+  }
+
+  const claimEmail = normalizeEmail(email);
+  const clientEmail = normalizeEmail(current.clientEmail) || claimEmail;
   const signup = clientEmail ? await findSignup(clientEmail) : null;
   const accessPaid = Boolean(signup?.accessPaid);
   const alreadyUnlocked = Boolean(signup?.appAccessUnlockedAt);
@@ -853,6 +903,7 @@ export async function markLicenseUsed(rawKey) {
         : "ineligible";
 
   let result = null;
+  const now = Date.now();
   await mutateStore((licenses) => {
     const idx = licenses.findIndex((row) => variants.includes(row.key));
     if (idx < 0) {
@@ -860,25 +911,46 @@ export async function markLicenseUsed(rawKey) {
       err.status = 404;
       throw err;
     }
-    if (licenses[idx].used) {
-      result = licenses[idx];
+    const row = licenses[idx];
+    const alreadyBound = String(row.deviceId || "").trim();
+    if (row.used && alreadyBound && alreadyBound !== claimDevice) {
+      const err = new Error("This license is locked to another phone");
+      err.status = 403;
+      throw err;
+    }
+    if (row.used && (!alreadyBound || alreadyBound === claimDevice)) {
+      const next = {
+        ...row,
+        used: true,
+        usedAt: row.usedAt || now,
+        deviceId: alreadyBound || claimDevice,
+        boundAt: row.boundAt || now,
+        updatedAt: now,
+      };
+      licenses[idx] = next;
+      result = next;
       return licenses;
     }
     licenses[idx] = {
-      ...licenses[idx],
+      ...row,
       used: true,
-      usedAt: Date.now(),
-      updatedAt: Date.now(),
+      usedAt: now,
+      deviceId: claimDevice,
+      boundAt: now,
+      updatedAt: now,
       commissionEligible,
       commissionReason,
+      // Stamp activating account so mentors still see who used the key.
+      clientEmail: row.clientEmail || claimEmail || "",
     };
     result = licenses[idx];
     return licenses;
   }, `license used: ${variants[0]}`);
 
-  if (clientEmail) {
+  const unlockEmail = normalizeEmail(result?.clientEmail) || claimEmail;
+  if (unlockEmail) {
     try {
-      await setSignupAppAccessUnlocked(clientEmail, result?.usedAt || Date.now());
+      await setSignupAppAccessUnlocked(unlockEmail, result?.usedAt || Date.now());
     } catch {
       // Unlock stamp is best-effort; license commissionEligible is already set.
     }
@@ -907,6 +979,8 @@ export async function deactivateLicense(rawKey) {
       ...licenses[idx],
       used: false,
       usedAt: null,
+      deviceId: null,
+      boundAt: null,
       // Keep commissionEligible as-is so a paid first unlock still counts after reset.
       updatedAt: Date.now(),
     };
