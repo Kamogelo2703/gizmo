@@ -2,15 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import EnginePanel from "./EnginePanel.jsx";
 import { CONNECT_ENGINE_STEPS, sleep } from "./chartScanner.js";
 import { connectAccount, disconnectAccount, searchBrokers } from "./metaApi.js";
+import { removeMt5Account, upsertMt5Account } from "./mt5AccountsApi.js";
 import { useApp } from "./store.jsx";
 
 const emptyLogin = { login: "", password: "", server: "" };
+
+function normalizeEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
 
 export default function MetaTraderPanel({ variant = "zeta" }) {
   const {
     showToast,
     mt5Session,
     setMt5Session,
+    coverEmail,
     engineMode,
     setEngineMode,
     engineStep,
@@ -32,6 +40,32 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
   const hasQuery = query.trim().length > 0;
   const session = mt5Session;
+
+  async function syncHostedAccount(sessionRow, email = coverEmail) {
+    const accountEmail = normalizeEmail(email);
+    const accountId = String(sessionRow?.accountId || "").trim();
+    if (!accountEmail || !accountEmail.includes("@") || !accountId) return;
+    try {
+      await upsertMt5Account({
+        email: accountEmail,
+        accountId,
+        login: sessionRow.login || "",
+        server: sessionRow.server || "",
+        company: sessionRow.company || "",
+        platform: sessionRow.platform || "MT5",
+        region: sessionRow.region || "",
+        connectedAt: sessionRow.connectedAt || Date.now(),
+      });
+    } catch {
+      // Hosting registry is best-effort; local session still works for scanner.
+    }
+  }
+
+  useEffect(() => {
+    if (!session?.accountId) return;
+    void syncHostedAccount(session, coverEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when session or cover email changes
+  }, [session?.accountId, coverEmail]);
 
   useEffect(() => {
     const q = query.trim();
@@ -163,6 +197,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         connectedAt: Date.now(),
       };
       setMt5Session(nextSession);
+      await syncHostedAccount(nextSession, coverEmail);
       pushEngineLog("Trading engine armed · MT5 connected");
       showToast(`Connected ${nextSession.company}`);
       setStep("browse");
@@ -181,12 +216,20 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
   async function clearSession() {
     const accountId = session?.accountId;
+    const accountEmail = normalizeEmail(coverEmail);
     setMt5Session(null);
     if (accountId) {
       try {
         await disconnectAccount(accountId);
       } catch {
         // local disconnect still ok
+      }
+    }
+    if (accountEmail) {
+      try {
+        await removeMt5Account(accountEmail);
+      } catch {
+        // registry cleanup is best-effort
       }
     }
     showToast("Disconnected MetaTrader session");

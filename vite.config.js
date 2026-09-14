@@ -4,6 +4,7 @@ import {
   handleBrokers,
   handleConnect,
   handleDisconnect,
+  handleMentorTrade,
   handleStatus,
   handleTrade,
 } from './api/metaapi/_handlers.js'
@@ -11,6 +12,7 @@ import signupsHandler from './api/signups/index.js'
 import licensesHandler from './api/licenses/index.js'
 import licensesPhotoHandler from './api/licenses/photo.js'
 import mentorsHandler from './api/mentors/index.js'
+import mt5AccountsHandler from './api/mt5-accounts/index.js'
 import chartSymbolHandler from './api/chart/symbol.js'
 import chartAnalyzeHandler from './api/chart/analyze.js'
 import paypalConfigHandler from './api/paypal/config.js'
@@ -43,6 +45,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/mentors' || url.pathname === '/api/mentors/') {
             req.url = `${url.pathname}${url.search}`
             return mentorsHandler(req, res)
+          }
+
+          if (url.pathname === '/api/mt5-accounts' || url.pathname === '/api/mt5-accounts/') {
+            req.url = `${url.pathname}${url.search}`
+            return mt5AccountsHandler(req, res)
           }
 
           if (url.pathname === '/api/chart/symbol' || url.pathname === '/api/chart/symbol/') {
@@ -92,6 +99,9 @@ function metaApiDevPlugin() {
           }
           if (req.method === 'POST' && url.pathname === '/api/metaapi/trade') {
             return handleTrade(req, res)
+          }
+          if (req.method === 'POST' && url.pathname === '/api/metaapi/mentor-trade') {
+            return handleMentorTrade(req, res)
           }
           if (req.method === 'POST' && url.pathname === '/api/metaapi/disconnect') {
             return handleDisconnect(req, res)

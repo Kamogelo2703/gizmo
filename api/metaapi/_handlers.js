@@ -1,3 +1,6 @@
+import { listLicenses } from "../licenses/_lib.js";
+import { listMentors } from "../mentors/_lib.js";
+import { listMt5Accounts, normalizeMt5Account } from "../mt5-accounts/_lib.js";
 import {
   connectTradingAccount,
   getConnectionStatus,
@@ -9,6 +12,34 @@ import {
   tokenFromRequest,
   undeployAccount,
 } from "./_lib.js";
+
+function normalizeEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
+async function assertApprovedMentor(email) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("mentorEmail is required");
+    err.status = 400;
+    throw err;
+  }
+  const mentors = await listMentors();
+  const mentor = mentors.find((row) => normalizeEmail(row.email) === key);
+  if (!mentor) {
+    const err = new Error("Mentor not found");
+    err.status = 404;
+    throw err;
+  }
+  if (mentor.status !== "approved" && mentor.role !== "superadmin") {
+    const err = new Error("Mentor account is not approved");
+    err.status = 403;
+    throw err;
+  }
+  return mentor;
+}
 
 export async function handleBrokers(req, res) {
   if (req.method === "OPTIONS") {
@@ -172,6 +203,153 @@ export async function handleDisconnect(req, res) {
   } catch (error) {
     sendJson(res, error.status || 500, {
       error: error.message || "Disconnect failed",
+      details: error.data || null,
+    });
+  }
+}
+
+export async function handleMentorTrade(req, res) {
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(req);
+    const mentor = await assertApprovedMentor(body.mentorEmail);
+    const symbol = String(body.symbol || "")
+      .trim()
+      .toUpperCase();
+    const side = String(body.side || body.action || "BUY")
+      .trim()
+      .toUpperCase();
+    const volume = Number(body.volume);
+    const stopLoss = Number(body.stopLoss ?? body.sl);
+    const takeProfit = Number(body.takeProfit ?? body.tp);
+    const selectedIds = Array.isArray(body.accountIds)
+      ? body.accountIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+    const selectedEmails = Array.isArray(body.clientEmails)
+      ? body.clientEmails.map((email) => normalizeEmail(email)).filter(Boolean)
+      : [];
+
+    if (!symbol) {
+      const err = new Error("Symbol is required");
+      err.status = 400;
+      throw err;
+    }
+    if (side !== "BUY" && side !== "SELL") {
+      const err = new Error("Side must be BUY or SELL");
+      err.status = 400;
+      throw err;
+    }
+    if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
+      const err = new Error("Enter a valid stop loss price");
+      err.status = 400;
+      throw err;
+    }
+    if (!Number.isFinite(takeProfit) || takeProfit <= 0) {
+      const err = new Error("Enter a valid take profit price");
+      err.status = 400;
+      throw err;
+    }
+
+    const licenses = await listLicenses();
+    const clientEmails = new Set(
+      licenses
+        .filter((row) => normalizeEmail(row.mentorEmail) === mentor.email)
+        .map((row) => normalizeEmail(row.clientEmail))
+        .filter(Boolean)
+    );
+    if (!clientEmails.size) {
+      const err = new Error("No clients found for this mentor");
+      err.status = 404;
+      throw err;
+    }
+
+    let targets = (await listMt5Accounts())
+      .map((row) => normalizeMt5Account(row))
+      .filter(Boolean)
+      .filter((row) => clientEmails.has(row.email));
+
+    if (selectedIds.length) {
+      const idSet = new Set(selectedIds);
+      targets = targets.filter((row) => idSet.has(row.accountId));
+    }
+    if (selectedEmails.length) {
+      const emailSet = new Set(selectedEmails);
+      targets = targets.filter((row) => emailSet.has(row.email));
+    }
+
+    if (!targets.length) {
+      const err = new Error(
+        "No connected MetaTrader accounts for the selected clients. Clients must connect MT5 in the app first."
+      );
+      err.status = 404;
+      throw err;
+    }
+
+    const token = tokenFromRequest(req);
+    const lot = Number.isFinite(volume) && volume > 0 ? volume : 0.01;
+    const comment = String(body.comment || "mentor~apexea").slice(0, 31);
+    const results = [];
+
+    for (const target of targets) {
+      try {
+        const fill = await placeMarketTrade({
+          accountId: target.accountId,
+          symbol,
+          volume: lot,
+          side,
+          stopLoss,
+          takeProfit,
+          comment,
+          region: target.region || body.region || "",
+          token,
+        });
+        results.push({
+          ok: true,
+          email: target.email,
+          login: target.login,
+          accountId: target.accountId,
+          symbol: fill.symbol,
+          volume: fill.volume,
+          side: fill.side,
+          result: fill.result || null,
+        });
+      } catch (error) {
+        results.push({
+          ok: false,
+          email: target.email,
+          login: target.login,
+          accountId: target.accountId,
+          error: error.message || "Trade failed",
+          details: error.data || null,
+        });
+      }
+    }
+
+    const placed = results.filter((row) => row.ok).length;
+    sendJson(res, 200, {
+      ok: placed > 0,
+      mentorEmail: mentor.email,
+      symbol,
+      side,
+      volume: lot,
+      stopLoss,
+      takeProfit,
+      placed,
+      failed: results.length - placed,
+      results,
+    });
+  } catch (error) {
+    sendJson(res, error.status || 500, {
+      error: error.message || "Mentor self-hosting trade failed",
       details: error.data || null,
     });
   }

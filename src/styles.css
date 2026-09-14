@@ -3098,6 +3098,45 @@ html:has(.phone[data-interface="v2"]) body {
   margin-top: 8px;
 }
 
+.self-host-clients {
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.self-host-client-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.self-host-client-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.self-host-client-row input {
+  margin-top: 3px;
+}
+
+.self-host-client-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.self-host-results h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
 .license-result {
   margin-top: 14px;
   padding: 12px;
