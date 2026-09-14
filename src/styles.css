@@ -4531,6 +4531,47 @@ html:has(.phone[data-interface="v2"]) body {
   gap: 12px;
 }
 
+.trade-script-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.trade-script-history {
+  border: 1px solid rgba(var(--pink-rgb), 0.45);
+  background: rgba(var(--pink-rgb), 0.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+
+.trade-script-history.is-active {
+  background: rgba(var(--pink-rgb), 0.28);
+  border-color: rgba(var(--pink-rgb), 0.75);
+}
+
+.trade-script-history-count {
+  min-width: 1.15em;
+  height: 1.15em;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--pink);
+  color: #fff;
+  font-size: 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .trade-script-kicker,
 .v2-script-kicker {
   margin: 0 0 2px;
@@ -4604,7 +4645,14 @@ html:has(.phone[data-interface="v2"]) body {
   white-space: pre-wrap;
 }
 
-.trade-script-panel.is-welcome .trade-script-kicker {
+.trade-script-code.is-history {
+  min-height: 96px;
+  white-space: pre-wrap;
+  font-size: 0.76rem;
+}
+
+.trade-script-panel.is-welcome .trade-script-kicker,
+.trade-script-panel.is-history .trade-script-kicker {
   color: rgba(255, 255, 255, 0.55);
 }
 
