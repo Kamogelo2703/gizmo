@@ -3573,7 +3573,7 @@ html:has(.phone[data-interface="v2"]) body {
 
 .v2-view.v2-view-home,
 .v2-view.is-active.v2-view-home {
-  --v2-hero-h: clamp(140px, 30vh, 200px);
+  --v2-hero-h: clamp(210px, 42vh, 300px);
   position: relative;
   gap: 0;
   /* Bleed past .v2-stage horizontal padding. Must override .v2-view max-width:100%
@@ -3620,7 +3620,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 0;
   width: 100%;
-  height: var(--v2-hero-h);
+  height: auto;
   max-height: var(--v2-hero-h);
   margin: 0;
   padding: 0;
@@ -3628,15 +3628,18 @@ html:has(.phone[data-interface="v2"]) body {
   background: #000;
   line-height: 0;
   overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .v2-home-hero-img {
   width: 100%;
-  height: 100%;
+  height: auto;
   max-width: 100%;
   max-height: var(--v2-hero-h);
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center top;
   transform: none;
   filter: none;
