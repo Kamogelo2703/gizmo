@@ -12,6 +12,7 @@ import {
   fetchSignups,
   mergeSignups,
   submitSignup,
+  updateSignupAccessPaid,
   updateSignupPremiumScanner,
   updateSignupStatus,
 } from "./signupsApi.js";
@@ -33,6 +34,11 @@ import {
   uploadBotPhotoRemote,
 } from "./licensesApi.js";
 import { getOrCreateDeviceId } from "./deviceId.js";
+import {
+  hasDeviceAccess,
+  isSignupEntitled,
+  rememberDeviceAccess,
+} from "./deviceAccess.js";
 import {
   DEFAULT_MENTOR_LICENSE_KEYS,
   fetchMentors,
@@ -941,6 +947,25 @@ export function AppProvider({ children }) {
         return false;
       }
       await setSignupStatus(key, "approved");
+      try {
+        const remote = await updateSignupAccessPaid(key);
+        if (remote) setSignups((prev) => mergeSignups(prev, [remote]));
+      } catch {
+        // Still mark paid locally so "I have paid" restores on this phone.
+        setSignups((prev) =>
+          mergeSignups(prev, [
+            {
+              email: key,
+              status: "approved",
+              accessPaid: true,
+              accessPaidAt: Date.now(),
+              createdAt: Date.now(),
+            },
+          ])
+        );
+      }
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
+      showToast(`App access bypassed for ${key}`);
       return true;
     },
     [setSignupStatus, showToast]
@@ -1132,11 +1157,11 @@ export function AppProvider({ children }) {
 
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
-    if (!signup) {
+    if (!signup && !hasDeviceAccess(coverEmail)) {
       setLockStep("cover");
       return;
     }
-    if (signup.status === "approved") {
+    if (isSignupEntitled(signup, coverEmail)) {
       setLockStep("license");
       return;
     }
@@ -1740,6 +1765,11 @@ export function AppProvider({ children }) {
         ])
       );
 
+      rememberDeviceAccess(accountEmail, {
+        paid: Boolean(signup?.accessPaid) || hasDeviceAccess(accountEmail),
+        bypassed: false,
+      });
+
       const wasReclaimed =
         entry.used &&
         boundDevice &&
@@ -1765,10 +1795,15 @@ export function AppProvider({ children }) {
         return false;
       }
       const signup = getSignup(accountEmail);
-      if (!signup || signup.status !== "approved") {
-        showToast("Account must be approved before restoring licenses");
+      if (!isSignupEntitled(signup, accountEmail)) {
+        showToast("Pay or get approved before restoring access");
         return false;
       }
+
+      rememberDeviceAccess(accountEmail, {
+        paid: Boolean(signup?.accessPaid) || hasDeviceAccess(accountEmail),
+        bypassed: hasDeviceAccess(accountEmail),
+      });
 
       let remote = [];
       try {
