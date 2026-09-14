@@ -5,6 +5,33 @@ const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
 const FILE_PATH = process.env.SIGNUPS_FILE_PATH || "data/signups.json";
 const API = `https://api.github.com/repos/${REPO}`;
 
+/** Warm-instance fallback when GitHub auth is down so signups are not silently lost. */
+let memorySignups = null;
+
+function cloneSignups(list = []) {
+  return list.map((s) => ({ ...s }));
+}
+
+function readMemoryStore() {
+  return {
+    sha: null,
+    signups: cloneSignups(memorySignups || []),
+  };
+}
+
+function writeMemoryStore(signups) {
+  memorySignups = cloneSignups(signups)
+    .filter((s) => s.email && s.email.includes("@"))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return cloneSignups(memorySignups);
+}
+
+function isAuthFailure(error) {
+  const status = Number(error?.status || 0);
+  const message = String(error?.message || "").toLowerCase();
+  return status === 401 || status === 403 || message.includes("bad credentials");
+}
+
 function normalizeEmail(email) {
   return String(email || "")
     .trim()
@@ -84,41 +111,57 @@ function decodeContent(file) {
 async function readStore() {
   // Always read via Contents API — raw.githubusercontent.com is CDN-cached and
   // can keep returning "pending" long after an approval commit lands on main.
-  const file = await ghFetch(
-    `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
-    { cache: "no-store" }
-  );
-  return decodeContent(file);
+  try {
+    const file = await ghFetch(
+      `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
+      { cache: "no-store" }
+    );
+    const store = decodeContent(file);
+    // Keep memory warm so a later GitHub outage still has recent rows.
+    memorySignups = cloneSignups(store.signups);
+    return store;
+  } catch (error) {
+    if (isAuthFailure(error) || error.status === 404) {
+      console.warn("signups github read failed; using memory fallback", error.message);
+      return readMemoryStore();
+    }
+    throw error;
+  }
 }
 
 async function writeStore(signups, sha, message) {
+  const normalized = signups
+    .map((s) => ({
+      email: normalizeEmail(s.email),
+      status: String(s.status || "pending").toLowerCase(),
+      createdAt: Number(s.createdAt) || Date.now(),
+    }))
+    .filter((s) => s.email && s.email.includes("@"))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
   const content = Buffer.from(
-    JSON.stringify(
-      {
-        signups: signups
-          .map((s) => ({
-            email: normalizeEmail(s.email),
-            status: String(s.status || "pending").toLowerCase(),
-            createdAt: Number(s.createdAt) || Date.now(),
-          }))
-          .filter((s) => s.email && s.email.includes("@"))
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-      },
-      null,
-      2
-    ) + "\n",
+    JSON.stringify({ signups: normalized }, null, 2) + "\n",
     "utf8"
   ).toString("base64");
 
-  return ghFetch(`${API}/contents/${FILE_PATH}`, {
-    method: "PUT",
-    body: {
-      message,
-      content,
-      sha,
-      branch: BRANCH,
-    },
-  });
+  try {
+    return await ghFetch(`${API}/contents/${FILE_PATH}`, {
+      method: "PUT",
+      body: {
+        message,
+        content,
+        sha,
+        branch: BRANCH,
+      },
+    });
+  } catch (error) {
+    if (isAuthFailure(error)) {
+      console.warn("signups github write failed; using memory fallback", error.message);
+      writeMemoryStore(normalized);
+      return { memory: true, signups: normalized };
+    }
+    throw error;
+  }
 }
 
 async function mutateStore(mutator, message) {
