@@ -1,21 +1,31 @@
 /**
  * Official US macro events shown in the app Economic Calendar.
  * Only NFP, PPI, CPI, and FOMC. Dates from BLS / Federal Reserve schedules.
- * After an event day passes, getNextOfficialEvent() advances to the next one.
+ * All news times are shown and locked in South African time (SAST, Africa/Johannesburg).
  *
  * Signal directions:
- * - Editable until 1 hour before the event start (ET)
- * - Visible to clients only on the event day
+ * - Editable until 1 hour before the event start (SAST)
+ * - Visible to clients only on the event day (SA calendar day)
  * - Removed automatically the day after
  */
 
 export const MACRO_EVENT_TYPES = ["NFP", "PPI", "CPI", "FOMC"];
-/** Default release times in US Eastern (24h HH:MM). */
-export const DEFAULT_EVENT_TIMES_ET = {
+export const SA_TIMEZONE = "Africa/Johannesburg";
+
+/** Official US Eastern release clocks (source schedule). */
+const DEFAULT_EVENT_TIMES_ET = {
   NFP: "08:30",
   PPI: "08:30",
   CPI: "08:30",
   FOMC: "14:00",
+};
+
+/** Typical SAST clocks while the US is on EDT (ET+6). */
+export const DEFAULT_EVENT_TIMES_SAST = {
+  NFP: "14:30",
+  PPI: "14:30",
+  CPI: "14:30",
+  FOMC: "20:00",
 };
 
 function normalizeEventDate(value) {
@@ -29,7 +39,7 @@ function normalizeEventDate(value) {
   return `${y}-${m}-${day}`;
 }
 
-function todayDateKey(now = new Date(), timeZone = "America/New_York") {
+function todayDateKey(now = new Date(), timeZone = SA_TIMEZONE) {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone,
@@ -50,19 +60,88 @@ function todayDateKey(now = new Date(), timeZone = "America/New_York") {
   return `${y}-${m}-${day}`;
 }
 
+function parseClock(value, fallbackHour = 8, fallbackMinute = 30) {
+  const [hh, mm] = String(value || "")
+    .trim()
+    .split(":")
+    .map((n) => Number(n));
+  return {
+    hour: Number.isFinite(hh) ? hh : fallbackHour,
+    minute: Number.isFinite(mm) ? mm : fallbackMinute,
+  };
+}
+
+function formatClock(hour, minute) {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function getZoneOffsetIso(date, timeZone) {
+  const probe = new Date(`${date}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(probe);
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value || "GMT+2";
+  const match = tzName.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/i);
+  if (!match) return timeZone === SA_TIMEZONE ? "+02:00" : "-04:00";
+  const sign = match[1].startsWith("-") ? "-" : "+";
+  const oh = String(Math.abs(Number(match[1]))).padStart(2, "0");
+  const om = String(match[2] ? Number(match[2]) : 0).padStart(2, "0");
+  return `${sign}${oh}:${om}`;
+}
+
+function getZonedStartMs(date, clock, timeZone) {
+  const day = normalizeEventDate(date);
+  if (!day) return null;
+  const { hour, minute } = parseClock(clock);
+  const offset = getZoneOffsetIso(day, timeZone);
+  const iso = `${day}T${formatClock(hour, minute)}:00${offset}`;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** Convert a US Eastern release clock on a given date into SAST HH:MM. */
+export function etClockToSast(date, timeEt) {
+  const startEt = getZonedStartMs(date, timeEt, "America/New_York");
+  if (startEt == null) {
+    const macroFallback = "14:30";
+    return macroFallback;
+  }
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SA_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(startEt));
+  const hour = parts.find((p) => p.type === "hour")?.value || "14";
+  const minute = parts.find((p) => p.type === "minute")?.value || "30";
+  return `${hour}:${minute}`;
+}
+
 function withEventTime(row) {
   const title = String(row.title || "").trim().toUpperCase();
   const timeEt =
     String(row.timeEt || DEFAULT_EVENT_TIMES_ET[title] || "08:30").trim() || "08:30";
+  const date = normalizeEventDate(row.date);
+  const timeSa =
+    String(row.timeSa || row.timeSast || etClockToSast(date, timeEt)).trim() ||
+    DEFAULT_EVENT_TIMES_SAST[title] ||
+    "14:30";
   return {
     ...row,
-    date: normalizeEventDate(row.date),
+    date,
     title,
     timeEt,
+    timeSa,
+    // Back-compat for older UI that still reads timeEt as the displayed clock.
+    timeEtDisplay: timeSa,
   };
 }
 
-/** @type {{ id: string, date: string, title: string, timeEt: string, note?: string }[]} */
+/** @type {{ id: string, date: string, title: string, timeEt: string, timeSa: string, note?: string }[]} */
 export const OFFICIAL_MACRO_EVENTS = [
   // September 2026
   { id: "nfp-2026-09-04", date: "2026-09-04", title: "NFP", note: "August employment" },
@@ -97,51 +176,22 @@ export function normalizeMacroTitle(title) {
   return "";
 }
 
+export function getEventTimeSa(event) {
+  if (!event) return DEFAULT_EVENT_TIMES_SAST.NFP;
+  if (event.timeSa) return String(event.timeSa).trim();
+  const title = normalizeMacroTitle(event.title);
+  const timeEt =
+    String(event.timeEt || DEFAULT_EVENT_TIMES_ET[title] || "08:30").trim() || "08:30";
+  return etClockToSast(event.date, timeEt);
+}
+
 /**
- * Event start instant in the viewer's local clock, based on US/Eastern release time.
+ * Event start instant based on South African time.
  */
 export function getOfficialEventStartMs(event) {
   if (!event?.date) return null;
-  const timeEt =
-    String(event.timeEt || DEFAULT_EVENT_TIMES_ET[normalizeMacroTitle(event.title)] || "08:30")
-      .trim() || "08:30";
-  const [hh, mm] = timeEt.split(":").map((n) => Number(n));
-  const hour = Number.isFinite(hh) ? hh : 8;
-  const minute = Number.isFinite(mm) ? mm : 30;
-
-  // Build an ISO-like local ET timestamp and let the engine resolve DST.
-  // Using Date parsing of America/New_York via Intl offset probe.
-  const probe = new Date(`${event.date}T12:00:00Z`);
-  const etParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(probe);
-  const tzName = etParts.find((p) => p.type === "timeZoneName")?.value || "GMT-4";
-  const match = tzName.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/i);
-  let offset = "-04:00";
-  if (match) {
-    const sign = match[1].startsWith("-") ? "-" : "+";
-    const oh = String(Math.abs(Number(match[1]))).padStart(2, "0");
-    const om = String(match[2] ? Number(match[2]) : 0).padStart(2, "0");
-    offset = `${sign}${oh}:${om}`;
-  }
-  const iso = `${event.date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${offset}`;
-  const ms = Date.parse(iso);
-  if (Number.isFinite(ms)) return ms;
-  // Fallback: treat as local time
-  const local = new Date(
-    Number(event.date.slice(0, 4)),
-    Number(event.date.slice(5, 7)) - 1,
-    Number(event.date.slice(8, 10)),
-    hour,
-    minute,
-    0,
-    0
-  );
-  return local.getTime();
+  const timeSa = getEventTimeSa(event);
+  return getZonedStartMs(event.date, timeSa, SA_TIMEZONE);
 }
 
 export function getSignalEditLockMs(event) {
@@ -152,51 +202,49 @@ export function getSignalEditLockMs(event) {
 
 export function isSignalDirectionEditable(event, now = new Date()) {
   if (!event) return false;
-  const todayEt = todayDateKey(now, "America/New_York");
-  // Past event days are expired — not editable.
-  if (event.date < todayEt) return false;
+  const todaySa = todayDateKey(now, SA_TIMEZONE);
+  if (event.date < todaySa) return false;
   const lockAt = getSignalEditLockMs(event);
-  if (lockAt == null) return event.date > todayEt;
-  // Future days stay editable; on event day lock 1 hour before release.
+  if (lockAt == null) return event.date > todaySa;
   return now.getTime() < lockAt;
 }
 
 export function isSignalDirectionVisibleToday(event, now = new Date()) {
   if (!event) return false;
-  const todayEt = todayDateKey(now, "America/New_York");
-  return event.date === todayEt;
+  const todaySa = todayDateKey(now, SA_TIMEZONE);
+  return event.date === todaySa;
 }
 
 export function isSignalDirectionExpired(eventOrDate, now = new Date()) {
   const date = normalizeEventDate(eventOrDate?.date || eventOrDate);
   if (!date) return true;
-  const todayEt = todayDateKey(now, "America/New_York");
-  return date < todayEt;
+  const todaySa = todayDateKey(now, SA_TIMEZONE);
+  return date < todaySa;
 }
 
 export function formatSignalLockLabel(event, now = new Date()) {
   if (!event) return "";
+  const timeSa = getEventTimeSa(event);
   if (isSignalDirectionExpired(event, now)) return "Expired — removed after event day";
   if (isSignalDirectionEditable(event, now)) {
     const lockAt = getSignalEditLockMs(event);
     if (lockAt == null) return "Editable";
     const mins = Math.max(0, Math.round((lockAt - now.getTime()) / 60000));
-    if (event.date > todayDateKey(now, "America/New_York")) {
-      return `Editable until 1 hour before ${event.title} (${event.timeEt} ET)`;
+    if (event.date > todayDateKey(now, SA_TIMEZONE)) {
+      return `Editable until 1 hour before ${event.title} (${timeSa} SAST)`;
     }
-    return `Editable for ${mins} more minute${mins === 1 ? "" : "s"} (locks 1 hour before ${event.timeEt} ET)`;
+    return `Editable for ${mins} more minute${mins === 1 ? "" : "s"} (locks 1 hour before ${timeSa} SAST)`;
   }
-  return `Locked — editing closed 1 hour before ${event.title} (${event.timeEt} ET)`;
+  return `Locked — editing closed 1 hour before ${event.title} (${timeSa} SAST)`;
 }
 
 export function getNextOfficialEvent(now = new Date()) {
-  const today = todayDateKey(now, "America/New_York");
-  // Show the event on its day; the following day auto-advances to the next.
+  const today = todayDateKey(now, SA_TIMEZONE);
   return OFFICIAL_MACRO_EVENTS.find((event) => event.date >= today) || null;
 }
 
 export function listUpcomingOfficialEvents(now = new Date(), limit = 12) {
-  const today = todayDateKey(now, "America/New_York");
+  const today = todayDateKey(now, SA_TIMEZONE);
   return OFFICIAL_MACRO_EVENTS.filter((event) => event.date >= today).slice(
     0,
     Math.max(1, Number(limit) || 12)
@@ -221,7 +269,6 @@ export function findOfficialEvent({ id = "", date = "", title = "" } = {}) {
 
 export function matchMentorDirection(official, mentorEvents = [], now = new Date()) {
   if (!official) return "";
-  // Directions only show on the event day; they remove themselves the day after.
   if (!isSignalDirectionVisibleToday(official, now)) return "";
   const list = Array.isArray(mentorEvents) ? mentorEvents : [];
   const exact = list.find(

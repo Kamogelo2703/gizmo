@@ -113,10 +113,10 @@ export function normalizeEventDate(value) {
   return `${y}-${m}-${day}`;
 }
 
-function todayDateKeyEt(now = new Date()) {
+function todayDateKeySa(now = new Date()) {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York",
+      timeZone: "Africa/Johannesburg",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -138,6 +138,13 @@ const DEFAULT_EVENT_TIMES_ET = {
   FOMC: "14:00",
 };
 
+const DEFAULT_EVENT_TIMES_SAST = {
+  NFP: "14:30",
+  PPI: "14:30",
+  CPI: "14:30",
+  FOMC: "20:00",
+};
+
 function normalizeMacroTitle(title) {
   const raw = String(title || "")
     .trim()
@@ -150,40 +157,69 @@ function normalizeMacroTitle(title) {
   return raw;
 }
 
-function getEventStartMs(date, title, timeEt) {
-  const day = normalizeEventDate(date);
-  if (!day) return null;
-  const macro = normalizeMacroTitle(title);
-  const clock =
-    String(timeEt || DEFAULT_EVENT_TIMES_ET[macro] || "08:30").trim() || "08:30";
-  const [hh, mm] = clock.split(":").map((n) => Number(n));
-  const hour = Number.isFinite(hh) ? hh : 8;
-  const minute = Number.isFinite(mm) ? mm : 30;
-  const probe = new Date(`${day}T12:00:00Z`);
-  const etParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+function getZoneOffsetIso(date, timeZone) {
+  const probe = new Date(`${date}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
     timeZoneName: "shortOffset",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).formatToParts(probe);
-  const tzName = etParts.find((p) => p.type === "timeZoneName")?.value || "GMT-4";
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value || "GMT+2";
   const match = tzName.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/i);
-  let offset = "-04:00";
-  if (match) {
-    const sign = match[1].startsWith("-") ? "-" : "+";
-    const oh = String(Math.abs(Number(match[1]))).padStart(2, "0");
-    const om = String(match[2] ? Number(match[2]) : 0).padStart(2, "0");
-    offset = `${sign}${oh}:${om}`;
-  }
+  if (!match) return timeZone === "Africa/Johannesburg" ? "+02:00" : "-04:00";
+  const sign = match[1].startsWith("-") ? "-" : "+";
+  const oh = String(Math.abs(Number(match[1]))).padStart(2, "0");
+  const om = String(match[2] ? Number(match[2]) : 0).padStart(2, "0");
+  return `${sign}${oh}:${om}`;
+}
+
+function etClockToSast(date, timeEt) {
+  const day = normalizeEventDate(date);
+  const [hh, mm] = String(timeEt || "08:30")
+    .split(":")
+    .map((n) => Number(n));
+  const hour = Number.isFinite(hh) ? hh : 8;
+  const minute = Number.isFinite(mm) ? mm : 30;
+  const etOffset = getZoneOffsetIso(day, "America/New_York");
+  const iso = `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${etOffset}`;
+  const startEt = Date.parse(iso);
+  if (!Number.isFinite(startEt)) return DEFAULT_EVENT_TIMES_SAST.NFP;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Johannesburg",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(startEt));
+  const h = parts.find((p) => p.type === "hour")?.value || "14";
+  const m = parts.find((p) => p.type === "minute")?.value || "30";
+  return `${h}:${m}`;
+}
+
+function resolveTimeSa({ date, title, timeSa, timeEt }) {
+  if (timeSa) return String(timeSa).trim();
+  const macro = normalizeMacroTitle(title);
+  const et = String(timeEt || DEFAULT_EVENT_TIMES_ET[macro] || "08:30").trim() || "08:30";
+  return etClockToSast(date, et) || DEFAULT_EVENT_TIMES_SAST[macro] || "14:30";
+}
+
+function getEventStartMs(date, title, timeSa, timeEt) {
+  const day = normalizeEventDate(date);
+  if (!day) return null;
+  const clock = resolveTimeSa({ date: day, title, timeSa, timeEt });
+  const [hh, mm] = clock.split(":").map((n) => Number(n));
+  const hour = Number.isFinite(hh) ? hh : 14;
+  const minute = Number.isFinite(mm) ? mm : 30;
+  const offset = getZoneOffsetIso(day, "Africa/Johannesburg");
   const iso = `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${offset}`;
   const ms = Date.parse(iso);
   return Number.isFinite(ms) ? ms : null;
 }
 
-function getEditLockState({ date, title, timeEt }, now = new Date()) {
+function getEditLockState({ date, title, timeSa, timeEt }, now = new Date()) {
   const day = normalizeEventDate(date);
-  const today = todayDateKeyEt(now);
+  const today = todayDateKeySa(now);
   if (!day) return { editable: false, message: "Enter a valid event date" };
   if (day < today) {
     return {
@@ -191,14 +227,15 @@ function getEditLockState({ date, title, timeEt }, now = new Date()) {
       message: "Signal direction expired — it removes itself the day after the event",
     };
   }
-  const start = getEventStartMs(day, title, timeEt);
+  const start = getEventStartMs(day, title, timeSa, timeEt);
   if (start == null) return { editable: true, message: "" };
   const lockAt = start - 60 * 60 * 1000;
   if (now.getTime() >= lockAt) {
     const macro = normalizeMacroTitle(title) || "event";
+    const clock = resolveTimeSa({ date: day, title, timeSa, timeEt });
     return {
       editable: false,
-      message: `Editing locked — closes 1 hour before ${macro}`,
+      message: `Editing locked — closes 1 hour before ${macro} (${clock} SAST)`,
     };
   }
   return { editable: true, message: "" };
@@ -355,7 +392,7 @@ async function mutateStore(mutator, message) {
 export async function listEvents({ mentorEmail = "" } = {}) {
   const store = await readStore();
   const key = normalizeEmail(mentorEmail);
-  const today = todayDateKeyEt();
+  const today = todayDateKeySa();
   let events = store.events
     .map(publicEvent)
     .filter(Boolean)
@@ -396,7 +433,12 @@ export async function upsertEvent(input = {}) {
     throw err;
   }
 
-  const lock = getEditLockState({ date, title, timeEt: input.timeEt });
+  const lock = getEditLockState({
+    date,
+    title,
+    timeSa: input.timeSa,
+    timeEt: input.timeEt,
+  });
   if (!lock.editable) {
     const err = new Error(lock.message);
     err.status = 403;
@@ -405,7 +447,7 @@ export async function upsertEvent(input = {}) {
 
   let saved = null;
   await mutateStore((events) => {
-    const today = todayDateKeyEt();
+    const today = todayDateKeySa();
     const kept = events.filter((e) => normalizeEventDate(e.date) >= today);
     const idx = kept.findIndex((e) => e.id === id);
     const row = {
