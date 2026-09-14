@@ -421,7 +421,13 @@ export async function upsertEvent(input = {}) {
   const date = normalizeEventDate(input.date || input.eventDate);
   const title = String(input.title || "").trim() || "Economic event";
   const directions = String(input.directions || "").trim();
-  const id = String(input.id || "").trim() || crypto.randomUUID();
+  const officialEventId =
+    String(input.officialEventId || "").trim() ||
+    String(input.id || "").trim() ||
+    `${normalizeMacroTitle(title).toLowerCase() || "event"}-${date}`;
+  // Scope by mentor so one mentor cannot overwrite another's direction.
+  const preferredId = `${mentorEmail}__${officialEventId}`;
+  const requestedId = String(input.id || "").trim();
 
   if (!mentorEmail || !mentorEmail.includes("@")) {
     const err = new Error("Mentor email is required");
@@ -450,10 +456,22 @@ export async function upsertEvent(input = {}) {
   await mutateStore((events) => {
     const today = todayDateKeySa();
     const kept = events.filter((e) => normalizeEventDate(e.date) >= today);
-    const idx = kept.findIndex((e) => e.id === id);
+    const idx = kept.findIndex((e) => {
+      if (normalizeEmail(e.mentorEmail) !== mentorEmail) return false;
+      if (requestedId && e.id === requestedId) return true;
+      if (e.id === preferredId) return true;
+      if (String(e.officialEventId || "").trim() === officialEventId) return true;
+      // Legacy rows used the bare official id.
+      if (e.id === officialEventId) return true;
+      return (
+        normalizeEventDate(e.date) === date &&
+        normalizeMacroTitle(e.title) === normalizeMacroTitle(title)
+      );
+    });
+    const id = idx >= 0 ? kept[idx].id : preferredId;
     const row = {
       id,
-      officialEventId: String(input.officialEventId || id).trim(),
+      officialEventId,
       date,
       title,
       directions,

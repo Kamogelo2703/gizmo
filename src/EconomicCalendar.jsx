@@ -29,46 +29,83 @@ function todaySaDateKey(now = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
-function resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }) {
-  const normalize = (value) =>
-    String(value || "")
-      .trim()
-      .toLowerCase();
-  const account = normalize(coverEmail);
+function normalizeMentorEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Collect every mentor email tied to this phone/account.
+ * Filtering the calendar by a single (often missing) email was hiding
+ * directions mentors already posted on the portal.
+ */
+function collectMentorEmails({ activeBot, coverEmail, eas, licenseKeys }) {
+  const emails = [];
+  const seen = new Set();
+  const add = (value) => {
+    const email = normalizeMentorEmail(value);
+    if (!email.includes("@") || seen.has(email)) return;
+    seen.add(email);
+    emails.push(email);
+  };
+
+  const account = normalizeMentorEmail(coverEmail);
   const botId = String(activeBot?.id || "").trim();
   const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
   const eaList = Array.isArray(eas) ? eas : [];
 
+  const forBot = botId
+    ? keys
+        .filter(
+          (row) =>
+            String(row.botId || "").trim() === botId ||
+            String(row.bot?.id || "").trim() === botId
+        )
+        .sort(
+          (a, b) =>
+            Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
+        )
+    : [];
+
+  if (forBot.length) {
+    add(forBot.find((row) => row?.used)?.mentorEmail);
+    add(forBot[0]?.mentorEmail);
+  }
+
   if (botId) {
-    const forBot = keys
-      .filter(
-        (row) =>
-          String(row.botId || "").trim() === botId ||
-          String(row.bot?.id || "").trim() === botId
-      )
-      .sort(
-        (a, b) =>
-          Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
-      );
-    const fromBot = normalize(forBot.find((row) => row?.used)?.mentorEmail || forBot[0]?.mentorEmail);
-    if (fromBot) return fromBot;
     const ea = eaList.find((item) => String(item.id || "").trim() === botId);
-    const fromEa = normalize(ea?.ownerEmail);
-    if (fromEa) return fromEa;
+    add(ea?.ownerEmail || ea?.mentorEmail);
   }
 
   if (account) {
     const used = keys
-      .filter((row) => row?.used && normalize(row.clientEmail) === account)
+      .filter((row) => row?.used && normalizeMentorEmail(row.clientEmail) === account)
       .sort(
         (a, b) =>
           Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
       );
-    const fromUsed = normalize(used[0]?.mentorEmail);
-    if (fromUsed) return fromUsed;
+    add(used[0]?.mentorEmail);
+
+    const bound = keys
+      .filter((row) => normalizeMentorEmail(row.clientEmail) === account)
+      .sort(
+        (a, b) =>
+          Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
+      );
+    add(bound[0]?.mentorEmail);
   }
 
-  return "";
+  for (const ea of eaList) {
+    add(ea?.ownerEmail || ea?.mentorEmail);
+  }
+
+  // Last resort: any mentor stamped on a license on this device.
+  for (const row of keys) {
+    add(row?.mentorEmail);
+  }
+
+  return emails;
 }
 
 export default function EconomicCalendarButton({ variant = "zeta" }) {
@@ -78,8 +115,8 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
   const [loading, setLoading] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const mentorEmail = useMemo(
-    () => resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }),
+  const mentorEmails = useMemo(
+    () => collectMentorEmails({ activeBot, coverEmail, eas, licenseKeys }),
     [activeBot, coverEmail, eas, licenseKeys]
   );
 
@@ -94,8 +131,8 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     (async () => {
       setLoading(true);
       try {
-        const { fetchEconomicEvents } = await import("./economicCalendarApi.js");
-        const list = await fetchEconomicEvents(mentorEmail);
+        const { fetchEconomicEventsForMentors } = await import("./economicCalendarApi.js");
+        const list = await fetchEconomicEventsForMentors(mentorEmails);
         if (!cancelled) setMentorEvents(list);
       } catch {
         if (!cancelled) setMentorEvents([]);
@@ -106,7 +143,7 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     return () => {
       cancelled = true;
     };
-  }, [open, mentorEmail]);
+  }, [open, mentorEmails]);
 
   const now = useMemo(() => new Date(nowTick), [nowTick]);
   const today = todaySaDateKey(now);

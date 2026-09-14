@@ -137,6 +137,29 @@ export async function fetchEconomicEvents(mentorEmail = "") {
   }
 }
 
+/**
+ * Load directions for one or more mentors linked to this device.
+ * Fetches the shared calendar once, then keeps rows for any candidate mentor.
+ * If no mentor emails are known yet, returns all upcoming rows so a posted
+ * direction still appears instead of a false "nothing yet" empty state.
+ */
+export async function fetchEconomicEventsForMentors(mentorEmails = []) {
+  const keys = [
+    ...new Set(
+      (Array.isArray(mentorEmails) ? mentorEmails : [mentorEmails])
+        .map((email) => normalizeEmail(email))
+        .filter((email) => email.includes("@"))
+    ),
+  ];
+  const all = await fetchEconomicEvents("");
+  if (!keys.length) return all;
+  const mine = all.filter((event) => keys.includes(event.mentorEmail));
+  // If linked mentors have no row yet, don't hide a direction that was saved
+  // under the official event id (legacy single-id store).
+  if (mine.length) return mine;
+  return all;
+}
+
 export async function saveEconomicEvent(payload = {}) {
   const event = publicEvent({
     ...payload,

@@ -30,10 +30,10 @@ import {
   filterActiveMentorDirections,
   findOfficialEvent,
   formatSignalLockLabel,
+  getMentorSignalForEvent,
   getNextOfficialEvent,
   isSignalDirectionEditable,
   listUpcomingOfficialEvents,
-  matchMentorDirection,
 } from "./economicCalendarSchedule.js";
 import {
   executeMentorSelfHostTrade,
@@ -432,6 +432,36 @@ export default function AdminPortal() {
       cancelled = true;
     };
   }, [adminOpen, adminSession, adminPage, showToast]);
+
+  // Prefill the signal textarea with the mentor's saved direction for the selected event.
+  useEffect(() => {
+    if (!adminOpen || !adminSession) return;
+    if (adminPage !== "calendar" && adminPage !== "signal-direction") return;
+    if (String(calendarDirections || "").trim()) return;
+    const official =
+      findOfficialEvent({
+        id: calendarEditingId,
+        date: calendarDate,
+        title: calendarTitle,
+      }) || getNextOfficialEvent();
+    if (!official) return;
+    const saved = getMentorSignalForEvent(official, calendarEvents);
+    if (saved) {
+      setCalendarEditingId(official.id);
+      setCalendarDate(official.date);
+      setCalendarTitle(official.title);
+      setCalendarDirections(saved);
+    }
+  }, [
+    adminOpen,
+    adminSession,
+    adminPage,
+    calendarEvents,
+    calendarEditingId,
+    calendarDate,
+    calendarTitle,
+    calendarDirections,
+  ]);
 
   useEffect(() => {
     if (!adminSession?.email) return;
@@ -2284,7 +2314,7 @@ export default function AdminPortal() {
                             setCalendarDate(official.date);
                             setCalendarTitle(official.title);
                             setCalendarDirections(
-                              matchMentorDirection(official, calendarEvents) || ""
+                              getMentorSignalForEvent(official, calendarEvents) || ""
                             );
                           }}
                           required
@@ -2297,7 +2327,7 @@ export default function AdminPortal() {
                         </select>
                       </label>
                       <label className="ea-field">
-                        <span>Signal direction (shown on Economic calendar that day)</span>
+                        <span>Signal direction (shown on client Economic calendar)</span>
                         <textarea
                           className="admin-input"
                           rows={4}
@@ -2438,7 +2468,7 @@ export default function AdminPortal() {
                             setCalendarDate(official.date);
                             setCalendarTitle(official.title);
                             setCalendarDirections(
-                              matchMentorDirection(official, calendarEvents) ||
+                              getMentorSignalForEvent(official, calendarEvents) ||
                                 activeDirections.find(
                                   (row) =>
                                     row.id === official.id ||
