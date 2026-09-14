@@ -6125,47 +6125,42 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0;
   padding: 10px 8px;
+  position: relative;
 }
 
 .view-scanner:not(.cs-v2) .cs-slogan {
-  margin: 0;
-  max-width: 2.4rem;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.78);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  line-height: 1.35;
-  position: relative;
-  flex-shrink: 0;
+  display: none;
 }
 
-.view-scanner:not(.cs-v2) .cs-slogan::after {
-  content: "";
+.view-scanner:not(.cs-v2) .cs-particle-field {
   position: absolute;
-  left: 50%;
-  bottom: -10px;
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--pink-soft);
-  box-shadow: 0 0 8px rgba(var(--pink-soft-rgb), 0.8);
-  transform: translateX(-50%) rotate(90deg);
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.view-scanner:not(.cs-v2) .cs-slogan--right {
-  transform: none;
-  writing-mode: vertical-rl;
+.view-scanner:not(.cs-v2) .cs-particle-field-energy {
+  inset: -6%;
+  border-radius: 0;
+  overflow: visible;
+  clip-path: none;
+  transform: scale(2.35);
+  transform-origin: center center;
+  opacity: 0.95;
 }
 
-.view-scanner:not(.cs-v2) .cs-slogan--right::after {
-  bottom: auto;
-  top: -10px;
+.view-scanner:not(.cs-v2) .cs-particle-field-energy.is-outer {
+  inset: -18%;
+  transform: scale(3.35);
+  opacity: 0.72;
+  animation: none;
+}
+
+.view-scanner:not(.cs-v2) .cs-particle-field-energy.is-outer .stop-particle {
+  filter: blur(0.4px);
 }
 
 .view-scanner:not(.cs-v2) .cs-robot-frame {
@@ -6175,6 +6170,7 @@ html:has(.phone[data-interface="v2"]) body {
   flex-shrink: 0;
   display: grid;
   place-items: center;
+  z-index: 2;
 }
 
 .view-scanner:not(.cs-v2) .cs-robot-glow {
@@ -6215,7 +6211,8 @@ html:has(.phone[data-interface="v2"]) body {
   z-index: 0;
 }
 
-.view-scanner:not(.cs-v2) .cs-robot-orb .stop-energy {
+.view-scanner:not(.cs-v2) .cs-robot-orb .stop-energy,
+.view-scanner:not(.cs-v2) .cs-robot-orb-energy {
   z-index: 2;
   transform: scale(1.08);
   opacity: 0.85;
@@ -6376,11 +6373,6 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 @media (max-width: 360px) {
-  .view-scanner:not(.cs-v2) .cs-slogan {
-    font-size: 0.5rem;
-    max-width: 1.9rem;
-  }
-
   .view-scanner:not(.cs-v2) .cs-capture-text strong {
     font-size: 0.7rem;
   }
@@ -6655,49 +6647,42 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0;
   padding: 10px 8px;
   position: relative;
   z-index: 1;
 }
 
 .view-scanner.cs-v2 .cs-slogan {
-  margin: 0;
-  max-width: 2.4rem;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.78);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  line-height: 1.35;
-  position: relative;
-  flex-shrink: 0;
+  display: none;
 }
 
-.view-scanner.cs-v2 .cs-slogan::after {
-  content: "";
+.view-scanner.cs-v2 .cs-particle-field {
   position: absolute;
-  left: 50%;
-  bottom: -10px;
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: #ff2d7a;
-  box-shadow: 0 0 8px rgba(255, 45, 122, 0.8);
-  transform: translateX(-50%) rotate(90deg);
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.view-scanner.cs-v2 .cs-slogan--right {
-  transform: none;
-  writing-mode: vertical-rl;
+.view-scanner.cs-v2 .cs-particle-field-energy {
+  inset: -6%;
+  border-radius: 0;
+  overflow: visible;
+  clip-path: none;
+  transform: scale(2.35);
+  transform-origin: center center;
+  opacity: 0.95;
 }
 
-.view-scanner.cs-v2 .cs-slogan--right::after {
-  bottom: auto;
-  top: -10px;
+.view-scanner.cs-v2 .cs-particle-field-energy.is-outer {
+  inset: -18%;
+  transform: scale(3.35);
+  opacity: 0.72;
+}
+
+.view-scanner.cs-v2 .cs-particle-field-energy.is-outer .stop-particle {
+  filter: blur(0.4px);
 }
 
 .view-scanner.cs-v2 .cs-robot-frame {
@@ -6707,6 +6692,7 @@ html:has(.phone[data-interface="v2"]) body {
   flex-shrink: 0;
   display: grid;
   place-items: center;
+  z-index: 2;
 }
 
 .view-scanner.cs-v2 .cs-robot-glow {
@@ -6749,7 +6735,8 @@ html:has(.phone[data-interface="v2"]) body {
   z-index: 0;
 }
 
-.view-scanner.cs-v2 .cs-robot-orb .stop-energy {
+.view-scanner.cs-v2 .cs-robot-orb .stop-energy,
+.view-scanner.cs-v2 .cs-robot-orb-energy {
   z-index: 2;
   transform: scale(1.08);
   opacity: 0.85;
@@ -7257,11 +7244,6 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 @media (max-width: 360px) {
-  .view-scanner.cs-v2 .cs-slogan {
-    font-size: 0.5rem;
-    max-width: 1.9rem;
-  }
-
   .view-scanner.cs-v2 .cs-capture-btn {
     padding: 10px 10px;
     gap: 8px;

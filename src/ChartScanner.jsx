@@ -629,9 +629,18 @@ export default function ChartScanner({ variant = "default" }) {
               <img className="cs-chart" src={preview} alt="Chart to scan" />
             ) : (
               <div className="cs-empty">
-                <p className="cs-slogan cs-slogan--left" aria-hidden="true">
-                  Discipline Builds Freedom
-                </p>
+                <span className="cs-particle-field" aria-hidden="true">
+                  <span className="stop-energy cs-particle-field-energy">
+                    {Array.from({ length: 18 }, (_, i) => (
+                      <span key={`in-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
+                    ))}
+                  </span>
+                  <span className="stop-energy cs-particle-field-energy is-outer">
+                    {Array.from({ length: 18 }, (_, i) => (
+                      <span key={`out-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
+                    ))}
+                  </span>
+                </span>
                 <div className="cs-robot-frame">
                   <span className="cs-robot-glow" aria-hidden="true" />
                   <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
@@ -642,16 +651,13 @@ export default function ChartScanner({ variant = "default" }) {
                       width="160"
                       height="160"
                     />
-                    <span className="stop-energy">
+                    <span className="stop-energy cs-robot-orb-energy">
                       {Array.from({ length: 18 }, (_, i) => (
                         <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
                       ))}
                     </span>
                   </span>
                 </div>
-                <p className="cs-slogan cs-slogan--right" aria-hidden="true">
-                  Trade Analyze Execute Grow
-                </p>
               </div>
             )}
             <div
