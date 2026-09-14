@@ -10,6 +10,7 @@ import {
   formatLicenseExpiry,
   isLicenseExpired,
   LICENSE_DURATIONS,
+  resolveLicenseExpiry,
 } from "./licensesApi.js";
 import { STRATEGY_LABELS, useApp } from "./store.jsx";
 import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
@@ -164,6 +165,25 @@ export default function AdminPortal() {
       setLatestLicenseMeta(null);
       setLicenseSheetOpen(false);
     }
+  }
+
+  function openLicenseDetail(entry) {
+    if (!entry?.key) return;
+    setLatestKey(entry.key);
+    setLatestLicenseMeta({
+      name: entry.clientName || entry.mainText || "",
+      email: entry.clientEmail || "",
+      botName: entry.botName || "",
+      status: entry.used ? "Used" : "Available",
+      duration: formatLicenseDuration(entry),
+      expiry: formatLicenseExpiry(entry),
+      createdAt: entry.createdAt || null,
+      usedAt: entry.usedAt || null,
+      mentorName: entry.mentorName || "",
+      mentorEmail: entry.mentorEmail || "",
+      expired: isLicenseExpired(entry),
+    });
+    setLicenseSheetOpen(true);
   }
 
 
@@ -982,14 +1002,22 @@ export default function AdminPortal() {
                     mentorName: adminSession.username || "",
                   });
                   if (key) {
-                    setLatestKey(key);
-                    setLatestLicenseMeta({
-                      name: licenseClientName.trim(),
-                      email: String(licenseClientEmail || "")
+                    const timing = resolveLicenseExpiry(licenseDuration);
+                    openLicenseDetail({
+                      key,
+                      clientName: licenseClientName.trim(),
+                      clientEmail: String(licenseClientEmail || "")
                         .trim()
                         .toLowerCase(),
+                      botName:
+                        myEas.find((b) => b.id === licenseBotId)?.name || "",
+                      used: false,
+                      duration: timing.duration,
+                      expiresAt: timing.expiresAt,
+                      createdAt: Date.now(),
+                      mentorName: adminSession.username || "",
+                      mentorEmail: adminSession.email || "",
                     });
-                    setLicenseSheetOpen(true);
                   }
                   await refreshLicenses?.();
                 }}
@@ -1116,7 +1144,13 @@ export default function AdminPortal() {
                     }`}
                     key={`${entry.key}-${entry.createdAt}`}
                   >
-                    <strong>{entry.key}</strong>
+                    <button
+                      className="license-row-key"
+                      type="button"
+                      onClick={() => openLicenseDetail(entry)}
+                    >
+                      {entry.key}
+                    </button>
                     <span>
                       {entry.clientName ? `${entry.clientName} · ` : ""}
                       {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
@@ -1127,14 +1161,14 @@ export default function AdminPortal() {
                       <button
                         className="admin-btn admin-btn-outline admin-btn-sm"
                         type="button"
-                        onClick={() => {
-                          setLatestKey(entry.key);
-                          setLatestLicenseMeta({
-                            name: entry.clientName || "",
-                            email: entry.clientEmail || "",
-                          });
-                          setLicenseSheetOpen(true);
-                        }}
+                        onClick={() => openLicenseDetail(entry)}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="admin-btn admin-btn-outline admin-btn-sm"
+                        type="button"
+                        onClick={() => copyLicenseKey(entry.key)}
                       >
                         Copy
                       </button>
@@ -1377,7 +1411,7 @@ export default function AdminPortal() {
       </div>
 
       {licenseSheetOpen && latestKey ? (
-        <div className="license-side-sheet" role="dialog" aria-modal="true" aria-label="License key">
+        <div className="license-side-sheet" role="dialog" aria-modal="true" aria-label="License details">
           <button
             className="license-side-backdrop"
             type="button"
@@ -1386,7 +1420,7 @@ export default function AdminPortal() {
           />
           <aside className="license-side-panel">
             <div className="license-side-header">
-              <h2>License ready</h2>
+              <h2>License details</h2>
               <button
                 className="license-side-close"
                 type="button"
@@ -1396,12 +1430,63 @@ export default function AdminPortal() {
                 ×
               </button>
             </div>
-            <p className="license-side-copy">
-              {latestLicenseMeta
-                ? `For ${latestLicenseMeta.name || "client"} · ${latestLicenseMeta.email || "—"}`
-                : "Copy this key and send it to your client."}
-            </p>
             <code className="license-side-key">{latestKey}</code>
+            <div className="license-side-meta">
+              <p>
+                <span>Client</span>
+                <strong>{latestLicenseMeta?.name || "—"}</strong>
+              </p>
+              <p>
+                <span>Email</span>
+                <strong>{latestLicenseMeta?.email || "—"}</strong>
+              </p>
+              <p>
+                <span>Bot</span>
+                <strong>{latestLicenseMeta?.botName || "—"}</strong>
+              </p>
+              <p>
+                <span>Status</span>
+                <strong>
+                  {latestLicenseMeta?.expired
+                    ? "Expired"
+                    : latestLicenseMeta?.status || "—"}
+                </strong>
+              </p>
+              <p>
+                <span>Duration</span>
+                <strong>{latestLicenseMeta?.duration || "—"}</strong>
+              </p>
+              <p>
+                <span>Expiry</span>
+                <strong>{latestLicenseMeta?.expiry || "—"}</strong>
+              </p>
+              <p>
+                <span>Created</span>
+                <strong>
+                  {latestLicenseMeta?.createdAt
+                    ? new Date(latestLicenseMeta.createdAt).toLocaleString()
+                    : "—"}
+                </strong>
+              </p>
+              <p>
+                <span>Used at</span>
+                <strong>
+                  {latestLicenseMeta?.usedAt
+                    ? new Date(latestLicenseMeta.usedAt).toLocaleString()
+                    : "Not used yet"}
+                </strong>
+              </p>
+              {(latestLicenseMeta?.mentorName || latestLicenseMeta?.mentorEmail) && (
+                <p>
+                  <span>Mentor</span>
+                  <strong>
+                    {[latestLicenseMeta?.mentorName, latestLicenseMeta?.mentorEmail]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </strong>
+                </p>
+              )}
+            </div>
             <button
               className="admin-btn admin-btn-solid admin-btn-block"
               type="button"
@@ -1412,10 +1497,16 @@ export default function AdminPortal() {
             <button
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
-              style={{ marginTop: 8 }}
               onClick={() => void onDeactivateLicense(latestKey)}
             >
-              Deactivate key
+              {latestLicenseMeta?.status === "Used" ? "Deactivate key" : "Reset key"}
+            </button>
+            <button
+              className="admin-btn admin-btn-ghost admin-btn-block"
+              type="button"
+              onClick={() => void onDeleteLicense(latestKey)}
+            >
+              Delete key
             </button>
           </aside>
         </div>
