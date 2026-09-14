@@ -126,7 +126,9 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        Economic calendar
+        <span className="econ-cal-btn-ring" aria-hidden="true" />
+        <span className="econ-cal-btn-ring econ-cal-btn-ring--outer" aria-hidden="true" />
+        <span className="econ-cal-btn-label">Economic calendar</span>
       </button>
 
       {!open ? null : (
