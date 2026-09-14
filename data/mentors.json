@@ -9,7 +9,9 @@
       "status": "approved",
       "passwordHash": "e00d6896f602f9f3dfa5a53a5a4eea18424e3d910e1231f05e61cd1858d60cc0",
       "salt": "b70837cff675554ba58d13b4864fd511",
-      "createdAt": 1789213286447
+      "createdAt": 1789213286447,
+      "licenseKeysAllowed": 1000,
+      "licenseKeysUpdatedAt": 1789412095181
     },
     {
       "id": "e7adfe27-f723-4a89-ac05-6565d9b0f411",
