@@ -162,7 +162,11 @@ export async function loginMentorAccount({ email, password }) {
       method: "POST",
       body: { action: "login", email: key, password: pass },
     });
-    return data?.mentor || null;
+    const mentor = data?.mentor || null;
+    if (mentor && key === normalizeEmail(SUPER_ADMIN_EMAIL)) {
+      return { ...mentor, email: key, role: "superadmin", status: "approved" };
+    }
+    return mentor;
   } catch (error) {
     // Local fallback (dev / offline).
     if (key === normalizeEmail(SUPER_ADMIN_EMAIL) && pass === SUPER_ADMIN_PASSWORD) {

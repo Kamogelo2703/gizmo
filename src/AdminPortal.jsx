@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AdminAuth from "./AdminAuth.jsx";
 import {
   fetchMentors,
+  SUPER_ADMIN_EMAIL,
   updateMentorStatus,
 } from "./mentorsApi.js";
 import {
@@ -27,11 +28,26 @@ function isUploadedProfilePhoto(value) {
   );
 }
 
+function normalizeAdminEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isSuperAdminSession(session) {
+  const role = String(session?.role || "").toLowerCase();
+  const email = normalizeAdminEmail(session?.email);
+  return role === "superadmin" || email === normalizeAdminEmail(SUPER_ADMIN_EMAIL);
+}
+
 function readAdminSession() {
   try {
     const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
     if (!parsed?.email) return null;
+    if (isSuperAdminSession(parsed) && parsed.role !== "superadmin") {
+      return { ...parsed, role: "superadmin", status: "approved" };
+    }
     return parsed;
   } catch {
     return null;
@@ -43,14 +59,16 @@ function writeAdminSession(mentor) {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     return;
   }
+  const email = normalizeAdminEmail(mentor.email);
+  const role = isSuperAdminSession(mentor) ? "superadmin" : mentor.role || "mentor";
   sessionStorage.setItem(
     ADMIN_SESSION_KEY,
     JSON.stringify({
       id: mentor.id,
-      email: mentor.email,
+      email,
       username: mentor.username,
-      role: mentor.role,
-      status: mentor.status,
+      role,
+      status: role === "superadmin" ? "approved" : mentor.status,
     })
   );
 }
@@ -236,8 +254,14 @@ export default function AdminPortal() {
 
   useEffect(() => {
     if (!adminSession) return;
-    const isSuper =
-      String(adminSession.role || "").toLowerCase() === "superadmin";
+    // Upgrade stale sessions that belong to the reserved super-admin email.
+    if (isSuperAdminSession(adminSession) && adminSession.role !== "superadmin") {
+      const upgraded = { ...adminSession, role: "superadmin", status: "approved" };
+      writeAdminSession(upgraded);
+      setAdminSession(upgraded);
+      return;
+    }
+    const isSuper = isSuperAdminSession(adminSession);
     const mentorPages = new Set([
       "dashboard",
       "manage-ea",
@@ -431,8 +455,7 @@ export default function AdminPortal() {
     setAdminPage("manage-ea");
   }
 
-  const isSuperAdmin =
-    String(adminSession?.role || "").toLowerCase() === "superadmin";
+  const isSuperAdmin = isSuperAdminSession(adminSession);
   const mentorEmail = String(adminSession?.email || "")
     .trim()
     .toLowerCase();
@@ -1122,15 +1145,13 @@ export default function AdminPortal() {
                       >
                         {entry.used ? "Deactivate" : "Reset"}
                       </button>
-                      {isSuperAdmin ? (
-                        <button
-                          className="admin-btn admin-btn-ghost admin-btn-sm"
-                          type="button"
-                          onClick={() => void onDeleteLicense(entry.key)}
-                        >
-                          Delete
-                        </button>
-                      ) : null}
+                      <button
+                        className="admin-btn admin-btn-outline admin-btn-sm"
+                        type="button"
+                        onClick={() => void onDeleteLicense(entry.key)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))
