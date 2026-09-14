@@ -3838,7 +3838,7 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: column;
   min-height: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
@@ -3846,6 +3846,7 @@ html:has(.phone[data-interface="v2"]) body {
   padding: 8px 18px 18px;
   position: relative;
   z-index: 1;
+  background: #000;
 }
 
 .v2-view {
@@ -3928,13 +3929,17 @@ html:has(.phone[data-interface="v2"]) body {
   align-items: stretch;
   width: 100%;
   background: #000;
+  border: 0;
+  box-shadow: none;
 }
 
 .v2-home-hero {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 0;
+  /* Keep a real photo plane when switching into Interface 2 — without this,
+     a late/failed img load collapses the hero to a flat black bar. */
+  min-height: min(58vw, 320px);
   height: auto;
   max-height: none;
   flex: 0 0 auto;
@@ -3950,6 +3955,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 0;
   width: 100%;
+  min-height: inherit;
   height: auto;
   margin: 0;
   padding: 0;
@@ -3962,10 +3968,11 @@ html:has(.phone[data-interface="v2"]) body {
 .v2-home-hero-img {
   width: 100%;
   height: auto;
+  min-height: min(58vw, 320px);
   max-width: 100%;
   max-height: none;
   display: block;
-  object-fit: unset;
+  object-fit: cover;
   object-position: center top;
   transform: none;
   filter: none;
