@@ -300,7 +300,18 @@ export async function upsertSignup(email, { status = "pending" } = {}) {
     const idx = signups.findIndex((s) => s.email === key);
     if (idx >= 0) {
       const current = signups[idx];
-      if (current.status === "approved") {
+      // Paid / previously unlocked clients keep access when they sign in again
+      // (same phone or reinstall) — never demote them back to pending payment.
+      if (
+        current.status === "approved" ||
+        current.accessPaid ||
+        current.appAccessUnlockedAt
+      ) {
+        if (current.status !== "approved") {
+          signups[idx] = { ...current, status: "approved" };
+          result = signups[idx];
+          return signups;
+        }
         result = current;
         return signups;
       }

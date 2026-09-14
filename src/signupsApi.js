@@ -57,6 +57,14 @@ export async function updateSignupPremiumScanner(email) {
   return data?.signup || null;
 }
 
+export async function updateSignupAccessPaid(email) {
+  const data = await apiFetch("", {
+    method: "PATCH",
+    body: { email, accessPaid: true, action: "accessPaid" },
+  });
+  return data?.signup || null;
+}
+
 export function mergeSignups(localList = [], remoteList = []) {
   const map = new Map();
   [...localList, ...remoteList].forEach((item) => {
