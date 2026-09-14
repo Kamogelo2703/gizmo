@@ -3553,10 +3553,15 @@ button {
 .v2-view-home {
   position: relative;
   gap: 0;
+  /* Bleed past .v2-stage horizontal padding — must beat max-width:100% on .v2-view
+     or the sheet only shifts left and leaves a dark gap on the right. */
+  width: calc(100% + 36px);
+  max-width: none;
   margin: -8px -18px 0;
   padding: 0;
   background: #fff;
   min-height: 100%;
+  box-sizing: border-box;
   /* Home stays solid — Powered by apexEA must never fade with view enter animation */
   animation: none !important;
   opacity: 1 !important;
@@ -3865,6 +3870,8 @@ button {
   margin-top: 6px;
   padding: 8px 18px 20px;
   background: #fff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .v2-robots-title {
@@ -3881,6 +3888,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .v2-robot-row {
@@ -3888,6 +3896,8 @@ button {
   align-items: center;
   gap: 12px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 7px 16px 7px 7px;
   min-height: 58px;
   border-radius: 999px;
