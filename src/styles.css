@@ -57,13 +57,20 @@ body,
 .admin-nav,
 .admin-auth,
 .app-lock,
-.app-lock-content,
 .cover-step,
 .paypal-panel,
 .paypal-buttons,
 .cs-stage {
   max-width: 100%;
   overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
+/* Keep lock content overflow visible so the orb glow is not cut into a hard line. */
+.app-lock-content {
+  max-width: 100%;
+  overflow: visible;
   overscroll-behavior-x: none;
   touch-action: pan-y;
 }
@@ -310,7 +317,8 @@ button {
   flex-direction: column;
   min-height: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: hidden;
   opacity: 1;
   /* Fade only — horizontal slide made the whole app feel like it swipes sideways. */
   transform: none;
@@ -374,7 +382,8 @@ html:has(.phone[data-interface="v2"]) body {
   padding: 8px 20px 28px;
   min-height: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  /* clip (not hidden) avoids forcing overflow-y and shaving avatar glow into a line */
+  overflow-x: clip;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
@@ -389,7 +398,10 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding-top: 12px;
+  /* Room above the avatar so the glow is not clipped into a hairline,
+     and so Economic calendar sits clear of the circle. */
+  padding-top: 56px;
+  overflow: visible;
   animation: rise 0.7s ease both;
 }
 
@@ -416,6 +428,7 @@ html:has(.phone[data-interface="v2"]) body {
     0 0 28px rgba(var(--pink-rgb), 0.55),
     0 0 64px rgba(var(--pink-hot-rgb), 0.45);
   margin-bottom: 28px;
+  flex-shrink: 0;
   animation:
     avatar-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both,
     breathe-ring 6s ease-in-out 0.9s infinite;
@@ -3582,12 +3595,14 @@ html:has(.phone[data-interface="v2"]) body {
   justify-content: center;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  /* Prefer clip over hidden so we do not force a second-axis clip that
+     slices the orb glow into a visible hairline. */
+  overflow-x: clip;
   overflow-y: auto;
   overscroll-behavior-x: none;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  padding: 28px 22px calc(28px + var(--safe-bottom, 0px));
+  padding: 48px 22px calc(28px + var(--safe-bottom, 0px));
   background:
     radial-gradient(
       700px 420px at 50% 18%,
@@ -3623,12 +3638,15 @@ html:has(.phone[data-interface="v2"]) body {
   z-index: 1;
   width: min(100%, 360px);
   max-width: 100%;
-  overflow-x: hidden;
+  /* Do not clip orb / glow — overflow-x:hidden forces a hard hairline across the logo. */
+  overflow: visible;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 10px;
+  /* Extra top room so the pink orb aura is never shaved into a straight line. */
+  padding-top: 40px;
 }
 
 .app-lock-orb {
@@ -3637,6 +3655,7 @@ html:has(.phone[data-interface="v2"]) body {
   border-radius: 50%;
   padding: 3px;
   margin-bottom: 8px;
+  flex-shrink: 0;
   overflow: hidden;
   background: linear-gradient(145deg, var(--pink-soft), var(--pink-hot) 40%, var(--pink-dark));
   box-shadow:
@@ -7417,10 +7436,10 @@ html:has(.phone[data-interface="v2"]) body {
 .econ-cal-btn {
   position: absolute;
   z-index: 4;
-  left: 10px;
-  top: 42%;
-  transform: translateY(-50%);
-  max-width: 88px;
+  left: 0;
+  top: 8px;
+  transform: none;
+  max-width: 96px;
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #ff2d7a) 55%, #fff 10%);
   border-radius: 12px;
@@ -7471,13 +7490,13 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  top: 38%;
-  left: 12px;
+  top: 8px;
+  left: 0;
   background: color-mix(in srgb, #000 70%, var(--accent, #ff2d7a) 18%);
 }
 
 .econ-cal-btn:active {
-  transform: translateY(-50%) scale(0.97);
+  transform: scale(0.97);
 }
 
 .econ-cal-backdrop {
