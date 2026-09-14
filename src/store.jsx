@@ -1180,7 +1180,7 @@ export function AppProvider({ children }) {
           const uploadedPhoto = String(uploaded || "").trim();
           if (uploadedPhoto.startsWith("/api/licenses/photo")) {
             try {
-              const check = await fetch(uploadedPhoto, { method: "GET", cache: "no-store" });
+              const check = await fetch(mediaUrl(uploadedPhoto), { method: "GET", cache: "no-store" });
               photoValue = check.ok ? uploadedPhoto : slimPhotoForStorage(originalDataUrl);
             } catch {
               photoValue = slimPhotoForStorage(originalDataUrl);
@@ -1426,7 +1426,7 @@ export function AppProvider({ children }) {
           const uploadedPhoto = String(uploaded || "").trim();
           if (uploadedPhoto.startsWith("/api/licenses/photo")) {
             try {
-              const check = await fetch(uploadedPhoto, { method: "GET", cache: "no-store" });
+              const check = await fetch(mediaUrl(uploadedPhoto), { method: "GET", cache: "no-store" });
               photo = check.ok ? uploadedPhoto : originalPhoto;
             } catch {
               photo = originalPhoto;
@@ -1443,7 +1443,7 @@ export function AppProvider({ children }) {
       } else if (photo.startsWith("/api/licenses/photo")) {
         // Verify the synced path still serves; otherwise fall back to logo later.
         try {
-          const check = await fetch(photo, { method: "GET", cache: "no-store" });
+          const check = await fetch(mediaUrl(photo), { method: "GET", cache: "no-store" });
           if (!check.ok) photo = await materializePhotoForLicense(originalPhoto);
         } catch {
           photo = await materializePhotoForLicense(originalPhoto);
