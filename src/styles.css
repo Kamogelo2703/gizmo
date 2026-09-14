@@ -5317,7 +5317,8 @@ html:has(.phone[data-interface="v2"]) body {
   gap: 14px;
   padding: 16px 18px;
   text-align: center;
-  overflow: hidden;
+  /* Keep glow/rings visible — viewport clips charts when needed. */
+  overflow: visible;
 }
 
 .cs-empty-copy {
@@ -6113,6 +6114,8 @@ html:has(.phone[data-interface="v2"]) body {
   background:
     radial-gradient(circle at 50% 42%, rgba(var(--pink-rgb), 0.12), transparent 55%),
     #05060a;
+  /* Empty-state robot glow must not get squared off at the bottom. */
+  overflow: visible;
 }
 
 .view-scanner:not(.cs-v2) .cs-stage.has-chart .cs-viewport,
@@ -6120,6 +6123,7 @@ html:has(.phone[data-interface="v2"]) body {
   aspect-ratio: 16 / 11;
   max-height: min(36vh, 250px);
   min-height: 170px;
+  overflow: hidden;
 }
 
 .view-scanner:not(.cs-v2) .cs-empty {
@@ -6127,8 +6131,9 @@ html:has(.phone[data-interface="v2"]) body {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 10px 8px;
+  padding: 18px 8px;
   position: relative;
+  overflow: visible;
 }
 
 .view-scanner:not(.cs-v2) .cs-slogan {
@@ -6190,7 +6195,8 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   height: 100%;
   order: 0;
-  overflow: hidden;
+  /* Photo is clipped by its own border-radius; keep rings/glow unclipped. */
+  overflow: visible;
   background: #0a0a0e;
   box-shadow:
     0 0 0 3px rgba(var(--pink-rgb), 0.95),
@@ -6206,8 +6212,8 @@ html:has(.phone[data-interface="v2"]) body {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center center;
   border-radius: 50%;
   z-index: 0;
 }
@@ -6359,13 +6365,13 @@ html:has(.phone[data-interface="v2"]) body {
 
 @media (max-height: 760px) {
   .view-scanner:not(.cs-v2) .cs-viewport {
-    max-height: min(34vh, 220px);
-    min-height: 170px;
+    max-height: min(38vh, 240px);
+    min-height: 190px;
   }
 
   .view-scanner:not(.cs-v2) .cs-robot-frame {
-    width: clamp(110px, 34vw, 148px);
-    height: clamp(110px, 34vw, 148px);
+    width: clamp(120px, 36vw, 156px);
+    height: clamp(120px, 36vw, 156px);
   }
 
   .view-scanner:not(.cs-v2) .cs-capture-btn {
@@ -6618,7 +6624,8 @@ html:has(.phone[data-interface="v2"]) body {
     radial-gradient(circle at 50% 42%, rgba(255, 0, 60, 0.12), transparent 55%),
     #05060a;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+  /* Empty-state robot glow must not get squared off at the bottom. */
+  overflow: visible;
 }
 
 .view-scanner.cs-v2 .cs-viewport::before {
@@ -6633,6 +6640,7 @@ html:has(.phone[data-interface="v2"]) body {
   padding: 12px;
   border-radius: 20px;
   background: #05060a;
+  overflow: hidden;
 }
 
 .view-scanner.cs-v2 .cs-stage.has-chart .cs-chart,
@@ -6649,9 +6657,10 @@ html:has(.phone[data-interface="v2"]) body {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 10px 8px;
+  padding: 18px 8px;
   position: relative;
   z-index: 1;
+  overflow: visible;
 }
 
 .view-scanner.cs-v2 .cs-slogan {
@@ -6714,7 +6723,8 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   height: 100%;
   order: 0;
-  overflow: hidden;
+  /* Photo is clipped by its own border-radius; keep rings/glow unclipped. */
+  overflow: visible;
   background: #0a0a0e;
   box-shadow:
     0 0 0 3px rgba(255, 0, 60, 0.95),
@@ -6730,8 +6740,8 @@ html:has(.phone[data-interface="v2"]) body {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center center;
   border-radius: 50%;
   z-index: 0;
 }
@@ -7224,8 +7234,8 @@ html:has(.phone[data-interface="v2"]) body {
 
 @media (max-height: 760px) {
   .view-scanner.cs-v2 .cs-viewport {
-    max-height: min(34vh, 220px);
-    min-height: 170px;
+    max-height: min(38vh, 240px);
+    min-height: 190px;
   }
 
   .view-scanner.cs-v2 .cs-stage.has-chart .cs-viewport,
@@ -7235,8 +7245,8 @@ html:has(.phone[data-interface="v2"]) body {
   }
 
   .view-scanner.cs-v2 .cs-robot-frame {
-    width: clamp(110px, 34vw, 148px);
-    height: clamp(110px, 34vw, 148px);
+    width: clamp(120px, 36vw, 156px);
+    height: clamp(120px, 36vw, 156px);
   }
 
   .view-scanner.cs-v2 .cs-capture-btn {
