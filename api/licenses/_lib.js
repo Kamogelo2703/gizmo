@@ -656,7 +656,33 @@ async function mutateStore(mutator, message) {
 
 export async function listLicenses() {
   const store = await readStore();
-  return store.licenses.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  let licenses = store.licenses.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  // Fill missing mentorName from the mentor portal username so client headers
+  // show the mentor name even for older licenses.
+  try {
+    const missing = licenses.some(
+      (row) => normalizeEmail(row.mentorEmail) && !String(row.mentorName || "").trim()
+    );
+    if (missing) {
+      const { listMentors } = await import("../mentors/_lib.js");
+      const mentors = await listMentors();
+      const byEmail = new Map(
+        (mentors || [])
+          .map((m) => [normalizeEmail(m.email), String(m.username || "").trim()])
+          .filter(([email, name]) => email && name)
+      );
+      licenses = licenses.map((row) => {
+        if (String(row.mentorName || "").trim()) return row;
+        const name = byEmail.get(normalizeEmail(row.mentorEmail));
+        return name ? { ...row, mentorName: name } : row;
+      });
+    }
+  } catch {
+    // Mentors lookup is best-effort.
+  }
+
+  return licenses;
 }
 
 export async function createLicense(payload = {}) {

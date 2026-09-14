@@ -31,6 +31,7 @@ import {
   pickFresherPhoto,
   uploadBotPhotoRemote,
 } from "./licensesApi.js";
+import { fetchMentors } from "./mentorsApi.js";
 import {
   DEFAULT_APP_COLOR,
   applyAppTheme,
@@ -362,6 +363,8 @@ export function AppProvider({ children }) {
       )
       .filter((email) => email.includes("@"));
   });
+  /** mentorEmail → portal username (for client header) */
+  const [mentorDirectory, setMentorDirectory] = useState({});
   const [toast, setToast] = useState("");
   const [adminOpen, setAdminOpenState] = useState(() =>
     typeof window !== "undefined" ? isAdminPath() : false
@@ -660,6 +663,48 @@ export function AppProvider({ children }) {
     }, 15000);
     return () => clearInterval(timer);
   }, [refreshSignups]);
+
+  const refreshMentorDirectory = useCallback(async () => {
+    try {
+      const list = await fetchMentors();
+      const map = {};
+      for (const mentor of list || []) {
+        const email = normalizeEmail(mentor?.email);
+        const username = String(mentor?.username || "").trim();
+        if (email && username) map[email] = username;
+      }
+      setMentorDirectory(map);
+      return map;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshMentorDirectory();
+    const timer = setInterval(() => {
+      refreshMentorDirectory();
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [refreshMentorDirectory]);
+
+  // Stamp mentor portal usernames onto license rows that only have mentorEmail.
+  useEffect(() => {
+    if (!Object.keys(mentorDirectory).length) return undefined;
+    setLicenseKeys((prev) => {
+      let changed = false;
+      const next = prev.map((row) => {
+        if (String(row.mentorName || "").trim()) return row;
+        const email = normalizeEmail(row.mentorEmail);
+        const username = email ? mentorDirectory[email] : "";
+        if (!username) return row;
+        changed = true;
+        return { ...row, mentorName: username };
+      });
+      return changed ? next : prev;
+    });
+    return undefined;
+  }, [mentorDirectory]);
 
   const refreshLicenses = useCallback(async () => {
     try {
@@ -984,16 +1029,22 @@ export function AppProvider({ children }) {
     return formatFromEmail(anyOwner?.ownerEmail);
   }, [activeBot, coverEmail, eas, licenseKeys]);
 
-  /** Mentor username from the portal — shown in the client top header (KAMA). */
+  /** Mentor portal username shown in the client top header. Never use client main text. */
   const mainTextDisplay = useMemo(() => {
     const account = normalizeEmail(coverEmail);
     const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
+    const eaList = Array.isArray(eas) ? eas : [];
     const botId = String(activeBot?.id || "").trim();
 
-    const pick = (row) => {
+    const resolveMentorUsername = (row) => {
       if (!row) return "";
-      // Prefer the mentor's portal username; fall back to legacy main text.
-      return String(row.mentorName || row.mainText || row.clientName || "").trim();
+      const named = String(row.mentorName || "").trim();
+      if (named) return named;
+      const mentorEmail = normalizeEmail(row.mentorEmail);
+      if (mentorEmail && mentorDirectory[mentorEmail]) {
+        return mentorDirectory[mentorEmail];
+      }
+      return "";
     };
 
     if (botId) {
@@ -1006,8 +1057,14 @@ export function AppProvider({ children }) {
         (a, b) =>
           Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
       );
-      const fromBot = pick(forBot.find((row) => row?.used) || forBot[0]);
+      const fromBot = resolveMentorUsername(forBot.find((row) => row?.used) || forBot[0]);
       if (fromBot) return fromBot;
+
+      const ea =
+        eaList.find((item) => item.id === botId) ||
+        eaList.find((item) => String(item.ownerEmail || "").includes("@"));
+      const ownerEmail = normalizeEmail(ea?.ownerEmail);
+      if (ownerEmail && mentorDirectory[ownerEmail]) return mentorDirectory[ownerEmail];
     }
 
     if (account) {
@@ -1018,7 +1075,7 @@ export function AppProvider({ children }) {
         (a, b) =>
           Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
       );
-      const fromUsed = pick(used[0]);
+      const fromUsed = resolveMentorUsername(used[0]);
       if (fromUsed) return fromUsed;
 
       const bound = keys.filter((row) => normalizeEmail(row.clientEmail) === account);
@@ -1026,12 +1083,18 @@ export function AppProvider({ children }) {
         (a, b) =>
           Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
       );
-      const fromBound = pick(bound[0]);
+      const fromBound = resolveMentorUsername(bound[0]);
       if (fromBound) return fromBound;
     }
 
+    // Last resort: any EA owner that maps to a mentor username.
+    for (const ea of eaList) {
+      const ownerEmail = normalizeEmail(ea?.ownerEmail);
+      if (ownerEmail && mentorDirectory[ownerEmail]) return mentorDirectory[ownerEmail];
+    }
+
     return "";
-  }, [activeBot, coverEmail, licenseKeys]);
+  }, [activeBot, coverEmail, eas, licenseKeys, mentorDirectory]);
 
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
