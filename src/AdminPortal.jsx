@@ -597,7 +597,11 @@ export default function AdminPortal() {
     return licenseKeys.filter((row) => {
       const owner = normalizeAdminEmail(row.mentorEmail);
       const ownerId = String(row.mentorId || "");
-      return (email && owner === email) || (id && ownerId === id);
+      const owns =
+        (email && owner === email) || (id && ownerId === id);
+      // Commission only when the key unlocked a paid app subscription for the
+      // first time — not merely from generating a key or reusing existing access.
+      return owns && Boolean(row.used) && Boolean(row.commissionEligible);
     }).length;
   }
 
@@ -1405,13 +1409,14 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Mentor Commission</h2>
             <p className="admin-sub">
-              Earn ${COMMISSION_USD.toFixed(2)} (R{COMMISSION_ZAR}) for every license key purchase.
-              Withdrawals open after {WITHDRAW_MIN_KEYS} license keys sold.
+              Earn ${COMMISSION_USD.toFixed(2)} (R{COMMISSION_ZAR}) when your license key unlocks a
+              paid app subscription for the first time. Withdrawals open after {WITHDRAW_MIN_KEYS}{" "}
+              qualifying unlocks.
             </p>
 
             <div className="admin-stat-stack">
               <article className="admin-stat-card">
-                <p className="admin-stat-label">License keys sold</p>
+                <p className="admin-stat-label">Paid unlocks</p>
                 <p className="admin-stat-value">{soldKeysCount}</p>
               </article>
               <article className="admin-stat-card">
@@ -1425,7 +1430,7 @@ export default function AdminPortal() {
                 <p className="admin-card-meta">
                   {canWithdraw
                     ? "You can withdraw your commission"
-                    : `${keysUntilWithdraw} more sale${keysUntilWithdraw === 1 ? "" : "s"} to unlock`}
+                    : `${keysUntilWithdraw} more unlock${keysUntilWithdraw === 1 ? "" : "s"} to unlock`}
                 </p>
               </article>
             </div>
@@ -1439,11 +1444,18 @@ export default function AdminPortal() {
               </div>
               <p className="admin-card-meta">
                 As a mentor you get <strong>${COMMISSION_USD.toFixed(2)}</strong> which is{" "}
-                <strong>R{COMMISSION_ZAR}</strong> for every license key purchase.
+                <strong>R{COMMISSION_ZAR}</strong> for every license key that unlocks a{" "}
+                <strong>paid</strong> app subscription.
               </p>
               <p className="admin-card-meta">
-                Commission becomes withdrawable after <strong>{WITHDRAW_MIN_KEYS}</strong> license
-                keys are sold.
+                Generating a key alone does not pay commission. The client must pay for app access,
+                then activate your key on mobile for a robot that is getting access for the{" "}
+                <strong>first time</strong>. Keys used on accounts that already had access do not
+                count.
+              </p>
+              <p className="admin-card-meta">
+                Commission becomes withdrawable after <strong>{WITHDRAW_MIN_KEYS}</strong> qualifying
+                unlocks.
               </p>
             </div>
 
@@ -1533,8 +1545,9 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Mentor Commissions</h2>
             <p className="admin-sub">
-              Track license sales, earnings (${COMMISSION_USD.toFixed(2)} / R{COMMISSION_ZAR} per
-              key), and banking details so you can pay commissions.
+              Track paid first-time unlocks (${COMMISSION_USD.toFixed(2)} / R{COMMISSION_ZAR} each),
+              and banking details so you can pay commissions. Generated-only keys and reuse on
+              already-unlocked accounts do not count.
             </p>
             {commissionRows.length === 0 ? (
               <div className="admin-card">
@@ -1556,7 +1569,7 @@ export default function AdminPortal() {
                     <p className="admin-card-meta">{mentor.email}</p>
                     <p className="admin-card-meta">{mentor.contact || "No contact number"}</p>
                     <p className="admin-card-meta">
-                      <strong>Keys sold:</strong> {sold}
+                      <strong>Paid unlocks:</strong> {sold}
                     </p>
                     <p className="admin-card-meta">
                       <strong>Commission:</strong> ${usd.toFixed(2)} (R{zar})
@@ -1564,7 +1577,7 @@ export default function AdminPortal() {
                     <p className="admin-card-meta">
                       <strong>Withdrawal:</strong>{" "}
                       {withdrawable
-                        ? "Ready (5+ keys sold)"
+                        ? "Ready (5+ paid unlocks)"
                         : `${Math.max(0, WITHDRAW_MIN_KEYS - sold)} more needed`}
                     </p>
                     <div className="admin-commission-bank" style={{ marginTop: 10 }}>
@@ -1739,7 +1752,7 @@ export default function AdminPortal() {
                       </p>
                       {mentor.role !== "superadmin" ? (
                         <p className="admin-card-meta">
-                          Keys sold: {countSoldKeysForMentor(mentor)} ·{" "}
+                          Paid unlocks: {countSoldKeysForMentor(mentor)} ·{" "}
                           {mentor.banking?.accountNumber
                             ? `${mentor.banking.bankName || "Bank"} · ${mentor.banking.accountNumber}`
                             : "No banking details"}

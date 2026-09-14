@@ -8,6 +8,7 @@ import {
   sendJson,
 } from "./_lib.js";
 import {
+  setSignupAccessPaid,
   setSignupPremiumScanner,
   setSignupStatus,
   upsertSignup,
@@ -64,6 +65,9 @@ export default async function handler(req, res) {
     let signup = await setSignupStatus(email, "approved");
     if (scannerPaid) {
       signup = await setSignupPremiumScanner(email, true);
+    } else {
+      // App-access lifetime payment — required for mentor commission eligibility.
+      signup = await setSignupAccessPaid(email, true);
     }
 
     sendJson(res, 200, {
@@ -72,6 +76,7 @@ export default async function handler(req, res) {
       email,
       purpose: scannerPaid ? "scanner" : "access",
       premiumScanner: Boolean(signup?.premiumScanner),
+      accessPaid: Boolean(signup?.accessPaid),
       signup,
       captureStatus: capture.status,
     });

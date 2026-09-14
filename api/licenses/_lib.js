@@ -1,7 +1,11 @@
+import {
+  findSignup,
+  setSignupAppAccessUnlocked,
+} from "../signups/_lib.js";
+import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
@@ -385,6 +389,8 @@ function normalizeLicense(row) {
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     mentorName: String(row?.mentorName || row?.ownerName || "").trim(),
     used: Boolean(row?.used),
+    commissionEligible: Boolean(row?.commissionEligible),
+    commissionReason: String(row?.commissionReason || "").trim(),
     duration: String(row?.duration || (row?.expiresAt ? "timed" : "lifetime")).trim() || "lifetime",
     expiresAt:
       row?.expiresAt == null || row?.expiresAt === ""
@@ -721,6 +727,8 @@ export async function createLicense(payload = {}) {
       mentorId: String(payload.mentorId || payload.ownerId || "").trim(),
       mentorName: String(payload.mentorName || payload.ownerName || "").trim(),
       used: false,
+      commissionEligible: false,
+      commissionReason: "",
       duration: durationPayload.duration,
       expiresAt: durationPayload.expiresAt,
       createdAt,
@@ -742,6 +750,40 @@ export async function markLicenseUsed(rawKey) {
     throw err;
   }
 
+  // Peek current license + signup before mutate so commission rules use paid/first-access.
+  const currentList = await listLicenses();
+  const current =
+    currentList.find((row) => variants.includes(row.key)) || null;
+  if (!current) {
+    const err = new Error("Invalid license key");
+    err.status = 404;
+    throw err;
+  }
+  if (current.used) {
+    return current;
+  }
+
+  const clientEmail = normalizeEmail(current.clientEmail);
+  const signup = clientEmail ? await findSignup(clientEmail) : null;
+  const accessPaid = Boolean(signup?.accessPaid);
+  const alreadyUnlocked = Boolean(signup?.appAccessUnlockedAt);
+  const priorUsed = currentList.some(
+    (row) =>
+      normalizeEmail(row.clientEmail) === clientEmail &&
+      row.used &&
+      !variants.includes(row.key)
+  );
+  const commissionEligible = Boolean(
+    clientEmail && accessPaid && !alreadyUnlocked && !priorUsed
+  );
+  const commissionReason = commissionEligible
+    ? "first_paid_access"
+    : !accessPaid
+      ? "not_paid"
+      : alreadyUnlocked || priorUsed
+        ? "access_already_active"
+        : "ineligible";
+
   let result = null;
   await mutateStore((licenses) => {
     const idx = licenses.findIndex((row) => variants.includes(row.key));
@@ -759,10 +801,20 @@ export async function markLicenseUsed(rawKey) {
       used: true,
       usedAt: Date.now(),
       updatedAt: Date.now(),
+      commissionEligible,
+      commissionReason,
     };
     result = licenses[idx];
     return licenses;
   }, `license used: ${variants[0]}`);
+
+  if (clientEmail) {
+    try {
+      await setSignupAppAccessUnlocked(clientEmail, result?.usedAt || Date.now());
+    } catch {
+      // Unlock stamp is best-effort; license commissionEligible is already set.
+    }
+  }
 
   return result;
 }
@@ -787,6 +839,7 @@ export async function deactivateLicense(rawKey) {
       ...licenses[idx],
       used: false,
       usedAt: null,
+      // Keep commissionEligible as-is so a paid first unlock still counts after reset.
       updatedAt: Date.now(),
     };
     result = licenses[idx];

@@ -124,6 +124,8 @@ export function normalizeLicense(row) {
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     mentorName,
     used: Boolean(row?.used),
+    commissionEligible: Boolean(row?.commissionEligible),
+    commissionReason: String(row?.commissionReason || "").trim(),
     duration: String(row?.duration || (row?.expiresAt ? "timed" : "lifetime")).trim() || "lifetime",
     expiresAt: row?.expiresAt == null || row?.expiresAt === ""
       ? null
@@ -178,6 +180,12 @@ export function mergeLicenses(localList = [], remoteList = []) {
           ? row.usedAt || prev.usedAt || null
           : null
         : row.usedAt || prev.usedAt || null,
+      commissionEligible: preferIncoming
+        ? Boolean(row.commissionEligible)
+        : Boolean(prev.commissionEligible || row.commissionEligible),
+      commissionReason: preferIncoming
+        ? row.commissionReason || prev.commissionReason || ""
+        : prev.commissionReason || row.commissionReason || "",
       updatedAt: Math.max(prev.updatedAt || 0, row.updatedAt || 0),
       bot: preferLicenseBot(row.bot, prev.bot, row.updatedAt || 0, prev.updatedAt || 0),
       createdAt: Math.min(prev.createdAt || Date.now(), row.createdAt || Date.now()),

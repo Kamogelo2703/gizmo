@@ -72,6 +72,11 @@ export function mergeSignups(localList = [], remoteList = []) {
         premiumScannerAt: item.premiumScannerAt
           ? Number(item.premiumScannerAt)
           : null,
+        accessPaid: Boolean(item.accessPaid),
+        accessPaidAt: item.accessPaidAt ? Number(item.accessPaidAt) : null,
+        appAccessUnlockedAt: item.appAccessUnlockedAt
+          ? Number(item.appAccessUnlockedAt)
+          : null,
       });
       return;
     }
@@ -85,12 +90,26 @@ export function mergeSignups(localList = [], remoteList = []) {
       Number(prev.premiumScannerAt) || 0,
       Number(item.premiumScannerAt) || 0
     );
+    const accessPaid = Boolean(prev.accessPaid || item.accessPaid);
+    const accessPaidAt = Math.max(
+      Number(prev.accessPaidAt) || 0,
+      Number(item.accessPaidAt) || 0
+    );
+    const unlockStamps = [prev.appAccessUnlockedAt, item.appAccessUnlockedAt]
+      .map((n) => Number(n) || 0)
+      .filter((n) => n > 0);
+    const appAccessUnlockedAt = unlockStamps.length
+      ? Math.min(...unlockStamps)
+      : null;
     map.set(email, {
       email,
       status: nextStatus,
       createdAt: Math.min(Number(prev.createdAt) || Date.now(), Number(item.createdAt) || Date.now()),
       premiumScanner,
       premiumScannerAt: premiumScanner ? premiumScannerAt || null : null,
+      accessPaid,
+      accessPaidAt: accessPaid ? accessPaidAt || null : null,
+      appAccessUnlockedAt,
     });
   });
   return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

@@ -11,6 +11,23 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
+function normalizeSignup(raw = {}) {
+  const email = normalizeEmail(raw.email);
+  if (!email || !email.includes("@")) return null;
+  return {
+    email,
+    status: String(raw.status || "pending").toLowerCase(),
+    createdAt: Number(raw.createdAt) || Date.now(),
+    premiumScanner: Boolean(raw.premiumScanner),
+    premiumScannerAt: raw.premiumScannerAt ? Number(raw.premiumScannerAt) : null,
+    accessPaid: Boolean(raw.accessPaid),
+    accessPaidAt: raw.accessPaidAt ? Number(raw.accessPaidAt) : null,
+    appAccessUnlockedAt: raw.appAccessUnlockedAt
+      ? Number(raw.appAccessUnlockedAt)
+      : null,
+  };
+}
+
 function requireToken() {
   const token =
     process.env.SIGNUPS_GITHUB_TOKEN ||
@@ -68,15 +85,7 @@ function decodeContent(file) {
     const signups = Array.isArray(parsed?.signups) ? parsed.signups : [];
     return {
       sha: file.sha,
-      signups: signups
-        .map((s) => ({
-          email: normalizeEmail(s.email),
-          status: String(s.status || "pending").toLowerCase(),
-          createdAt: Number(s.createdAt) || Date.now(),
-          premiumScanner: Boolean(s.premiumScanner),
-          premiumScannerAt: s.premiumScannerAt ? Number(s.premiumScannerAt) : null,
-        }))
-        .filter((s) => s.email && s.email.includes("@")),
+      signups: signups.map(normalizeSignup).filter(Boolean),
     };
   } catch {
     return { sha: file.sha, signups: [] };
@@ -98,14 +107,8 @@ async function writeStore(signups, sha, message) {
     JSON.stringify(
       {
         signups: signups
-          .map((s) => ({
-            email: normalizeEmail(s.email),
-            status: String(s.status || "pending").toLowerCase(),
-            createdAt: Number(s.createdAt) || Date.now(),
-            premiumScanner: Boolean(s.premiumScanner),
-            premiumScannerAt: s.premiumScannerAt ? Number(s.premiumScannerAt) : null,
-          }))
-          .filter((s) => s.email && s.email.includes("@"))
+          .map(normalizeSignup)
+          .filter(Boolean)
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
       },
       null,
@@ -176,7 +179,11 @@ export async function upsertSignup(email, { status = "pending" } = {}) {
       result = updated;
       return signups;
     }
-      result = { email: key, status: "pending", createdAt: Date.now(), premiumScanner: false, premiumScannerAt: null };
+      result = normalizeSignup({
+        email: key,
+        status: "pending",
+        createdAt: Date.now(),
+      });
     return [result, ...signups];
   }, `signup: ${key}`);
 
@@ -200,15 +207,94 @@ export async function setSignupStatus(email, status) {
       result = signups[idx];
       return signups;
     }
-    result = {
+    result = normalizeSignup({
       email: key,
       status: next,
       createdAt: Date.now(),
-      premiumScanner: false,
-      premiumScannerAt: null,
-    };
+    });
     return [result, ...signups];
   }, `signup ${next}: ${key}`);
+
+  return result;
+}
+
+export async function findSignup(email) {
+  const key = normalizeEmail(email);
+  if (!key) return null;
+  const signups = await listSignups();
+  return signups.find((s) => s.email === key) || null;
+}
+
+export async function setSignupAccessPaid(email, paid = true) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+
+  let result = null;
+  await mutateStore((signups) => {
+    const idx = signups.findIndex((s) => s.email === key);
+    const accessPaid = Boolean(paid);
+    const accessPaidAt = accessPaid ? Date.now() : null;
+    if (idx >= 0) {
+      signups[idx] = {
+        ...signups[idx],
+        accessPaid,
+        accessPaidAt: accessPaid
+          ? accessPaidAt
+          : signups[idx].accessPaidAt || null,
+        status: accessPaid ? "approved" : signups[idx].status,
+      };
+      result = signups[idx];
+      return signups;
+    }
+    result = normalizeSignup({
+      email: key,
+      status: accessPaid ? "approved" : "pending",
+      createdAt: Date.now(),
+      accessPaid,
+      accessPaidAt,
+    });
+    return [result, ...signups];
+  }, `access paid ${paid ? "on" : "off"}: ${key}`);
+
+  return result;
+}
+
+export async function setSignupAppAccessUnlocked(email, unlockedAt = Date.now()) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+
+  let result = null;
+  await mutateStore((signups) => {
+    const idx = signups.findIndex((s) => s.email === key);
+    const stamp = Number(unlockedAt) || Date.now();
+    if (idx >= 0) {
+      if (signups[idx].appAccessUnlockedAt) {
+        result = signups[idx];
+        return signups;
+      }
+      signups[idx] = {
+        ...signups[idx],
+        appAccessUnlockedAt: stamp,
+      };
+      result = signups[idx];
+      return signups;
+    }
+    result = normalizeSignup({
+      email: key,
+      status: "approved",
+      createdAt: Date.now(),
+      appAccessUnlockedAt: stamp,
+    });
+    return [result, ...signups];
+  }, `app access unlocked: ${key}`);
 
   return result;
 }
@@ -237,13 +323,13 @@ export async function setSignupPremiumScanner(email, enabled = true) {
       result = signups[idx];
       return signups;
     }
-    result = {
+    result = normalizeSignup({
       email: key,
       status: "approved",
       createdAt: Date.now(),
       premiumScanner,
       premiumScannerAt,
-    };
+    });
     return [result, ...signups];
   }, `premium scanner ${enabled ? "on" : "off"}: ${key}`);
 

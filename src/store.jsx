@@ -1377,9 +1377,45 @@ export function AppProvider({ children }) {
         ];
       });
 
+      const usedAt = Date.now();
+      const priorUsed = licenseKeys.some(
+        (item) =>
+          normalizeEmail(item.clientEmail) === accountEmail &&
+          item.used &&
+          !variants.includes(normalizeLicenseKey(item.key))
+      );
+      const accessPaid = Boolean(signup?.accessPaid);
+      const alreadyUnlocked = Boolean(signup?.appAccessUnlockedAt);
+      const commissionEligible = Boolean(
+        accessPaid && !alreadyUnlocked && !priorUsed
+      );
+      const commissionReason = commissionEligible
+        ? "first_paid_access"
+        : !accessPaid
+          ? "not_paid"
+          : "access_already_active";
+
       setLicenseKeys((prev) =>
         mergeLicenses(prev, [
-          { ...entry, used: true, usedAt: Date.now(), updatedAt: Date.now() },
+          {
+            ...entry,
+            used: true,
+            usedAt,
+            updatedAt: usedAt,
+            commissionEligible,
+            commissionReason,
+          },
+        ])
+      );
+
+      setSignups((prev) =>
+        mergeSignups(prev, [
+          {
+            ...(signup || { email: accountEmail, status: "approved" }),
+            email: accountEmail,
+            status: "approved",
+            appAccessUnlockedAt: signup?.appAccessUnlockedAt || usedAt,
+          },
         ])
       );
 
