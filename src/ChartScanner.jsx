@@ -498,7 +498,7 @@ export default function ChartScanner({ variant = "default" }) {
           <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
           <h2 className="cs-title">Chart Scanner</h2>
           {variant === "v2" ? (
-            <p className="cs-tagline">Scan • Analyze • Trade Smarter</p>
+            <p className="cs-tagline">Scan · Analyze · Trade Smarter</p>
           ) : null}
         </div>
         <div className="cs-head-meta">
@@ -651,6 +651,11 @@ export default function ChartScanner({ variant = "default" }) {
               ) : (
                 "Camera"
               )}
+              {variant === "v2" ? (
+                <span className="cs-capture-chevron" aria-hidden="true">
+                  ›
+                </span>
+              ) : null}
             </button>
             <button
               className={`cs-capture-btn${variant === "v2" ? " is-ghost" : ""}`}
@@ -677,6 +682,11 @@ export default function ChartScanner({ variant = "default" }) {
               ) : (
                 "Upload"
               )}
+              {variant === "v2" ? (
+                <span className="cs-capture-chevron" aria-hidden="true">
+                  ›
+                </span>
+              ) : null}
             </button>
           </div>
         </div>
@@ -829,7 +839,18 @@ export default function ChartScanner({ variant = "default" }) {
       </div>
 
       <div className="cs-tp-config" aria-label="Take-profit risk reward ratios">
-        <p className="cs-tp-config-label">TP targets</p>
+        <p className="cs-tp-config-label">
+          {variant === "v2" ? (
+            <span className="cs-tp-config-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.7" />
+                <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+                <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+              </svg>
+            </span>
+          ) : null}
+          TP targets
+        </p>
         <div className="cs-tp-config-row" role="group" aria-label="Fixed TP ratios">
           <div className="cs-tp-ratio">
             <span>TP1</span>
