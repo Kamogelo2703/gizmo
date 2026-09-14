@@ -12,7 +12,6 @@ export default function V2ScannerPaywall({ onClose }) {
     coverEmail,
     setCoverEmail,
     unlockV2ScannerPremium,
-    v2ScannerPremium,
     getSignup,
     showToast,
     refreshSignups,
@@ -22,13 +21,16 @@ export default function V2ScannerPaywall({ onClose }) {
   const [amount, setAmount] = useState("35.60");
   const [paying, setPaying] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [showAlreadyPaid, setShowAlreadyPaid] = useState(false);
+  const [paidEmail, setPaidEmail] = useState(coverEmail || "");
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalError, setPaypalError] = useState("");
   const paypalButtonsRef = useRef(null);
 
   useEffect(() => {
     setEmail(coverEmail || "");
-  }, [coverEmail]);
+    if (!showAlreadyPaid) setPaidEmail(coverEmail || "");
+  }, [coverEmail, showAlreadyPaid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,8 +141,9 @@ export default function V2ScannerPaywall({ onClose }) {
     showToast("Email saved — PayPal will load");
   }
 
-  async function checkAlreadyPaid() {
-    const buyer = String(coverEmail || email || "")
+  async function checkAlreadyPaid(event) {
+    event?.preventDefault?.();
+    const buyer = String(paidEmail || coverEmail || email || "")
       .trim()
       .toLowerCase();
     if (!buyer || !buyer.includes("@")) {
@@ -155,7 +158,7 @@ export default function V2ScannerPaywall({ onClose }) {
         ? merged.find((row) => String(row.email || "").toLowerCase() === buyer)
         : null;
       const signup = fromRemote || getSignup?.(buyer);
-      if (signup?.premiumScanner || v2ScannerPremium) {
+      if (signup?.premiumScanner) {
         unlockV2ScannerPremium?.(buyer);
         showToast("Premium scanner restored for this email");
       } else {
@@ -221,14 +224,48 @@ export default function V2ScannerPaywall({ onClose }) {
           {paying ? <p className="ea-hint">Confirming payment…</p> : null}
         </div>
 
-        <button
-          className="v2-scanner-paywall-already"
-          type="button"
-          onClick={() => void checkAlreadyPaid()}
-          disabled={checking}
-        >
-          {checking ? "Checking…" : "Already paid?"}
-        </button>
+        {showAlreadyPaid ? (
+          <form className="v2-scanner-paywall-form" onSubmit={checkAlreadyPaid}>
+            <label className="ea-field">
+              <span>Email you paid with</span>
+              <input
+                className="admin-input"
+                type="email"
+                value={paidEmail}
+                onChange={(e) => setPaidEmail(e.target.value)}
+                placeholder="you@email.com"
+                required
+                autoFocus
+              />
+            </label>
+            <button
+              className="admin-btn admin-btn-solid admin-btn-block"
+              type="submit"
+              disabled={checking}
+            >
+              {checking ? "Checking…" : "Restore scanner access"}
+            </button>
+            <button
+              className="v2-scanner-paywall-already"
+              type="button"
+              onClick={() => setShowAlreadyPaid(false)}
+              disabled={checking}
+            >
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <button
+            className="v2-scanner-paywall-already"
+            type="button"
+            onClick={() => {
+              setPaidEmail(coverEmail || email || "");
+              setShowAlreadyPaid(true);
+            }}
+          >
+            Already paid?
+          </button>
+        )}
 
         <button
           className="admin-btn admin-btn-outline admin-btn-block"
