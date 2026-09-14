@@ -146,9 +146,10 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
                 <p className="econ-cal-next-label">Next event</p>
                 <p className="econ-cal-next-title">{nextEvent.title}</p>
                 <p className="econ-cal-next-day">{formatEventDay(nextEvent.date)}</p>
-                {nextEvent.note ? (
-                  <p className="econ-cal-next-note">{nextEvent.note}</p>
-                ) : null}
+                <p className="econ-cal-next-note">
+                  {nextEvent.timeSa || nextEvent.timeEt} SAST
+                  {nextEvent.note ? ` · ${nextEvent.note}` : ""}
+                </p>
                 <p className="econ-cal-copy">
                   {isToday
                     ? directions

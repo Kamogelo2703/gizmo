@@ -951,7 +951,7 @@ export default function AdminPortal() {
     }
     if (!isSignalDirectionEditable(official)) {
       showToast(
-        `Editing locked — signal directions close 1 hour before ${official.title} (${official.timeEt} ET)`
+        `Editing locked — signal directions close 1 hour before ${official.title} (${official.timeSa || official.timeEt} SAST)`
       );
       return;
     }
@@ -2416,7 +2416,7 @@ export default function AdminPortal() {
                     {nextOfficial ? (
                       <p className="admin-card-meta">
                         Next event clients see: {nextOfficial.title} ·{" "}
-                        {formatEventDay(nextOfficial.date)} · {nextOfficial.timeEt} ET
+                        {formatEventDay(nextOfficial.date)} · {nextOfficial.timeSa || nextOfficial.timeEt} SAST
                       </p>
                     ) : (
                       <p className="admin-empty">No upcoming official events</p>
@@ -2450,7 +2450,7 @@ export default function AdminPortal() {
                         >
                           {upcomingOfficial.map((event) => (
                             <option key={event.id} value={event.id}>
-                              {event.title} — {formatEventDay(event.date)} · {event.timeEt} ET
+                              {event.title} — {formatEventDay(event.date)} · {event.timeSa || event.timeEt} SAST
                             </option>
                           ))}
                         </select>
