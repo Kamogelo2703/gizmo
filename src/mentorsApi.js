@@ -112,10 +112,46 @@ function ensureLocalSuperAdmin(list) {
 function pickBanking(item, prev) {
   const next = normalizeBanking(item?.banking);
   const old = normalizeBanking(prev?.banking);
+  if (next.accountNumber && next.updatedAt && old.updatedAt && next.updatedAt >= old.updatedAt) {
+    return next;
+  }
+  if (old.accountNumber && next.accountNumber && old.updatedAt && next.updatedAt && old.updatedAt > next.updatedAt) {
+    return old;
+  }
   if (next.accountNumber) return next;
   if (old.accountNumber) return old;
   if (next.updatedAt && (!old.updatedAt || next.updatedAt >= old.updatedAt)) return next;
   return old.accountName || old.bankName ? old : next;
+}
+
+const BANKING_CACHE_KEY = "apexea-mentor-banking-v1";
+
+function readBankingCache() {
+  try {
+    const raw = localStorage.getItem(BANKING_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeBankingCache(email, banking) {
+  const key = normalizeEmail(email);
+  if (!key) return;
+  const all = readBankingCache();
+  all[key] = normalizeBanking(banking);
+  try {
+    localStorage.setItem(BANKING_CACHE_KEY, JSON.stringify(all));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function bankingFromCache(email) {
+  const key = normalizeEmail(email);
+  if (!key) return normalizeBanking();
+  return normalizeBanking(readBankingCache()[key]);
 }
 
 function mergeMentorLists(localList = [], remoteList = []) {
@@ -151,6 +187,7 @@ function cacheMentorLocally(mentor) {
   const mentors = ensureLocalSuperAdmin(readLocalMentors());
   const key = normalizeEmail(mentor.email);
   const idx = mentors.findIndex((m) => m.email === key);
+  const banking = pickBanking(mentor, mentors[idx] || { banking: bankingFromCache(key) });
   const next = {
     id: mentor.id || `local-${Date.now()}`,
     username: mentor.username || "Mentor",
@@ -160,19 +197,26 @@ function cacheMentorLocally(mentor) {
     status: mentor.status || "pending",
     password: mentor.password,
     createdAt: mentor.createdAt || Date.now(),
-    banking: normalizeBanking(mentor.banking),
+    banking,
   };
   if (idx >= 0) mentors[idx] = { ...mentors[idx], ...next };
   else mentors.unshift(next);
   writeLocalMentors(mentors);
+  if (banking.accountNumber) writeBankingCache(key, banking);
 }
 
 export async function fetchMentors() {
-  const local = ensureLocalSuperAdmin(readLocalMentors());
+  const local = ensureLocalSuperAdmin(readLocalMentors()).map((m) => ({
+    ...m,
+    banking: pickBanking(m, { banking: bankingFromCache(m.email) }),
+  }));
   try {
     const data = await apiFetch();
     const remote = Array.isArray(data?.mentors) ? data.mentors : [];
-    const merged = mergeMentorLists(local, remote);
+    const merged = mergeMentorLists(local, remote).map((m) => ({
+      ...m,
+      banking: pickBanking(m, { banking: bankingFromCache(m.email) }),
+    }));
     writeLocalMentors(
       merged.map((m) => ({
         ...m,
@@ -315,21 +359,31 @@ export async function updateMentorBanking(email, bankingInput = {}) {
     throw new Error("Account name, bank name, and account number are required");
   }
 
+  // Always cache immediately so polls / remounts cannot wipe the form.
+  writeBankingCache(email, banking);
+
   try {
     const data = await apiFetch("", {
       method: "POST",
       body: { action: "banking", email, banking },
     });
     const mentor = data?.mentor || null;
-    if (mentor) cacheMentorLocally(mentor);
-    return mentor;
+    if (mentor) {
+      const withBanking = {
+        ...mentor,
+        banking: pickBanking({ banking }, mentor),
+      };
+      cacheMentorLocally(withBanking);
+      return publicLocal(withBanking);
+    }
+    cacheMentorLocally({ email, banking, status: "approved", role: "mentor" });
+    return publicLocal({ email, banking, status: "approved", role: "mentor" });
   } catch (error) {
     if (error.status === 400) throw error;
     const key = normalizeEmail(email);
     const mentors = ensureLocalSuperAdmin(readLocalMentors());
     const idx = mentors.findIndex((m) => m.email === key);
     if (idx < 0) {
-      // Create a lightweight local mentor shell so banking can still be saved.
       mentors.unshift({
         id: `local-${Date.now()}`,
         username: key.split("@")[0] || "Mentor",

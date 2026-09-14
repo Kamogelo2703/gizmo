@@ -220,7 +220,24 @@ async function readStore() {
       `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
       { cache: "no-store" }
     );
-    return decodeContent(file);
+    const decoded = decodeContent(file);
+    // Overlay locally-saved banking when GitHub still has empty banking
+    // (write may have failed auth on a prior request in this process).
+    if (Array.isArray(memoryMentors) && memoryMentors.length) {
+      const localByEmail = new Map(
+        memoryMentors.map((m) => [normalizeEmail(m.email), m])
+      );
+      decoded.mentors = decoded.mentors.map((m) => {
+        const local = localByEmail.get(normalizeEmail(m.email));
+        const remoteBank = normalizeBanking(m.banking);
+        const localBank = normalizeBanking(local?.banking);
+        if (!remoteBank.accountNumber && localBank.accountNumber) {
+          return { ...m, banking: localBank };
+        }
+        return m;
+      });
+    }
+    return decoded;
   } catch (error) {
     if (error.status === 404) {
       return { sha: null, mentors: [], remote: true };
@@ -271,8 +288,8 @@ async function writeStore(mentors, sha, message) {
     });
   } catch (error) {
     writeLocalStore(mentors);
-    // Auth failures must surface — otherwise pending mentors appear saved but vanish
-    // on the next serverless instance.
+    // Auth failures must surface for register/status — otherwise pending mentors
+    // appear saved but vanish on the next serverless instance.
     if (error.status === 401 || error.status === 403) throw error;
     return { local: true };
   }
@@ -510,12 +527,18 @@ export async function updateMentorBanking(email, bankingInput = {}) {
       return list;
     }, `chore: update banking for ${key}`);
   } catch (error) {
-    // Keep banking usable offline / when GitHub auth fails: write local store and return.
-    if (error.status === 400 || error.status === 404) throw error;
-    const local = readLocalStore();
-    const list = ensureSuperAdminRecord(local.mentors);
+    if (error.status === 400) throw error;
+    // Always keep banking on the mentor record locally so the client gets a
+    // successful save even when GitHub is unreachable / unauthorized.
+    const store = await readStore().catch(() => readLocalStore());
+    const list = ensureSuperAdminRecord(store.mentors || []);
     const idx = list.findIndex((m) => m.email === key);
-    if (idx < 0) throw error;
+    if (idx < 0) {
+      if (error.status === 404) throw error;
+      const err = new Error("Mentor not found");
+      err.status = 404;
+      throw err;
+    }
     list[idx] = { ...list[idx], banking };
     writeLocalStore(list);
     updated = list[idx];

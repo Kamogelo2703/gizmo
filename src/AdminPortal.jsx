@@ -264,9 +264,33 @@ export default function AdminPortal() {
     async function loadMentors() {
       try {
         const list = await fetchMentors();
-        if (!cancelled) setMentors(Array.isArray(list) ? list : []);
+        if (cancelled) return;
+        setMentors((prev) => {
+          const map = new Map(
+            (Array.isArray(list) ? list : []).map((m) => [
+              normalizeAdminEmail(m.email),
+              m,
+            ])
+          );
+          for (const m of prev) {
+            const key = normalizeAdminEmail(m.email);
+            const incoming = map.get(key);
+            if (!incoming) {
+              map.set(key, m);
+              continue;
+            }
+            const keepBanking =
+              m?.banking?.accountNumber && !incoming?.banking?.accountNumber
+                ? m.banking
+                : incoming.banking?.accountNumber
+                  ? incoming.banking
+                  : m.banking || incoming.banking;
+            map.set(key, { ...incoming, banking: keepBanking });
+          }
+          return Array.from(map.values());
+        });
       } catch {
-        if (!cancelled) setMentors([]);
+        if (!cancelled) setMentors((prev) => prev);
       }
     }
     loadMentors();
@@ -288,20 +312,61 @@ export default function AdminPortal() {
       (m) => normalizeAdminEmail(m.email) === normalizeAdminEmail(adminSession.email)
     );
     const banking = mine?.banking;
-    if (!banking) return;
-    setBankingForm({
-      accountName: banking.accountName || "",
-      bankName: banking.bankName || "",
-      accountNumber: banking.accountNumber || "",
-      branchCode: banking.branchCode || "",
-      accountType: banking.accountType || "",
+    // Never clobber in-progress / saved form fields with empty remote banking.
+    // Polls used to wipe the banking form right after typing or saving.
+    if (!banking?.accountNumber && !banking?.accountName) return;
+    setBankingForm((prev) => {
+      const incomingEmpty =
+        !String(banking.accountName || "").trim() &&
+        !String(banking.accountNumber || "").trim();
+      if (incomingEmpty) return prev;
+      const same =
+        prev.accountName === (banking.accountName || "") &&
+        prev.bankName === (banking.bankName || "") &&
+        prev.accountNumber === (banking.accountNumber || "") &&
+        prev.branchCode === (banking.branchCode || "") &&
+        prev.accountType === (banking.accountType || "");
+      if (same) return prev;
+      // If the user already typed more complete details, keep them.
+      if (
+        prev.accountNumber &&
+        !banking.accountNumber
+      ) {
+        return prev;
+      }
+      return {
+        accountName: banking.accountName || prev.accountName || "",
+        bankName: banking.bankName || prev.bankName || "",
+        accountNumber: banking.accountNumber || prev.accountNumber || "",
+        branchCode: banking.branchCode || prev.branchCode || "",
+        accountType: banking.accountType || prev.accountType || "",
+      };
     });
   }, [mentors, adminSession?.email]);
 
   async function refreshMentorsList() {
     try {
       const list = await fetchMentors();
-      setMentors(Array.isArray(list) ? list : []);
+      setMentors((prev) => {
+        // Preserve any richer banking details already in memory.
+        const map = new Map(
+          (Array.isArray(list) ? list : []).map((m) => [normalizeAdminEmail(m.email), m])
+        );
+        for (const m of prev) {
+          const key = normalizeAdminEmail(m.email);
+          const incoming = map.get(key);
+          if (!incoming) {
+            map.set(key, m);
+            continue;
+          }
+          const keepBanking =
+            m?.banking?.accountNumber && !incoming?.banking?.accountNumber
+              ? m.banking
+              : incoming.banking || m.banking;
+          map.set(key, { ...incoming, banking: keepBanking });
+        }
+        return Array.from(map.values());
+      });
       showToast("Mentors refreshed");
     } catch (error) {
       showToast(error.message || "Could not refresh mentors");
@@ -311,23 +376,41 @@ export default function AdminPortal() {
   async function saveMentorBanking() {
     if (!adminSession?.email) return;
     setBankingBusy(true);
+    const snapshot = { ...bankingForm };
     try {
-      const updated = await updateMentorBanking(adminSession.email, bankingForm);
+      const updated = await updateMentorBanking(adminSession.email, snapshot);
+      const banking = {
+        accountName: updated?.banking?.accountName || snapshot.accountName || "",
+        bankName: updated?.banking?.bankName || snapshot.bankName || "",
+        accountNumber: updated?.banking?.accountNumber || snapshot.accountNumber || "",
+        branchCode: updated?.banking?.branchCode || snapshot.branchCode || "",
+        accountType: updated?.banking?.accountType || snapshot.accountType || "",
+      };
+      setBankingForm(banking);
       setMentors((prev) => {
-        const next = prev.map((m) => (m.email === updated.email ? updated : m));
-        if (!next.some((m) => m.email === updated.email)) next.unshift(updated);
+        const email = normalizeAdminEmail(adminSession.email);
+        const next = prev.map((m) =>
+          normalizeAdminEmail(m.email) === email
+            ? { ...m, ...(updated || {}), banking }
+            : m
+        );
+        if (!next.some((m) => normalizeAdminEmail(m.email) === email)) {
+          next.unshift({
+            ...(updated || {
+              email: adminSession.email,
+              username: adminSession.username,
+              role: "mentor",
+              status: "approved",
+            }),
+            banking,
+          });
+        }
         return next;
-      });
-      const banking = updated?.banking || bankingForm;
-      setBankingForm({
-        accountName: banking.accountName || "",
-        bankName: banking.bankName || "",
-        accountNumber: banking.accountNumber || "",
-        branchCode: banking.branchCode || "",
-        accountType: banking.accountType || "",
       });
       showToast("Banking details saved");
     } catch (error) {
+      // Keep what the mentor typed even if sync fails.
+      setBankingForm(snapshot);
       showToast(error.message || "Could not save banking details");
     } finally {
       setBankingBusy(false);
