@@ -2,6 +2,8 @@ import { useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
+import { buildBotTradeComment } from "./metaApi.js";
+import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
 
 export default function ZetaInterface() {
   const {
@@ -18,9 +20,23 @@ export default function ZetaInterface() {
     setLockStep,
     getSignup,
     coverEmail,
+    catalog,
+    getSymbolMeta,
   } = useApp();
 
   const running = v2Running;
+  const floatSrc = activeBot?.photo || "/logo.png";
+  const tradeComment = buildBotTradeComment(activeBot?.name);
+  const scriptSymbol =
+    (activeBot?.symbols && activeBot.symbols[0]) || catalog?.[0] || "XAUUSD";
+  const scriptMeta = getSymbolMeta?.(scriptSymbol) || {};
+  const openTradeScript = buildShortOpenTradeScript({
+    botName: activeBot?.name || "Bot",
+    comment: tradeComment,
+    symbol: scriptSymbol,
+    lotSize: scriptMeta?.lotSize ?? 0.01,
+    action: scriptMeta?.action ?? "BOTH",
+  });
 
   function toggleRun() {
     const next = !running;
@@ -141,6 +157,16 @@ export default function ZetaInterface() {
           </button>
         ))}
       </nav>
+
+      <TradeScriptOrb
+        visible={running && zetaView === "home"}
+        photoSrc={floatSrc}
+        botName={activeBot?.name || "Bot"}
+        script={openTradeScript}
+        comment={tradeComment}
+        storageKey="apexea-float-pos-zeta"
+        showToast={showToast}
+      />
     </div>
   );
 }
