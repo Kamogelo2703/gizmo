@@ -62,6 +62,37 @@
       }
     },
     {
+      "key": "APEX-2AYE-7MEG",
+      "botId": "zeta-scalper-ai-mtyew2ps",
+      "botName": "ZETA SCALPER AI",
+      "clientEmail": "twenty67slam@icloud.com",
+      "clientName": "The",
+      "mainText": "The",
+      "mentorEmail": "trapgoatkaymow@gmail.com",
+      "mentorId": "eae67eca-96dd-4cb0-b5bd-67922d4a9892",
+      "mentorName": "Kamogelo",
+      "used": false,
+      "commissionEligible": false,
+      "commissionReason": "",
+      "duration": "lifetime",
+      "expiresAt": null,
+      "createdAt": 1789250564123,
+      "usedAt": null,
+      "deviceId": null,
+      "boundAt": null,
+      "updatedAt": 1789413257782,
+      "bot": {
+        "id": "zeta-scalper-ai-mtyew2ps",
+        "name": "ZETA SCALPER AI",
+        "photo": "/logo.png",
+        "strategy": "scalper",
+        "symbols": [
+          "ETHUSD",
+          "NAS100"
+        ]
+      }
+    },
+    {
       "key": "APEX-TST-5W4B",
       "botId": "copy-bot",
       "botName": "Copy Bot",
