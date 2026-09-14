@@ -51,6 +51,20 @@ export function isAdminPath(pathname = typeof window !== "undefined" ? window.lo
   return path === ADMIN_PATH || path.endsWith(ADMIN_PATH);
 }
 
+/** Capacitor Android/iOS shell — client trading app only (no mentor portal). */
+export function isNativeApp() {
+  try {
+    return Boolean(
+      typeof window !== "undefined" &&
+        window.Capacitor &&
+        typeof window.Capacitor.isNativePlatform === "function" &&
+        window.Capacitor.isNativePlatform()
+    );
+  } catch {
+    return false;
+  }
+}
+
 function loadMt5Session() {
   try {
     const raw = localStorage.getItem(MT5_SESSION_KEY);
@@ -368,7 +382,7 @@ export function AppProvider({ children }) {
   const [mentorDirectory, setMentorDirectory] = useState({});
   const [toast, setToast] = useState("");
   const [adminOpen, setAdminOpenState] = useState(() =>
-    typeof window !== "undefined" ? isAdminPath() : false
+    typeof window !== "undefined" ? isAdminPath() && !isNativeApp() : false
   );
   const [adminPage, setAdminPage] = useState("dashboard");
   const [lockStep, setLockStep] = useState("cover");
@@ -398,6 +412,7 @@ export function AppProvider({ children }) {
 
   const openAdmin = useCallback(
     (page = "dashboard") => {
+      if (isNativeApp()) return;
       if (page) setAdminPage(page);
       setAdminOpenState(true);
       syncAdminPath(true);
@@ -408,6 +423,7 @@ export function AppProvider({ children }) {
   const setAdminOpen = useCallback(
     (open) => {
       if (open) {
+        if (isNativeApp()) return;
         openAdmin("dashboard");
         return;
       }
@@ -420,11 +436,23 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     function onPopState() {
+      if (isNativeApp()) {
+        if (isAdminPath()) {
+          window.history.replaceState({ apexAdmin: false }, "", "/");
+        }
+        setAdminOpenState(false);
+        return;
+      }
       setAdminOpenState(isAdminPath());
     }
     window.addEventListener("popstate", onPopState);
-    // Deep-link /admin on first load.
-    if (isAdminPath()) setAdminOpenState(true);
+    // Deep-link /admin on first load — blocked in the native trading app.
+    if (isNativeApp()) {
+      if (isAdminPath()) window.history.replaceState({ apexAdmin: false }, "", "/");
+      setAdminOpenState(false);
+    } else if (isAdminPath()) {
+      setAdminOpenState(true);
+    }
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 

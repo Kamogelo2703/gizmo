@@ -1,5 +1,27 @@
 {
+  "headers": [
+    {
+      "source": "/ZETA-SCALPER-AI.apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"ZETA-SCALPER-AI.apk\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|ZETA-SCALPER-AI\\.apk).*)",
+      "destination": "/index.html"
+    }
   ]
 }

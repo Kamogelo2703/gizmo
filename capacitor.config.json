@@ -10,8 +10,10 @@
       "https://apex-ea.com/*",
       "https://*.paypal.com/*",
       "https://*.paypalobjects.com/*",
+      "https://*.sandbox.paypal.com/*",
       "https://*.metaapi.cloud/*",
       "https://*.agiliumtrade.ai/*",
+      "https://*.agiliumtrade.agiliumtrade.ai/*",
       "https://fonts.googleapis.com/*",
       "https://fonts.gstatic.com/*"
     ]
