@@ -31,6 +31,37 @@
       }
     },
     {
+      "key": "APEX-QPMC-33VS",
+      "botId": "unlimited-bull-mtzc5usk",
+      "botName": "Unlimited bull",
+      "clientEmail": "mukundimukhuba8@gmail.com",
+      "clientName": "mukundimukhuba8@gmail.co",
+      "mainText": "mukundimukhuba8@gmail.co",
+      "mentorEmail": "trapgoatkaymow22@icloud.com",
+      "mentorId": "super-admin",
+      "mentorName": "APEX EA",
+      "used": false,
+      "commissionEligible": false,
+      "commissionReason": "",
+      "duration": "lifetime",
+      "expiresAt": null,
+      "createdAt": 1789275072658,
+      "usedAt": null,
+      "deviceId": null,
+      "boundAt": null,
+      "updatedAt": 1789413255337,
+      "bot": {
+        "id": "unlimited-bull-mtzc5usk",
+        "name": "Unlimited bull",
+        "photo": "/logo.png",
+        "strategy": "scalper",
+        "symbols": [
+          "NAS100",
+          "EURGBP"
+        ]
+      }
+    },
+    {
       "key": "APEX-TST-5W4B",
       "botId": "copy-bot",
       "botName": "Copy Bot",
