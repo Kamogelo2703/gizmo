@@ -456,8 +456,10 @@ export function AppProvider({ children }) {
   const v2ScannerPremium = useMemo(() => {
     const email = normalizeEmail(coverEmail);
     if (!email) return false;
-    return premiumScannerEmails.includes(email);
-  }, [coverEmail, premiumScannerEmails]);
+    if (premiumScannerEmails.includes(email)) return true;
+    const signup = signups.find((row) => normalizeEmail(row.email) === email);
+    return Boolean(signup?.premiumScanner);
+  }, [coverEmail, premiumScannerEmails, signups]);
 
   const unlockV2ScannerPremium = useCallback(
     (email = coverEmail) => {
@@ -469,6 +471,17 @@ export function AppProvider({ children }) {
       setCoverEmail(key);
       setPremiumScannerEmails((prev) =>
         prev.includes(key) ? prev : [...prev, key]
+      );
+      setSignups((prev) =>
+        mergeSignups(prev, [
+          {
+            email: key,
+            status: "approved",
+            createdAt: Date.now(),
+            premiumScanner: true,
+            premiumScannerAt: Date.now(),
+          },
+        ])
       );
       return true;
     },
@@ -509,6 +522,19 @@ export function AppProvider({ children }) {
         merged = mergeSignups(prev, remote);
         return merged;
       });
+      // Restore local premium-scanner unlocks from remote signup flags only
+      // (never from plain approved/app-access payment).
+      const paid = (merged || [])
+        .filter((row) => row?.premiumScanner)
+        .map((row) =>
+          String(row.email || "")
+            .trim()
+            .toLowerCase()
+        )
+        .filter((email) => email.includes("@"));
+      if (paid.length) {
+        setPremiumScannerEmails((prev) => Array.from(new Set([...prev, ...paid])));
+      }
       return merged;
     } catch (error) {
       // Keep local cache if remote sync is temporarily unavailable.

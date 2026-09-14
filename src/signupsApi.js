@@ -60,6 +60,10 @@ export function mergeSignups(localList = [], remoteList = []) {
         email,
         status: String(item.status || "pending").toLowerCase(),
         createdAt: Number(item.createdAt) || Date.now(),
+        premiumScanner: Boolean(item.premiumScanner),
+        premiumScannerAt: item.premiumScannerAt
+          ? Number(item.premiumScannerAt)
+          : null,
       });
       return;
     }
@@ -68,10 +72,17 @@ export function mergeSignups(localList = [], remoteList = []) {
       (rank[item.status] || 0) >= (rank[prev.status] || 0)
         ? String(item.status || prev.status).toLowerCase()
         : prev.status;
+    const premiumScanner = Boolean(prev.premiumScanner || item.premiumScanner);
+    const premiumScannerAt = Math.max(
+      Number(prev.premiumScannerAt) || 0,
+      Number(item.premiumScannerAt) || 0
+    );
     map.set(email, {
       email,
       status: nextStatus,
       createdAt: Math.min(Number(prev.createdAt) || Date.now(), Number(item.createdAt) || Date.now()),
+      premiumScanner,
+      premiumScannerAt: premiumScanner ? premiumScannerAt || null : null,
     });
   });
   return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

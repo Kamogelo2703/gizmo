@@ -12,6 +12,8 @@ export default function V2ScannerPaywall({ onClose }) {
     coverEmail,
     setCoverEmail,
     unlockV2ScannerPremium,
+    v2ScannerPremium,
+    getSignup,
     showToast,
     refreshSignups,
   } = useApp();
@@ -19,6 +21,7 @@ export default function V2ScannerPaywall({ onClose }) {
   const [email, setEmail] = useState(coverEmail || "");
   const [amount, setAmount] = useState("35.60");
   const [paying, setPaying] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalError, setPaypalError] = useState("");
   const paypalButtonsRef = useRef(null);
@@ -47,7 +50,7 @@ export default function V2ScannerPaywall({ onClose }) {
           .trim()
           .toLowerCase();
         if (!buyer || !buyer.includes("@")) {
-          setPaypalError("Enter the account email used for ApexEA access first.");
+          setPaypalError("Enter your account email before paying.");
           return;
         }
 
@@ -64,6 +67,7 @@ export default function V2ScannerPaywall({ onClose }) {
               label: "pay",
             },
             createOrder: async () => {
+              // Always create a scanner-purpose order — separate from app access.
               const order = await createPaypalOrder(buyer, "scanner");
               if (!order?.id) throw new Error("Could not start PayPal checkout");
               return order.id;
@@ -77,8 +81,15 @@ export default function V2ScannerPaywall({ onClose }) {
                   "scanner"
                 );
                 await refreshSignups?.();
-                unlockV2ScannerPremium?.(result?.email || buyer);
-                showToast("Premium scanner unlocked");
+                // Only unlock when this capture was a scanner purchase.
+                if (result?.purpose === "scanner" || result?.premiumScanner) {
+                  unlockV2ScannerPremium?.(result?.email || buyer);
+                  showToast("Premium scanner unlocked — 20 scans per day");
+                } else {
+                  showToast(
+                    "That payment was for app access only. Chart Scanner needs its own payment."
+                  );
+                }
               } catch (error) {
                 showToast(error.message || "Payment capture failed");
               } finally {
@@ -128,15 +139,50 @@ export default function V2ScannerPaywall({ onClose }) {
     showToast("Email saved — PayPal will load");
   }
 
+  async function checkAlreadyPaid() {
+    const buyer = String(coverEmail || email || "")
+      .trim()
+      .toLowerCase();
+    if (!buyer || !buyer.includes("@")) {
+      showToast("Enter the email you paid with");
+      return;
+    }
+    setChecking(true);
+    try {
+      setCoverEmail?.(buyer);
+      const merged = await refreshSignups?.();
+      const fromRemote = Array.isArray(merged)
+        ? merged.find((row) => String(row.email || "").toLowerCase() === buyer)
+        : null;
+      const signup = fromRemote || getSignup?.(buyer);
+      if (signup?.premiumScanner || v2ScannerPremium) {
+        unlockV2ScannerPremium?.(buyer);
+        showToast("Premium scanner restored for this email");
+      } else {
+        showToast(
+          "No premium scanner payment found for this email. App access payment does not unlock the scanner — please pay again."
+        );
+      }
+    } catch (error) {
+      showToast(error.message || "Could not check payment status");
+    } finally {
+      setChecking(false);
+    }
+  }
+
   return (
     <section className="v2-scanner-paywall" aria-label="Premium scanner unlock">
       <div className="v2-scanner-paywall-card">
         <p className="v2-scanner-paywall-eyebrow">Premium</p>
         <h2 className="v2-scanner-paywall-title">Unlock Chart Scanner</h2>
         <p className="v2-scanner-paywall-copy">
-          Interface 2 Chart Scanner is a premium tool. Unlock it with the same
-          one-time PayPal payment used for ApexEA access —{" "}
-          <strong>${amount} USD</strong>.
+          Interface 2 Chart Scanner is a separate premium purchase. Pay{" "}
+          <strong>${amount} USD</strong> once with PayPal to unlock it. The
+          premium scanner comes with <strong>20 scans per day</strong>.
+        </p>
+        <p className="v2-scanner-paywall-note">
+          App access / homepage subscription does not unlock this scanner — even
+          with the same email, you must pay for the scanner separately.
         </p>
 
         {!coverEmail ? (
@@ -174,6 +220,15 @@ export default function V2ScannerPaywall({ onClose }) {
           <div ref={paypalButtonsRef} className="paypal-buttons" />
           {paying ? <p className="ea-hint">Confirming payment…</p> : null}
         </div>
+
+        <button
+          className="v2-scanner-paywall-already"
+          type="button"
+          onClick={() => void checkAlreadyPaid()}
+          disabled={checking}
+        >
+          {checking ? "Checking…" : "Already paid?"}
+        </button>
 
         <button
           className="admin-btn admin-btn-outline admin-btn-block"

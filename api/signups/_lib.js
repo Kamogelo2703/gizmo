@@ -73,6 +73,8 @@ function decodeContent(file) {
           email: normalizeEmail(s.email),
           status: String(s.status || "pending").toLowerCase(),
           createdAt: Number(s.createdAt) || Date.now(),
+          premiumScanner: Boolean(s.premiumScanner),
+          premiumScannerAt: s.premiumScannerAt ? Number(s.premiumScannerAt) : null,
         }))
         .filter((s) => s.email && s.email.includes("@")),
     };
@@ -100,6 +102,8 @@ async function writeStore(signups, sha, message) {
             email: normalizeEmail(s.email),
             status: String(s.status || "pending").toLowerCase(),
             createdAt: Number(s.createdAt) || Date.now(),
+            premiumScanner: Boolean(s.premiumScanner),
+            premiumScannerAt: s.premiumScannerAt ? Number(s.premiumScannerAt) : null,
           }))
           .filter((s) => s.email && s.email.includes("@"))
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
@@ -172,7 +176,7 @@ export async function upsertSignup(email, { status = "pending" } = {}) {
       result = updated;
       return signups;
     }
-    result = { email: key, status: "pending", createdAt: Date.now() };
+      result = { email: key, status: "pending", createdAt: Date.now(), premiumScanner: false, premiumScannerAt: null };
     return [result, ...signups];
   }, `signup: ${key}`);
 
@@ -196,9 +200,52 @@ export async function setSignupStatus(email, status) {
       result = signups[idx];
       return signups;
     }
-    result = { email: key, status: next, createdAt: Date.now() };
+    result = {
+      email: key,
+      status: next,
+      createdAt: Date.now(),
+      premiumScanner: false,
+      premiumScannerAt: null,
+    };
     return [result, ...signups];
   }, `signup ${next}: ${key}`);
+
+  return result;
+}
+
+export async function setSignupPremiumScanner(email, enabled = true) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+
+  let result = null;
+  await mutateStore((signups) => {
+    const idx = signups.findIndex((s) => s.email === key);
+    const premiumScanner = Boolean(enabled);
+    const premiumScannerAt = premiumScanner ? Date.now() : null;
+    if (idx >= 0) {
+      signups[idx] = {
+        ...signups[idx],
+        premiumScanner,
+        premiumScannerAt: premiumScanner
+          ? premiumScannerAt
+          : signups[idx].premiumScannerAt || null,
+      };
+      result = signups[idx];
+      return signups;
+    }
+    result = {
+      email: key,
+      status: "approved",
+      createdAt: Date.now(),
+      premiumScanner,
+      premiumScannerAt,
+    };
+    return [result, ...signups];
+  }, `premium scanner ${enabled ? "on" : "off"}: ${key}`);
 
   return result;
 }

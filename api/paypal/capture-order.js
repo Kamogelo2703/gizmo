@@ -7,7 +7,11 @@ import {
   readJsonBody,
   sendJson,
 } from "./_lib.js";
-import { setSignupStatus, upsertSignup } from "../signups/_lib.js";
+import {
+  setSignupPremiumScanner,
+  setSignupStatus,
+  upsertSignup,
+} from "../signups/_lib.js";
 
 export const config = { maxDuration: 30 };
 
@@ -29,8 +33,6 @@ export default async function handler(req, res) {
     const fallbackEmail = String(body.email || "")
       .trim()
       .toLowerCase();
-    const requestedPurpose =
-      String(body.purpose || "").toLowerCase() === "scanner" ? "scanner" : "";
 
     const capture = await captureLifetimeOrder(orderId);
     if (!isCaptureCompleted(capture)) {
@@ -53,17 +55,23 @@ export default async function handler(req, res) {
       return;
     }
 
-    const purpose = extractCapturePurpose(capture) || requestedPurpose || "access";
+    // Only the PayPal order purpose unlocks scanner — never app-access payment,
+    // even when the client sends purpose=scanner by mistake.
+    const purposeFromOrder = extractCapturePurpose(capture);
+    const scannerPaid = purposeFromOrder === "scanner";
 
-    // Ensure the signup exists, then auto-approve because payment cleared.
     await upsertSignup(email, { status: "pending" });
-    const signup = await setSignupStatus(email, "approved");
+    let signup = await setSignupStatus(email, "approved");
+    if (scannerPaid) {
+      signup = await setSignupPremiumScanner(email, true);
+    }
 
     sendJson(res, 200, {
       ok: true,
       orderId,
       email,
-      purpose,
+      purpose: scannerPaid ? "scanner" : "access",
+      premiumScanner: Boolean(signup?.premiumScanner),
       signup,
       captureStatus: capture.status,
     });
