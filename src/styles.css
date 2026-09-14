@@ -3573,8 +3573,6 @@ html:has(.phone[data-interface="v2"]) body {
 
 .v2-view.v2-view-home,
 .v2-view.is-active.v2-view-home {
-  /* Fill photo from KAMA down to the name row (no black dead space) */
-  --v2-hero-h: clamp(260px, 46vh, 340px);
   position: relative;
   gap: 0;
   /* Bleed past .v2-stage horizontal padding. Must override .v2-view max-width:100%
@@ -3594,7 +3592,7 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 1 !important;
 }
 
-/* Compact home header: short hero photo + name + pill (no overlap) */
+/* Full-bleed hero — photo at natural aspect, edge-to-edge, no crop */
 .v2-home-header {
   display: flex;
   flex-direction: column;
@@ -3607,9 +3605,9 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: var(--v2-hero-h);
-  min-height: var(--v2-hero-h);
-  max-height: var(--v2-hero-h);
+  min-height: 0;
+  height: auto;
+  max-height: none;
   flex: 0 0 auto;
   display: block;
   padding: 0;
@@ -3620,11 +3618,10 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-home-hero-media {
-  position: absolute;
-  inset: 0;
+  position: relative;
   z-index: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
   margin: 0;
   padding: 0;
   pointer-events: none;
@@ -3635,11 +3632,11 @@ html:has(.phone[data-interface="v2"]) body {
 
 .v2-home-hero-img {
   width: 100%;
-  height: 100%;
-  max-width: none;
+  height: auto;
+  max-width: 100%;
   max-height: none;
   display: block;
-  object-fit: cover;
+  object-fit: unset;
   object-position: center top;
   transform: none;
   filter: none;
@@ -3655,7 +3652,7 @@ html:has(.phone[data-interface="v2"]) body {
   box-shadow: none !important;
 }
 
-/* Sunken into the bottom of the filled photo — clear of the pill below */
+/* Sunken into bottom of the full photo — pill sits below, no overlap */
 .v2-home-hero-copy {
   position: absolute;
   left: 0;
@@ -3667,12 +3664,12 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 36px 16px 14px;
+  padding: 40px 16px 16px;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(0, 0, 0, 0.55) 42%,
-    rgba(0, 0, 0, 0.92) 100%
+    rgba(0, 0, 0, 0.45) 40%,
+    rgba(0, 0, 0, 0.88) 100%
   );
   opacity: 1 !important;
   animation: none !important;
