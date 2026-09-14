@@ -4,6 +4,7 @@ import {
   readJsonBody,
   registerMentor,
   sendJson,
+  setMentorLicenseKeys,
   setMentorStatus,
   updateMentorBanking,
   updateMentorProfile,
@@ -61,6 +62,15 @@ export default async function handler(req, res) {
         return;
       }
 
+      if (action === "license-keys" || action === "licensekeys" || action === "keys") {
+        const mentor = await setMentorLicenseKeys(body.email, {
+          set: body.set ?? body.licenseKeysAllowed ?? body.total,
+          add: body.add ?? body.keysToAdd,
+        });
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
       sendJson(res, 400, { error: "Unknown action" });
       return;
     }
@@ -77,6 +87,15 @@ export default async function handler(req, res) {
 
       if (action === "profile") {
         const mentor = await updateMentorProfile(body.email, body.profile || body);
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
+      if (action === "license-keys" || action === "licensekeys" || action === "keys") {
+        const mentor = await setMentorLicenseKeys(body.email, {
+          set: body.set ?? body.licenseKeysAllowed ?? body.total,
+          add: body.add ?? body.keysToAdd,
+        });
         sendJson(res, 200, { mentor });
         return;
       }

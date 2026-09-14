@@ -19,6 +19,8 @@ export const SUPER_ADMIN_EMAIL = String(
 export const SUPER_ADMIN_PASSWORD =
   process.env.SUPER_ADMIN_PASSWORD || "Admin12";
 export const SUPER_ADMIN_USERNAME = "APEX EA";
+/** Default license-key allotment every mentor starts with. */
+export const DEFAULT_MENTOR_LICENSE_KEYS = 1500;
 
 let memoryMentors = null;
 
@@ -26,6 +28,16 @@ function normalizeEmail(email) {
   return String(email || "")
     .trim()
     .toLowerCase();
+}
+
+export function normalizeLicenseKeysAllowed(value, { role } = {}) {
+  if (String(role || "").toLowerCase() === "superadmin") {
+    return null;
+  }
+  if (value == null || value === "") return DEFAULT_MENTOR_LICENSE_KEYS;
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_MENTOR_LICENSE_KEYS;
+  return n;
 }
 
 function normalizePhone(value) {
@@ -95,15 +107,19 @@ export function hashPassword(password, salt) {
 export function publicMentor(mentor) {
   if (!mentor) return null;
   const banking = normalizeBanking(mentor.banking);
+  const role = mentor.role || "mentor";
   return {
     id: mentor.id,
     username: mentor.username,
     email: mentor.email,
     contact: mentor.contact || "",
-    role: mentor.role || "mentor",
+    role,
     status: mentor.status || "pending",
     createdAt: mentor.createdAt || Date.now(),
     banking,
+    licenseKeysAllowed: normalizeLicenseKeysAllowed(mentor.licenseKeysAllowed, {
+      role,
+    }),
   };
 }
 
@@ -135,18 +151,27 @@ function decodeMentorsJson(raw, sha = null) {
     return {
       sha,
       mentors: mentors
-        .map((m) => ({
-          id: String(m.id || normalizeEmail(m.email) || crypto.randomUUID()),
-          username: String(m.username || "").trim() || "Mentor",
-          email: normalizeEmail(m.email),
-          contact: normalizePhone(m.contact),
-          role: String(m.role || "mentor").toLowerCase() === "superadmin" ? "superadmin" : "mentor",
-          status: String(m.status || "pending").toLowerCase(),
-          passwordHash: String(m.passwordHash || ""),
-          salt: String(m.salt || ""),
-          createdAt: Number(m.createdAt) || Date.now(),
-          banking: normalizeBanking(m.banking),
-        }))
+        .map((m) => {
+          const role =
+            String(m.role || "mentor").toLowerCase() === "superadmin"
+              ? "superadmin"
+              : "mentor";
+          return {
+            id: String(m.id || normalizeEmail(m.email) || crypto.randomUUID()),
+            username: String(m.username || "").trim() || "Mentor",
+            email: normalizeEmail(m.email),
+            contact: normalizePhone(m.contact),
+            role,
+            status: String(m.status || "pending").toLowerCase(),
+            passwordHash: String(m.passwordHash || ""),
+            salt: String(m.salt || ""),
+            createdAt: Number(m.createdAt) || Date.now(),
+            banking: normalizeBanking(m.banking),
+            licenseKeysAllowed: normalizeLicenseKeysAllowed(m.licenseKeysAllowed, {
+              role,
+            }),
+          };
+        })
         .filter((m) => m.email && m.email.includes("@")),
     };
   } catch {
@@ -189,18 +214,25 @@ function writeLocalStore(mentors) {
       JSON.stringify(
         {
           mentors: next
-            .map((m) => ({
-              id: m.id,
-              username: m.username,
-              email: normalizeEmail(m.email),
-              contact: normalizePhone(m.contact),
-              role: m.role || "mentor",
-              status: m.status || "pending",
-              passwordHash: m.passwordHash,
-              salt: m.salt,
-              createdAt: Number(m.createdAt) || Date.now(),
-              banking: normalizeBanking(m.banking),
-            }))
+            .map((m) => {
+              const role = m.role || "mentor";
+              return {
+                id: m.id,
+                username: m.username,
+                email: normalizeEmail(m.email),
+                contact: normalizePhone(m.contact),
+                role,
+                status: m.status || "pending",
+                passwordHash: m.passwordHash,
+                salt: m.salt,
+                createdAt: Number(m.createdAt) || Date.now(),
+                banking: normalizeBanking(m.banking),
+                licenseKeysAllowed: normalizeLicenseKeysAllowed(
+                  m.licenseKeysAllowed,
+                  { role }
+                ),
+              };
+            })
             .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt),
         },
         null,
@@ -253,18 +285,25 @@ async function writeStore(mentors, sha, message) {
     JSON.stringify(
       {
         mentors: mentors
-          .map((m) => ({
-            id: m.id,
-            username: m.username,
-            email: normalizeEmail(m.email),
-            contact: normalizePhone(m.contact),
-            role: m.role || "mentor",
-            status: m.status || "pending",
-            passwordHash: m.passwordHash,
-            salt: m.salt,
-            createdAt: Number(m.createdAt) || Date.now(),
-            banking: normalizeBanking(m.banking),
-          }))
+          .map((m) => {
+            const role = m.role || "mentor";
+            return {
+              id: m.id,
+              username: m.username,
+              email: normalizeEmail(m.email),
+              contact: normalizePhone(m.contact),
+              role,
+              status: m.status || "pending",
+              passwordHash: m.passwordHash,
+              salt: m.salt,
+              createdAt: Number(m.createdAt) || Date.now(),
+              banking: normalizeBanking(m.banking),
+              licenseKeysAllowed: normalizeLicenseKeysAllowed(
+                m.licenseKeysAllowed,
+                { role }
+              ),
+            };
+          })
           .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt)
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
       },
@@ -410,6 +449,7 @@ export async function registerMentor({ username, email, contact, password }) {
       passwordHash: hashPassword(pass, salt),
       salt,
       createdAt: Date.now(),
+      licenseKeysAllowed: DEFAULT_MENTOR_LICENSE_KEYS,
     };
     list.unshift(created);
     return list;
@@ -621,6 +661,95 @@ export async function updateMentorBanking(email, bankingInput = {}) {
     writeLocalStore(list);
     updated = list[idx];
   }
+
+  return publicMentor(updated);
+}
+
+/**
+ * Returns the key allotment for a mentor email, or null for unlimited (super admin / missing).
+ */
+export async function getMentorLicenseKeysAllowed(email) {
+  const key = normalizeEmail(email);
+  if (!key) return null;
+  if (key === SUPER_ADMIN_EMAIL) return null;
+  try {
+    const store = await readStore();
+    const mentors = ensureSuperAdminRecord(store.mentors);
+    const mentor = mentors.find((m) => m.email === key);
+    if (!mentor) return DEFAULT_MENTOR_LICENSE_KEYS;
+    return normalizeLicenseKeysAllowed(mentor.licenseKeysAllowed, {
+      role: mentor.role,
+    });
+  } catch {
+    return DEFAULT_MENTOR_LICENSE_KEYS;
+  }
+}
+
+/**
+ * Super-admin edit/add for mentor license-key allotments.
+ * - set: absolute total (e.g. 1500)
+ * - add: increase by N keys
+ */
+export async function setMentorLicenseKeys(email, { set, add } = {}) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+  if (key === SUPER_ADMIN_EMAIL) {
+    const err = new Error("Super admin does not use a license key allotment");
+    err.status = 400;
+    throw err;
+  }
+
+  const hasSet = set != null && set !== "";
+  const hasAdd = add != null && add !== "";
+  if (!hasSet && !hasAdd) {
+    const err = new Error("Provide set or add for license keys");
+    err.status = 400;
+    throw err;
+  }
+
+  let updated = null;
+  await mutateStore((mentors) => {
+    const list = ensureSuperAdminRecord(mentors);
+    const idx = list.findIndex((m) => m.email === key);
+    if (idx < 0) {
+      const err = new Error("Mentor not found");
+      err.status = 404;
+      throw err;
+    }
+    const current = normalizeLicenseKeysAllowed(list[idx].licenseKeysAllowed, {
+      role: list[idx].role,
+    });
+    let next = current ?? DEFAULT_MENTOR_LICENSE_KEYS;
+    if (hasSet) {
+      const n = Math.floor(Number(set));
+      if (!Number.isFinite(n) || n < 0) {
+        const err = new Error("Enter a valid key total (0 or more)");
+        err.status = 400;
+        throw err;
+      }
+      next = n;
+    }
+    if (hasAdd) {
+      const n = Math.floor(Number(add));
+      if (!Number.isFinite(n) || n === 0) {
+        const err = new Error("Enter how many keys to add (non-zero)");
+        err.status = 400;
+        throw err;
+      }
+      next = Math.max(0, next + n);
+    }
+    list[idx] = {
+      ...list[idx],
+      licenseKeysAllowed: next,
+      licenseKeysUpdatedAt: Date.now(),
+    };
+    updated = list[idx];
+    return list;
+  }, `chore: set mentor ${key} license keys`);
 
   return publicMentor(updated);
 }

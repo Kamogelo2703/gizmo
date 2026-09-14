@@ -32,7 +32,11 @@ import {
   uploadBotPhotoRemote,
 } from "./licensesApi.js";
 import { getOrCreateDeviceId } from "./deviceId.js";
-import { fetchMentors } from "./mentorsApi.js";
+import {
+  DEFAULT_MENTOR_LICENSE_KEYS,
+  fetchMentors,
+  SUPER_ADMIN_EMAIL,
+} from "./mentorsApi.js";
 import {
   DEFAULT_APP_COLOR,
   applyAppTheme,
@@ -1383,6 +1387,34 @@ export function AppProvider({ children }) {
       const createdAt = Date.now();
       const timing = resolveLicenseExpiry(duration, createdAt);
 
+      if (ownerEmail && ownerEmail !== String(SUPER_ADMIN_EMAIL).toLowerCase()) {
+        let allowance = DEFAULT_MENTOR_LICENSE_KEYS;
+        try {
+          const mentors = await fetchMentors();
+          const mentor = (Array.isArray(mentors) ? mentors : []).find(
+            (m) => normalizeEmail(m.email) === ownerEmail
+          );
+          if (mentor && String(mentor.role || "").toLowerCase() === "superadmin") {
+            allowance = null;
+          } else if (mentor?.licenseKeysAllowed != null) {
+            allowance = Number(mentor.licenseKeysAllowed);
+          }
+        } catch {
+          allowance = DEFAULT_MENTOR_LICENSE_KEYS;
+        }
+        if (allowance != null && Number.isFinite(allowance)) {
+          const used = (Array.isArray(licenseKeys) ? licenseKeys : []).filter(
+            (row) => normalizeEmail(row.mentorEmail) === ownerEmail
+          ).length;
+          if (used >= allowance) {
+            showToast(
+              `License key limit reached (${used}/${allowance}). Ask super admin to add more keys.`
+            );
+            return null;
+          }
+        }
+      }
+
       // Prefer the versioned API photo path so every activation gets the latest
       // picture. Fall back to an embedded data URL only when upload cannot sync.
       let photo = String(bot.photo || ea?.photo || "/logo.png").trim() || "/logo.png";
@@ -1494,7 +1526,7 @@ export function AppProvider({ children }) {
         return key;
       }
     },
-    [bots, eas, showToast]
+    [bots, eas, licenseKeys, showToast]
   );
 
   const activateLicense = useCallback(

@@ -749,9 +749,35 @@ export async function createLicense(payload = {}) {
         : Number(payload.expiresAt) || durationPayload.expiresAt;
   }
 
+  const ownerEmailForQuota = normalizeEmail(
+    payload.mentorEmail || payload.ownerEmail || ""
+  );
+  let keyAllowance = null;
+  if (ownerEmailForQuota) {
+    try {
+      const { getMentorLicenseKeysAllowed } = await import("../mentors/_lib.js");
+      keyAllowance = await getMentorLicenseKeysAllowed(ownerEmailForQuota);
+    } catch {
+      keyAllowance = 1500;
+    }
+  }
+
   let result = null;
   await mutateStore((licenses) => {
     const existing = licenses.find((row) => row.key === key);
+    if (!existing && ownerEmailForQuota && keyAllowance != null) {
+      const used = licenses.filter(
+        (row) => normalizeEmail(row.mentorEmail) === ownerEmailForQuota
+      ).length;
+      if (used >= keyAllowance) {
+        const err = new Error(
+          `License key limit reached (${used}/${keyAllowance}). Ask super admin to add more keys.`
+        );
+        err.status = 403;
+        throw err;
+      }
+    }
+
     if (existing) {
       const prevBot = existing.bot || null;
       const prevPhoto = String(prevBot?.photo || "");

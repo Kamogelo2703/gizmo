@@ -4,6 +4,7 @@ const LOCAL_KEY = "apexea-mentors-v1";
 export const SUPER_ADMIN_EMAIL = "trapgoatkaymow22@icloud.com";
 export const SUPER_ADMIN_PASSWORD = "Admin12";
 export const SUPER_ADMIN_USERNAME = "APEX EA";
+export const DEFAULT_MENTOR_LICENSE_KEYS = 1500;
 
 async function apiFetch(path = "", { method = "GET", body } = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -76,17 +77,29 @@ function normalizeBanking(raw = {}) {
   };
 }
 
+function normalizeLicenseKeysAllowed(value, { role } = {}) {
+  if (String(role || "").toLowerCase() === "superadmin") return null;
+  if (value == null || value === "") return DEFAULT_MENTOR_LICENSE_KEYS;
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_MENTOR_LICENSE_KEYS;
+  return n;
+}
+
 function publicLocal(mentor) {
   if (!mentor) return null;
+  const role = mentor.role || "mentor";
   return {
     id: mentor.id,
     username: mentor.username,
     email: mentor.email,
     contact: mentor.contact || "",
-    role: mentor.role || "mentor",
+    role,
     status: mentor.status || "pending",
     createdAt: mentor.createdAt || Date.now(),
     banking: normalizeBanking(mentor.banking),
+    licenseKeysAllowed: normalizeLicenseKeysAllowed(mentor.licenseKeysAllowed, {
+      role,
+    }),
   };
 }
 
@@ -175,6 +188,15 @@ function mergeMentorLists(localList = [], remoteList = []) {
       password: item.password || prev?.password,
       createdAt: Number(item.createdAt || prev?.createdAt) || Date.now(),
       banking: pickBanking(item, prev),
+      licenseKeysAllowed: normalizeLicenseKeysAllowed(
+        item.licenseKeysAllowed ?? prev?.licenseKeysAllowed,
+        {
+          role:
+            String(item.role || prev?.role || "mentor").toLowerCase() === "superadmin"
+              ? "superadmin"
+              : "mentor",
+        }
+      ),
     });
   }
   return Array.from(map.values()).sort(
@@ -198,6 +220,9 @@ function cacheMentorLocally(mentor) {
     password: mentor.password,
     createdAt: mentor.createdAt || Date.now(),
     banking,
+    licenseKeysAllowed: normalizeLicenseKeysAllowed(mentor.licenseKeysAllowed, {
+      role: mentor.role || "mentor",
+    }),
   };
   if (idx >= 0) mentors[idx] = { ...mentors[idx], ...next };
   else mentors.unshift(next);
@@ -321,6 +346,7 @@ export async function registerMentorAccount({
       status: "pending",
       password: pass,
       createdAt: Date.now(),
+      licenseKeysAllowed: DEFAULT_MENTOR_LICENSE_KEYS,
     };
     mentors.unshift(created);
     writeLocalMentors(mentors);
@@ -441,6 +467,57 @@ export async function updateMentorProfile(email, profileInput = {}) {
     ...mentors[idx],
     username,
     ...(contact ? { contact } : {}),
+  };
+  writeLocalMentors(mentors);
+  return publicLocal(mentors[idx]);
+}
+
+export async function updateMentorLicenseKeys(email, { set, add } = {}) {
+  const key = normalizeEmail(email);
+  if (!key.includes("@")) throw new Error("Enter a valid email");
+
+  try {
+    const data = await apiFetch("", {
+      method: "POST",
+      body: {
+        action: "license-keys",
+        email: key,
+        set,
+        add,
+      },
+    });
+    const mentor = data?.mentor || null;
+    if (mentor) {
+      cacheMentorLocally(mentor);
+      return publicLocal(mentor);
+    }
+  } catch (error) {
+    if (error.status && error.status < 500) throw error;
+  }
+
+  const mentors = ensureLocalSuperAdmin(readLocalMentors());
+  const idx = mentors.findIndex((m) => m.email === key);
+  if (idx < 0) throw new Error("Mentor not found");
+  if (key === normalizeEmail(SUPER_ADMIN_EMAIL)) {
+    throw new Error("Super admin does not use a license key allotment");
+  }
+  const role = mentors[idx].role || "mentor";
+  let next = normalizeLicenseKeysAllowed(mentors[idx].licenseKeysAllowed, { role });
+  if (next == null) next = DEFAULT_MENTOR_LICENSE_KEYS;
+  if (set != null && set !== "") {
+    const n = Math.floor(Number(set));
+    if (!Number.isFinite(n) || n < 0) throw new Error("Enter a valid key total (0 or more)");
+    next = n;
+  }
+  if (add != null && add !== "") {
+    const n = Math.floor(Number(add));
+    if (!Number.isFinite(n) || n === 0) throw new Error("Enter how many keys to add (non-zero)");
+    next = Math.max(0, next + n);
+  }
+  mentors[idx] = {
+    ...mentors[idx],
+    licenseKeysAllowed: next,
+    licenseKeysUpdatedAt: Date.now(),
   };
   writeLocalMentors(mentors);
   return publicLocal(mentors[idx]);

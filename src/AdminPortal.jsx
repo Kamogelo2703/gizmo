@@ -3,9 +3,11 @@ import AdminAuth from "./AdminAuth.jsx";
 import {
   COMMISSION_USD,
   COMMISSION_ZAR,
+  DEFAULT_MENTOR_LICENSE_KEYS,
   fetchMentors,
   SUPER_ADMIN_EMAIL,
   updateMentorBanking,
+  updateMentorLicenseKeys,
   updateMentorProfile,
   updateMentorStatus,
   WITHDRAW_MIN_KEYS,
@@ -154,6 +156,9 @@ export default function AdminPortal() {
   const [licenseDuration, setLicenseDuration] = useState("1m");
   const [licenseSearch, setLicenseSearch] = useState("");
   const [commissionSearch, setCommissionSearch] = useState("");
+  const [mentorKeySearch, setMentorKeySearch] = useState("");
+  const [mentorKeyDrafts, setMentorKeyDrafts] = useState({});
+  const [mentorKeyBusy, setMentorKeyBusy] = useState("");
   const [latestKey, setLatestKey] = useState("");
   const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
   const [licenseSheetOpen, setLicenseSheetOpen] = useState(false);
@@ -344,7 +349,10 @@ export default function AdminPortal() {
     loadMentors();
     // Poll faster on Mentors page so new signups show in Pending quickly.
     const ms =
-      adminPage === "mentors" || adminPage === "commissions" || adminPage === "commission"
+      adminPage === "mentors" ||
+      adminPage === "commissions" ||
+      adminPage === "commission" ||
+      adminPage === "mentor-keys"
         ? 5000
         : 12000;
     const timer = setInterval(loadMentors, ms);
@@ -744,6 +752,135 @@ export default function AdminPortal() {
         return eaIds.has(row.botId);
       });
 
+  const sessionMentor = mentors.find(
+    (m) => normalizeAdminEmail(m.email) === normalizeAdminEmail(mentorEmail)
+  );
+  const mentorKeyAllowance = isSuperAdmin
+    ? null
+    : sessionMentor?.licenseKeysAllowed != null
+      ? Number(sessionMentor.licenseKeysAllowed)
+      : DEFAULT_MENTOR_LICENSE_KEYS;
+  const mentorKeysGenerated = myLicenses.length;
+  const mentorKeysRemaining =
+    mentorKeyAllowance == null
+      ? null
+      : Math.max(0, mentorKeyAllowance - mentorKeysGenerated);
+
+  const mentorKeyQuery = String(mentorKeySearch || "")
+    .trim()
+    .toLowerCase();
+  const mentorKeyRows = mentors
+    .filter((m) => String(m.role || "").toLowerCase() !== "superadmin")
+    .map((m) => {
+      const email = normalizeAdminEmail(m.email);
+      const allowed =
+        m.licenseKeysAllowed != null
+          ? Number(m.licenseKeysAllowed)
+          : DEFAULT_MENTOR_LICENSE_KEYS;
+      const used = licenseKeys.filter(
+        (row) => normalizeAdminEmail(row.mentorEmail) === email
+      ).length;
+      const total = Number.isFinite(allowed) ? allowed : DEFAULT_MENTOR_LICENSE_KEYS;
+      return {
+        mentor: m,
+        email,
+        allowed: total,
+        used,
+        remaining: Math.max(0, total - used),
+      };
+    })
+    .filter(({ mentor, email }) => {
+      if (!mentorKeyQuery) return true;
+      return (
+        String(mentor.username || "")
+          .toLowerCase()
+          .includes(mentorKeyQuery) || email.includes(mentorKeyQuery)
+      );
+    })
+    .sort((a, b) =>
+      String(a.mentor.username || a.email).localeCompare(
+        String(b.mentor.username || b.email)
+      )
+    );
+
+  function mentorKeyDraft(email) {
+    const key = normalizeAdminEmail(email);
+    return mentorKeyDrafts[key] || { set: "", add: "" };
+  }
+
+  function patchMentorKeyDraft(email, patch) {
+    const key = normalizeAdminEmail(email);
+    setMentorKeyDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || { set: "", add: "" }),
+        ...patch,
+      },
+    }));
+  }
+
+  async function saveMentorKeyTotal(email) {
+    const draft = mentorKeyDraft(email);
+    const value = draft.set;
+    if (value === "" || value == null) {
+      showToast("Enter a total key allotment");
+      return;
+    }
+    setMentorKeyBusy(`${normalizeAdminEmail(email)}:set`);
+    try {
+      const mentor = await updateMentorLicenseKeys(email, { set: value });
+      if (mentor) {
+        setMentors((prev) => {
+          const key = normalizeAdminEmail(email);
+          const idx = prev.findIndex((m) => normalizeAdminEmail(m.email) === key);
+          if (idx < 0) return [...prev, mentor];
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...mentor };
+          return next;
+        });
+        patchMentorKeyDraft(email, { set: "" });
+        showToast(
+          `Set ${mentor.username || email} to ${mentor.licenseKeysAllowed} keys`
+        );
+      }
+    } catch (error) {
+      showToast(error.message || "Could not update key allotment");
+    } finally {
+      setMentorKeyBusy("");
+    }
+  }
+
+  async function addMentorKeys(email) {
+    const draft = mentorKeyDraft(email);
+    const value = draft.add;
+    if (value === "" || value == null) {
+      showToast("Enter how many keys to add");
+      return;
+    }
+    setMentorKeyBusy(`${normalizeAdminEmail(email)}:add`);
+    try {
+      const mentor = await updateMentorLicenseKeys(email, { add: value });
+      if (mentor) {
+        setMentors((prev) => {
+          const key = normalizeAdminEmail(email);
+          const idx = prev.findIndex((m) => normalizeAdminEmail(m.email) === key);
+          if (idx < 0) return [...prev, mentor];
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...mentor };
+          return next;
+        });
+        patchMentorKeyDraft(email, { add: "" });
+        showToast(
+          `Added keys for ${mentor.username || email} · now ${mentor.licenseKeysAllowed}`
+        );
+      }
+    } catch (error) {
+      showToast(error.message || "Could not add keys");
+    } finally {
+      setMentorKeyBusy("");
+    }
+  }
+
   const licenseQuery = String(licenseSearch || "")
     .trim()
     .toLowerCase();
@@ -850,6 +987,7 @@ export default function AdminPortal() {
         ["manage-ea", "Manage EAs"],
         ["licenses", "License Keys"],
         ["settings", "Settings"],
+        ["mentor-keys", "Mentor Keys"],
       ]
     : [
         ["dashboard", "Dashboard"],
@@ -947,7 +1085,11 @@ export default function AdminPortal() {
                   <article className="admin-stat-card">
                     <p className="admin-stat-label">Available</p>
                     <p className="admin-stat-value is-ok">{availableKeys.length}</p>
-                    <p className="admin-card-meta">Unlimited generation</p>
+                    <p className="admin-card-meta">
+                      {mentorKeysRemaining == null
+                        ? "Unlimited generation"
+                        : `${mentorKeysRemaining} of ${mentorKeyAllowance} keys left to generate`}
+                    </p>
                   </article>
                   <article className="admin-stat-card">
                     <p className="admin-stat-label">Active</p>
@@ -1307,6 +1449,14 @@ export default function AdminPortal() {
               Client name is shown with the license. Your mentor username (from Profile) appears
               at the top of the client app. Enter the client name with their email and bot — the
               key syncs so they can activate on any phone after approval.
+              {!isSuperAdmin && mentorKeyAllowance != null ? (
+                <>
+                  {" "}
+                  You have <strong>{mentorKeysRemaining}</strong> of{" "}
+                  <strong>{mentorKeyAllowance}</strong> keys remaining
+                  ({mentorKeysGenerated} generated).
+                </>
+              ) : null}
             </p>
             <div className="admin-card">
               <form
@@ -1709,6 +1859,121 @@ export default function AdminPortal() {
               >
                 Logout
               </button>
+            </div>
+          </section>
+        )}
+
+        {isSuperAdmin && adminPage === "mentor-keys" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Mentor Keys</h2>
+            <p className="admin-sub">
+              Edit or add license-key allotments for mentors. Every mentor starts with{" "}
+              <strong>{DEFAULT_MENTOR_LICENSE_KEYS}</strong> keys.
+            </p>
+            <div className="admin-card">
+              <div className="admin-search-row" style={{ marginBottom: 12 }}>
+                <input
+                  className="admin-input"
+                  type="search"
+                  value={mentorKeySearch}
+                  onChange={(e) => setMentorKeySearch(e.target.value)}
+                  placeholder="Search mentors by name or email"
+                  aria-label="Search mentor keys"
+                />
+              </div>
+              {mentorKeyRows.length === 0 ? (
+                <p className="admin-empty">
+                  {mentorKeyQuery ? `No mentors match “${mentorKeySearch.trim()}”` : "No mentors yet"}
+                </p>
+              ) : (
+                mentorKeyRows.map(({ mentor, email, allowed, used, remaining }) => {
+                  const draft = mentorKeyDraft(email);
+                  const setBusy = mentorKeyBusy === `${email}:set`;
+                  const addBusy = mentorKeyBusy === `${email}:add`;
+                  return (
+                    <article className="admin-card" key={email} style={{ marginBottom: 12 }}>
+                      <div className="admin-card-title-row">
+                        <div>
+                          <h3 className="admin-card-title">{mentor.username || email}</h3>
+                          <p className="admin-card-meta">{email}</p>
+                        </div>
+                        <span
+                          className={`admin-badge${
+                            mentor.status === "approved" ? " is-approved" : " is-pending"
+                          }`}
+                        >
+                          {mentor.status || "pending"}
+                        </span>
+                      </div>
+                      <div className="admin-stat-stack" style={{ marginTop: 10 }}>
+                        <article className="admin-stat-card">
+                          <p className="admin-stat-label">Allotted</p>
+                          <p className="admin-stat-value">{allowed}</p>
+                        </article>
+                        <article className="admin-stat-card">
+                          <p className="admin-stat-label">Generated</p>
+                          <p className="admin-stat-value">{used}</p>
+                        </article>
+                        <article className="admin-stat-card">
+                          <p className="admin-stat-label">Remaining</p>
+                          <p className="admin-stat-value is-ok">{remaining}</p>
+                        </article>
+                      </div>
+                      <div className="admin-search-row" style={{ marginTop: 12, gap: 8 }}>
+                        <label className="ea-field" style={{ flex: 1, margin: 0 }}>
+                          <span>Edit total keys</span>
+                          <input
+                            className="admin-input"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputMode="numeric"
+                            placeholder={String(allowed)}
+                            value={draft.set}
+                            onChange={(e) =>
+                              patchMentorKeyDraft(email, { set: e.target.value })
+                            }
+                          />
+                        </label>
+                        <button
+                          className="admin-btn admin-btn-solid"
+                          type="button"
+                          style={{ alignSelf: "flex-end" }}
+                          disabled={setBusy || addBusy}
+                          onClick={() => void saveMentorKeyTotal(email)}
+                        >
+                          {setBusy ? "Saving…" : "Save total"}
+                        </button>
+                      </div>
+                      <div className="admin-search-row" style={{ marginTop: 10, gap: 8 }}>
+                        <label className="ea-field" style={{ flex: 1, margin: 0 }}>
+                          <span>Add keys</span>
+                          <input
+                            className="admin-input"
+                            type="number"
+                            step="1"
+                            inputMode="numeric"
+                            placeholder="e.g. 100"
+                            value={draft.add}
+                            onChange={(e) =>
+                              patchMentorKeyDraft(email, { add: e.target.value })
+                            }
+                          />
+                        </label>
+                        <button
+                          className="admin-btn admin-btn-outline"
+                          type="button"
+                          style={{ alignSelf: "flex-end" }}
+                          disabled={setBusy || addBusy}
+                          onClick={() => void addMentorKeys(email)}
+                        >
+                          {addBusy ? "Adding…" : "Add keys"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
             </div>
           </section>
         )}
