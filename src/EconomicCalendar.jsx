@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatEventDay } from "./economicCalendarApi.js";
 import {
   getMentorSignalForEvent,
@@ -131,68 +132,66 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
         <span className="econ-cal-btn-label">Economic calendar</span>
       </button>
 
-      {!open ? null : (
-        <div
-          className="econ-cal-backdrop"
-          role="presentation"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="econ-cal-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Economic calendar"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="econ-cal-panel-head">
-              <h2>Economic calendar</h2>
-              <button
-                className="econ-cal-close"
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
+      {!open
+        ? null
+        : createPortal(
+            <div
+              className="econ-cal-backdrop"
+              role="presentation"
+              onClick={() => setOpen(false)}
+            >
+              <div
+                className="econ-cal-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Economic calendar"
+                onClick={(event) => event.stopPropagation()}
               >
-                ✕
-              </button>
-            </div>
-
-            {loading ? (
-              <p className="econ-cal-copy">Loading next event…</p>
-            ) : !nextEvent ? (
-              <p className="econ-cal-copy">
-                No upcoming NFP, PPI, CPI, or FOMC events on the calendar.
-              </p>
-            ) : (
-              <>
-                <p className="econ-cal-next-label">Next event</p>
-                <p className="econ-cal-next-title">{nextEvent.title}</p>
-                <p className="econ-cal-next-day">{formatEventDay(nextEvent.date)}</p>
-                <p className="econ-cal-next-note">
-                  {nextEvent.timeSa || nextEvent.timeEt} SAST
-                  {nextEvent.note ? ` · ${nextEvent.note}` : ""}
-                </p>
-                <p className="econ-cal-copy">
-                  {isToday
-                    ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}.`
-                    : `The next event is on ${formatEventDay(nextEvent.date)} (${nextEvent.title}).`}
-                </p>
-                <div className="econ-cal-directions">
-                  <p className="econ-cal-directions-label">Signal direction</p>
-                  {signal ? (
-                    <p className="econ-cal-directions-body">{signal}</p>
-                  ) : (
-                    <p className="econ-cal-directions-body is-empty">
-                      {isToday
-                        ? "No signal direction from your mentor yet."
-                        : "No signal direction yet — your mentor will add it from their portal."}
-                    </p>
-                  )}
+                <div className="econ-cal-panel-head">
+                  <h2>Economic calendar</h2>
+                  <button
+                    className="econ-cal-close"
+                    type="button"
+                    aria-label="Close"
+                    onClick={() => setOpen(false)}
+                  >
+                    ✕
+                  </button>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+
+                {loading ? (
+                  <p className="econ-cal-copy">Loading next event…</p>
+                ) : !nextEvent ? (
+                  <p className="econ-cal-copy">
+                    No upcoming NFP, PPI, CPI, or FOMC events on the calendar.
+                  </p>
+                ) : (
+                  <>
+                    <p className="econ-cal-next-label">Next event</p>
+                    <p className="econ-cal-next-title">{nextEvent.title}</p>
+                    <p className="econ-cal-next-day">{formatEventDay(nextEvent.date)}</p>
+                    <p className="econ-cal-next-note">
+                      {nextEvent.timeSa || nextEvent.timeEt} SAST
+                      {nextEvent.note ? ` · ${nextEvent.note}` : ""}
+                    </p>
+                    <div className="econ-cal-directions">
+                      <p className="econ-cal-directions-label">Signal direction</p>
+                      {signal ? (
+                        <p className="econ-cal-directions-body">{signal}</p>
+                      ) : (
+                        <p className="econ-cal-directions-body is-empty">
+                          {isToday
+                            ? "No signal direction from your mentor yet."
+                            : "No signal direction yet — your mentor will add it from their portal."}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
     </>
   );
 }
