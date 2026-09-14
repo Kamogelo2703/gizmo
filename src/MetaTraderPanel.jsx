@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EnginePanel from "./EnginePanel.jsx";
 import { CONNECT_ENGINE_STEPS, sleep } from "./chartScanner.js";
-import { connectAccount, disconnectAccount, searchBrokers } from "./metaApi.js";
+import { connectAccount, disconnectAccount, getAccountStatus, searchBrokers } from "./metaApi.js";
 import { removeMt5Account, upsertMt5Account } from "./mt5AccountsApi.js";
 import { useApp } from "./store.jsx";
 
@@ -66,6 +66,41 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     void syncHostedAccount(session, coverEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when session or cover email changes
   }, [session?.accountId, coverEmail]);
+
+  // If MetaAPI says this session is gone, clear the stale "engine armed" card.
+  useEffect(() => {
+    if (!session?.accountId) return undefined;
+    let cancelled = false;
+    async function reconcile() {
+      try {
+        const status = await getAccountStatus(session.accountId, {
+          company: session.company || "",
+        });
+        if (cancelled) return;
+        const state = String(status?.state || "").toUpperCase();
+        const connection = String(status?.connectionStatus || "").toUpperCase();
+        if (state === "UNDEPLOYED" || connection.includes("DISCONNECTED")) {
+          setMt5Session(null);
+          const accountEmail = normalizeEmail(coverEmail);
+          if (accountEmail) {
+            try {
+              await removeMt5Account(accountEmail);
+            } catch {
+              // ignore
+            }
+          }
+          showToast("MetaTrader session ended");
+        }
+      } catch {
+        // keep local session if status check fails transiently
+      }
+    }
+    void reconcile();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when account changes
+  }, [session?.accountId]);
 
   useEffect(() => {
     const q = query.trim();
@@ -176,6 +211,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         server,
         platform,
         company: selectedBroker?.company || "",
+        email: normalizeEmail(coverEmail),
         onProgress: async () => {
           setEngineStep((prev) => Math.min(2, Math.max(1, prev)));
         },
@@ -220,7 +256,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     setMt5Session(null);
     if (accountId) {
       try {
-        await disconnectAccount(accountId);
+        await disconnectAccount(accountId, { email: accountEmail });
       } catch {
         // local disconnect still ok
       }

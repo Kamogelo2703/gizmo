@@ -2,16 +2,21 @@ import { listLicenses } from "../licenses/_lib.js";
 import { listMentors } from "../mentors/_lib.js";
 import { listMt5Accounts, normalizeMt5Account } from "../mt5-accounts/_lib.js";
 import {
+  clearAccountClientEmail,
+  clientEmailFromAccount,
   connectTradingAccount,
   getConnectionStatus,
   getAccount,
+  listConnectedTradingAccounts,
   placeMarketTrade,
   readJsonBody,
   searchKnownServers,
   sendJson,
+  tagAccountClientEmail,
   tokenFromRequest,
   undeployAccount,
 } from "./_lib.js";
+import { removeMt5Account } from "../mt5-accounts/_lib.js";
 
 function normalizeEmail(email) {
   return String(email || "")
@@ -87,6 +92,7 @@ export async function handleConnect(req, res) {
       server: body.server,
       platform: body.platform || "MT5",
       company: body.company || "",
+      clientEmail: body.email || body.clientEmail || "",
       strategyId: body.strategyId || "",
     });
     sendJson(res, 200, session);
@@ -189,6 +195,19 @@ export async function handleDisconnect(req, res) {
     } catch {
       // ignore undeploy errors for UX disconnect
     }
+    try {
+      await clearAccountClientEmail(accountId);
+    } catch {
+      // ignore
+    }
+    const clientEmail = normalizeEmail(body.email || body.clientEmail || "");
+    if (clientEmail.includes("@")) {
+      try {
+        await removeMt5Account(clientEmail);
+      } catch {
+        // registry cleanup is best-effort
+      }
+    }
     let account = null;
     try {
       account = await getAccount(accountId);
@@ -267,11 +286,42 @@ export async function handleMentorTrade(req, res) {
     }
 
     // Always fan out to every connected robot client for this mentor.
-    // Selection is server-side only — never trust client account filters.
-    const targets = (await listMt5Accounts())
+    // Prefer the shared MT5 registry, then MetaAPI accounts tagged with client email.
+    const registry = (await listMt5Accounts())
       .map((row) => normalizeMt5Account(row))
       .filter(Boolean)
       .filter((row) => clientEmails.has(row.email));
+
+    let live = [];
+    try {
+      const connected = await listConnectedTradingAccounts({ token: tokenFromRequest(req) });
+      live = connected
+        .map((account) => {
+          const email = clientEmailFromAccount(account);
+          if (!email || !clientEmails.has(email)) return null;
+          return normalizeMt5Account({
+            email,
+            accountId: account.id || account._id,
+            login: account.login,
+            server: account.server,
+            company: account.name,
+            platform: account.platform === "mt4" ? "MT4" : "MT5",
+            region: account.region || account.primaryReplica?.region || "",
+            connectedAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        })
+        .filter(Boolean);
+    } catch {
+      live = [];
+    }
+
+    const byEmail = new Map();
+    for (const row of [...registry, ...live]) {
+      if (!row?.email || !row?.accountId) continue;
+      byEmail.set(row.email, row);
+    }
+    const targets = Array.from(byEmail.values());
 
     if (!targets.length) {
       const err = new Error(

@@ -96,6 +96,7 @@ export async function connectAccount({
   server,
   platform = "MT5",
   company = "",
+  email = "",
   strategyId = "",
   signal,
   onProgress,
@@ -109,6 +110,8 @@ export async function connectAccount({
       server,
       platform,
       company,
+      email,
+      clientEmail: email,
       strategyId,
     },
   });
@@ -137,11 +140,16 @@ export async function connectAccount({
   throw new Error("Timed out waiting for MetaTrader connection");
 }
 
-export async function disconnectAccount(accountId, { signal } = {}) {
+export async function disconnectAccount(accountId, { email = "", signal } = {}) {
   return apiFetch("/disconnect", {
     method: "POST",
     signal,
-    body: { accountId },
+    body: {
+      accountId,
+      email: String(email || "")
+        .trim()
+        .toLowerCase(),
+    },
   });
 }
 

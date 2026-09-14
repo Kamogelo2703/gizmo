@@ -96,6 +96,14 @@ function accountIdOf(account) {
   return account?.id || account?._id || null;
 }
 
+const CLIENT_EMAIL_TAG = "apexea:";
+
+function normalizeClientEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
 export async function searchKnownServers(query, platform = "MT5", { token } = {}) {
   const q = String(query || "").trim();
   if (!q) return [];
@@ -350,6 +358,7 @@ export async function connectTradingAccount({
   server,
   platform = "MT5",
   company = "",
+  clientEmail = "",
   // Opt-in only — never auto-subscribe from METAAPI_STRATEGY_ID (that opened
   // mirrored strategy trades without a chart scan).
   strategyId = "",
@@ -364,7 +373,11 @@ export async function connectTradingAccount({
   }
 
   const mtPlatform = String(platform).toUpperCase() === "MT4" ? "mt4" : "mt5";
-  const keywords = [company, userServer].map((v) => String(v || "").trim()).filter(Boolean);
+  const emailTag = normalizeClientEmail(clientEmail);
+  const keywords = [company, userServer, "apexea-client"]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  if (emailTag.includes("@")) keywords.push(`${CLIENT_EMAIL_TAG}${emailTag}`);
 
   // Reuse an already-provisioned account for this login/server (avoids E_AUTH on reconnect).
   const existing = await findExistingAccount({ login: userLogin, server: userServer });
@@ -376,7 +389,9 @@ export async function connectTradingAccount({
       created = await createAccountWithRetry({
         login: userLogin,
         password: userPassword,
-        name: `${company || userServer} ${userLogin}`.trim(),
+        name: `${company || userServer} ${userLogin}${
+          emailTag.includes("@") ? ` | ${CLIENT_EMAIL_TAG}${emailTag}` : ""
+        }`.trim(),
         server: userServer,
         platform: mtPlatform,
         magic: 0,
@@ -405,6 +420,14 @@ export async function connectTradingAccount({
   }
 
   if (!accountId) throw new Error("MetaAPI did not return an account id");
+
+  if (emailTag.includes("@")) {
+    try {
+      await tagAccountClientEmail(accountId, emailTag);
+    } catch {
+      // Tagging is best-effort; connect still succeeds.
+    }
+  }
 
   const { account, pending } = await waitUntilConnected(accountId, { timeoutMs: 40000 });
 
@@ -692,6 +715,105 @@ export async function findExistingAccount({ login, server } = {}) {
         String(account.server || "").toLowerCase() === userServer.toLowerCase()
     ) || null
   );
+}
+
+const CLIENT_EMAIL_TAG_PREFIX = CLIENT_EMAIL_TAG;
+
+export function clientEmailFromAccount(account) {
+  const keywords = Array.isArray(account?.keywords) ? account.keywords : [];
+  for (const raw of keywords) {
+    const value = String(raw || "").trim();
+    if (value.toLowerCase().startsWith(CLIENT_EMAIL_TAG_PREFIX)) {
+      const email = normalizeClientEmail(value.slice(CLIENT_EMAIL_TAG_PREFIX.length));
+      if (email.includes("@")) return email;
+    }
+  }
+  const name = String(account?.name || "");
+  const match = name.match(/apexea:([^\s|]+@[^\s|]+)/i);
+  if (match) return normalizeClientEmail(match[1]);
+  return "";
+}
+
+export async function listProvisionedAccounts({ token } = {}) {
+  const { data } = await metaFetch(`${PROVISIONING_BASE}/users/current/accounts`, { token });
+  return Array.isArray(data) ? data : [];
+}
+
+/** Deployed / broker-connected accounts mentors can trade on. */
+export async function listConnectedTradingAccounts({ token } = {}) {
+  const list = await listProvisionedAccounts({ token });
+  return list.filter((account) => {
+    const state = String(account?.state || "").toUpperCase();
+    const connection = String(accountConnectionStatus(account) || "").toUpperCase();
+    if (state === "UNDEPLOYED" || state === "DRAFT") return false;
+    if (connection.includes("DISCONNECTED") && state !== "DEPLOYED") return false;
+    return (
+      state === "DEPLOYED" ||
+      connection === "CONNECTED" ||
+      connection === "CONNECTED_TO_BROKER" ||
+      connection.includes("CONNECTED")
+    );
+  });
+}
+
+export async function tagAccountClientEmail(accountId, email, { token } = {}) {
+  const id = String(accountId || "").trim();
+  const clientEmail = normalizeClientEmail(email);
+  if (!id || !clientEmail.includes("@")) return null;
+
+  const account = await getAccount(id);
+  const tag = `${CLIENT_EMAIL_TAG}${clientEmail}`;
+  const keywords = Array.isArray(account?.keywords) ? account.keywords.map(String) : [];
+  const nextKeywords = Array.from(
+    new Set([
+      ...keywords.filter((k) => !String(k).toLowerCase().startsWith(CLIENT_EMAIL_TAG)),
+      "apexea-client",
+      tag,
+    ])
+  );
+  const baseName = String(account?.name || `${account?.server || "MT5"} ${account?.login || ""}`)
+    .replace(/\s*\|\s*apexea:[^\s|]+/gi, "")
+    .trim();
+  const name = `${baseName} | ${tag}`.trim();
+
+  const { data } = await metaFetch(
+    `${PROVISIONING_BASE}/users/current/accounts/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: { name, keywords: nextKeywords },
+      token,
+    }
+  );
+  return data || account;
+}
+
+export async function clearAccountClientEmail(accountId, { token } = {}) {
+  const id = String(accountId || "").trim();
+  if (!id) return null;
+  try {
+    const account = await getAccount(id);
+    const keywords = (Array.isArray(account?.keywords) ? account.keywords : [])
+      .map(String)
+      .filter(
+        (k) =>
+          !k.toLowerCase().startsWith(CLIENT_EMAIL_TAG) &&
+          k.toLowerCase() !== "apexea-client"
+      );
+    const name = String(account?.name || "")
+      .replace(/\s*\|\s*apexea:[^\s|]+/gi, "")
+      .trim();
+    const { data } = await metaFetch(
+      `${PROVISIONING_BASE}/users/current/accounts/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: { name, keywords },
+        token,
+      }
+    );
+    return data || account;
+  } catch {
+    return null;
+  }
 }
 
 export function sendJson(res, status, payload) {

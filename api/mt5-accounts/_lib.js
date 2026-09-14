@@ -162,8 +162,8 @@ async function writeStore(accounts, sha, message) {
     memoryAccounts = normalized;
     return result;
   } catch (error) {
+    // Always keep a local copy when GitHub auth fails (same as licenses/signups).
     writeLocalStore(normalized);
-    if (error.status === 401 || error.status === 403) throw error;
     return { local: true };
   }
 }
