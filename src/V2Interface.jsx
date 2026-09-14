@@ -254,7 +254,6 @@ export default function V2Interface() {
             <div className="v2-home-hero">
               <div className="v2-home-hero-media" aria-hidden="true">
                 <img className="v2-home-hero-img" src={heroSrc} alt="" />
-                <div className="v2-home-hero-shade" />
               </div>
               <div className="v2-home-hero-copy">
                 <p className="v2-home-hero-kicker">You are trading with</p>

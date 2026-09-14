@@ -330,19 +330,40 @@ button {
   opacity: 0;
 }
 
+/* No ambient pink page wash around Interface 2 */
+html:has(.phone[data-interface="v2"]),
+html:has(.phone[data-interface="v2"]) body {
+  background: #000 !important;
+  background-image: none !important;
+}
+
 .phone[data-interface="v2"] {
-  /* Industrial black shell — hero carries the artwork */
-  background: #000;
+  /* Kill the soft pink radial on .phone — solid black shell under KAMA */
+  background: #000 !important;
+  background-image: none !important;
+}
+
+.phone[data-interface="v2"] .iface-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
 }
 
 .phone[data-interface="v2"] .glow,
 .phone[data-interface="v2"] .glow-soft {
-  opacity: 0.55;
-  visibility: visible;
+  /* No purple/pink wash behind KAMA — solid black top */
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  animation: none !important;
+  pointer-events: none !important;
 }
 
 .phone[data-interface="v2"] .top {
   z-index: 4;
+  background: #000 !important;
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .stage {
@@ -3571,101 +3592,64 @@ button {
   opacity: 1 !important;
 }
 
-/* Full-bleed industrial hero */
+/* Full-bleed industrial hero — photo shown as-is (no crop, no dark veil) */
 .v2-home-hero {
   position: relative;
   z-index: 1;
   width: 100%;
-  /* Let the full bot photo define height — no crop/zoom into the artwork */
   min-height: 0;
-  aspect-ratio: 1 / 1;
-  max-height: min(72vh, 480px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 56px 16px 48px;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
   overflow: hidden;
-  background: #050505;
+  background: #000;
   animation: none !important;
   opacity: 1 !important;
 }
 
 .v2-home-hero-media {
-  position: absolute;
-  inset: 0;
+  position: relative;
   z-index: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #050505;
+  background: #000;
+  line-height: 0;
 }
 
 .v2-home-hero-img {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center center;
+  height: auto;
+  max-width: 100%;
   display: block;
+  object-fit: unset;
+  object-position: center top;
   transform: none;
-  filter: saturate(1.08) contrast(1.04);
+  filter: none;
   animation: none !important;
 }
 
-.v2-home-hero-shade {
-  position: absolute;
-  inset: 0;
-  /* Cover photo watermarks (mentor / POWERED BY text baked into bot art) */
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.5) 0%,
-      rgba(0, 0, 0, 0.18) 22%,
-      rgba(0, 0, 0, 0.42) 48%,
-      rgba(0, 0, 0, 0.82) 68%,
-      rgba(0, 0, 0, 0.94) 82%,
-      #000 100%
-    ),
-    linear-gradient(
-      115deg,
-      rgba(0, 0, 0, 0.55) 0%,
-      transparent 42%,
-      transparent 100%
-    ),
-    radial-gradient(80% 70% at 50% 36%, transparent 28%, rgba(0, 0, 0, 0.6) 100%);
-  box-shadow: inset 0 -48px 70px rgba(180, 0, 20, 0.22);
-}
-
+/* Shade kept in DOM for compatibility but fully transparent — photo stays natural */
+.v2-home-hero-shade,
 .v2-home-hero-shade::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 52%;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.55) 28%,
-      rgba(0, 0, 0, 0.88) 58%,
-      #000 100%
-    ),
-    radial-gradient(
-      ellipse 55% 45% at 22% 55%,
-      rgba(0, 0, 0, 0.95) 0%,
-      rgba(0, 0, 0, 0.75) 45%,
-      transparent 75%
-    );
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
 }
 
 .v2-home-hero-copy {
   position: relative;
   z-index: 2;
   text-align: center;
-  max-width: 92%;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 14px 16px 10px;
+  background: #000;
   opacity: 1 !important;
   animation: none !important;
   visibility: visible !important;
