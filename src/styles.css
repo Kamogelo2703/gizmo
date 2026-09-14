@@ -7346,3 +7346,154 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 0.6;
   cursor: wait;
 }
+
+/* —— Economic calendar —— */
+.econ-cal-btn {
+  position: absolute;
+  z-index: 4;
+  left: 10px;
+  top: 42%;
+  transform: translateY(-50%);
+  max-width: 88px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent, #ff2d7a) 55%, #fff 10%);
+  border-radius: 12px;
+  background: color-mix(in srgb, #0a0a0f 78%, var(--accent, #ff2d7a) 12%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-align: left;
+  text-transform: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.econ-cal-btn-v2 {
+  top: 38%;
+  left: 12px;
+  background: color-mix(in srgb, #000 70%, var(--accent, #ff2d7a) 18%);
+}
+
+.econ-cal-btn:active {
+  transform: translateY(-50%) scale(0.97);
+}
+
+.econ-cal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.econ-cal-panel {
+  width: min(360px, 100%);
+  max-height: min(78vh, 560px);
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(165deg, #17171f 0%, #0c0c12 100%);
+  color: #fff;
+  padding: 16px 16px 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.econ-cal-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.econ-cal-panel-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.econ-cal-close {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.econ-cal-next-label,
+.econ-cal-list-label,
+.econ-cal-directions-label {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent, #ff2d7a) 80%, #fff);
+  font-weight: 700;
+}
+
+.econ-cal-next-day {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.econ-cal-next-title {
+  margin: 4px 0 10px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+}
+
+.econ-cal-copy {
+  margin: 0 0 12px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.econ-cal-directions {
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.econ-cal-directions-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.econ-cal-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.econ-cal-list li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.econ-cal-list li strong {
+  font-size: 0.86rem;
+}
+
+.econ-cal-list li span {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.65);
+}
