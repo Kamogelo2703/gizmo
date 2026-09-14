@@ -143,12 +143,11 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         platform,
         company: selectedBroker?.company || "",
         onProgress: async () => {
-          setEngineStep((prev) => Math.min(3, Math.max(2, prev)));
+          setEngineStep((prev) => Math.min(2, Math.max(1, prev)));
         },
       });
       await advance(2);
       await advance(3);
-      await advance(4);
 
       const nextSession = {
         accountId: connected.accountId,

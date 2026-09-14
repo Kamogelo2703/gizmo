@@ -24,7 +24,6 @@ export default function V2Interface() {
     editingSymbol,
     setEditingSymbol,
     showToast,
-    mentorDisplayName,
     setLockStep,
     getSignup,
     coverEmail,
@@ -76,9 +75,6 @@ export default function V2Interface() {
               <div className="v2-home-hero-copy">
                 <p className="v2-home-hero-kicker">You are trading with</p>
                 <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
-                <p className="v2-home-hero-powered">
-                  POWERED BY <span>{mentorDisplayName || "EA FORCE"}</span>
-                </p>
               </div>
             </div>
 

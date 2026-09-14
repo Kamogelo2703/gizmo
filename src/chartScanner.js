@@ -442,7 +442,6 @@ export function sleep(ms) {
 export const CONNECT_ENGINE_STEPS = [
   { id: "auth", label: "Authenticating broker credentials" },
   { id: "provision", label: "Provisioning cloud terminal" },
-  { id: "deploy", label: "Deploying MetaAPI trading node" },
   { id: "handshake", label: "Handshake with broker servers" },
   { id: "arm", label: "Arming ApexEA trading engine" },
 ];

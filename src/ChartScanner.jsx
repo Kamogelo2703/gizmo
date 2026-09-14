@@ -588,7 +588,13 @@ export default function ChartScanner({ variant = "default" }) {
                     <span className="cs-sniper-dot" />
                   </div>
                 ) : (
-                  <span className="cs-empty-orb" aria-hidden="true" />
+                  <span className="cs-empty-orb" aria-hidden="true">
+                    <span className="stop-energy">
+                      {Array.from({ length: 18 }, (_, i) => (
+                        <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
+                      ))}
+                    </span>
+                  </span>
                 )}
               </div>
             )}
