@@ -7385,8 +7385,8 @@ html:has(.phone[data-interface="v2"]) body {
   z-index: 1;
   border-radius: 14px;
   border: 2px solid transparent;
-  border-top-color: var(--pink, #ff2d7a);
-  border-right-color: rgba(var(--pink-hot-rgb, 255, 64, 129), 0.85);
+  border-top-color: var(--pink);
+  border-right-color: rgba(var(--pink-hot-rgb), 0.85);
   animation: trade-float-spin 1.4s linear infinite;
   pointer-events: none;
 }
@@ -7396,7 +7396,7 @@ html:has(.phone[data-interface="v2"]) body {
   border-width: 1.5px;
   border-radius: 16px;
   border-top-color: rgba(255, 255, 255, 0.75);
-  border-right-color: rgba(var(--pink-rgb, 255, 45, 122), 0.55);
+  border-right-color: rgba(var(--pink-rgb), 0.55);
   border-bottom-color: transparent;
   border-left-color: transparent;
   animation-duration: 2.2s;
