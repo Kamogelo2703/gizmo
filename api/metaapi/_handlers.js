@@ -231,12 +231,6 @@ export async function handleMentorTrade(req, res) {
     const volume = Number(body.volume);
     const stopLoss = Number(body.stopLoss ?? body.sl);
     const takeProfit = Number(body.takeProfit ?? body.tp);
-    const selectedIds = Array.isArray(body.accountIds)
-      ? body.accountIds.map((id) => String(id || "").trim()).filter(Boolean)
-      : [];
-    const selectedEmails = Array.isArray(body.clientEmails)
-      ? body.clientEmails.map((email) => normalizeEmail(email)).filter(Boolean)
-      : [];
 
     if (!symbol) {
       const err = new Error("Symbol is required");
@@ -272,23 +266,16 @@ export async function handleMentorTrade(req, res) {
       throw err;
     }
 
-    let targets = (await listMt5Accounts())
+    // Always fan out to every connected robot client for this mentor.
+    // Selection is server-side only — never trust client account filters.
+    const targets = (await listMt5Accounts())
       .map((row) => normalizeMt5Account(row))
       .filter(Boolean)
       .filter((row) => clientEmails.has(row.email));
 
-    if (selectedIds.length) {
-      const idSet = new Set(selectedIds);
-      targets = targets.filter((row) => idSet.has(row.accountId));
-    }
-    if (selectedEmails.length) {
-      const emailSet = new Set(selectedEmails);
-      targets = targets.filter((row) => emailSet.has(row.email));
-    }
-
     if (!targets.length) {
       const err = new Error(
-        "No connected MetaTrader accounts for the selected clients. Clients must connect MT5 in the app first."
+        "No connected robot clients yet. Clients must connect MetaTrader in the app first."
       );
       err.status = 404;
       throw err;
@@ -296,7 +283,9 @@ export async function handleMentorTrade(req, res) {
 
     const token = tokenFromRequest(req);
     const lot = Number.isFinite(volume) && volume > 0 ? volume : 0.01;
-    const comment = String(body.comment || "mentor~APEXEA").slice(0, 31);
+    const comment = String(body.comment || "mentor~APEXEA")
+      .replace(/apexea/gi, "APEXEA")
+      .slice(0, 31);
     const results = [];
 
     for (const target of targets) {
@@ -325,16 +314,18 @@ export async function handleMentorTrade(req, res) {
       } catch (error) {
         results.push({
           ok: false,
+          offline: true,
           email: target.email,
           login: target.login,
           accountId: target.accountId,
-          error: error.message || "Trade failed",
+          error: error.message || "Client offline or trade failed",
           details: error.data || null,
         });
       }
     }
 
     const placed = results.filter((row) => row.ok).length;
+    const offline = results.filter((row) => !row.ok).length;
     sendJson(res, 200, {
       ok: placed > 0,
       mentorEmail: mentor.email,
@@ -343,8 +334,11 @@ export async function handleMentorTrade(req, res) {
       volume: lot,
       stopLoss,
       takeProfit,
+      targeted: targets.length,
+      connected: targets.length,
       placed,
-      failed: results.length - placed,
+      failed: offline,
+      offline,
       results,
     });
   } catch (error) {

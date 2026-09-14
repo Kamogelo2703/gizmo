@@ -3098,43 +3098,226 @@ html:has(.phone[data-interface="v2"]) body {
   margin-top: 8px;
 }
 
-.self-host-clients {
-  margin-top: 4px;
-  padding-top: 4px;
+.self-host-card .self-host-title {
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
 }
 
-.self-host-client-list {
-  list-style: none;
+.self-host-form {
+  margin-top: 12px;
+}
+
+.self-host-side-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.self-host-side-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.self-host-side-btn.is-active.is-buy {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.self-host-side-btn.is-active.is-sell {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.self-host-status {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+
+.self-host-status-label {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.self-host-status-value {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.self-host-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+  flex-shrink: 0;
+}
+
+.self-host-dot.is-on {
+  background: #16a34a;
+}
+
+.self-host-execute {
+  margin-top: 8px;
+  min-height: 48px;
+  letter-spacing: 0.06em;
+}
+
+.self-host-result-card,
+.self-host-recent-card {
+  margin-top: 14px;
+}
+
+.self-host-result-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+}
+
+.self-host-result-headline {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.self-host-result-lot {
+  margin: 4px 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.self-host-result-stats {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.self-host-result-stats p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.self-host-detail-list {
+  list-style: none;
+  margin: 12px 0 0;
   padding: 0;
   display: grid;
   gap: 8px;
 }
 
-.self-host-client-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fafafa;
-  cursor: pointer;
-}
-
-.self-host-client-row input {
-  margin-top: 3px;
-}
-
-.self-host-client-row span {
+.self-host-detail-list li {
   display: grid;
   gap: 2px;
-  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
 }
 
-.self-host-results h3 {
-  margin: 0 0 8px;
-  font-size: 0.95rem;
+.self-host-detail-list strong {
+  font-size: 0.88rem;
+  color: #111827;
+}
+
+.self-host-detail-list span {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.self-host-recent-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.self-host-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.self-host-recent-list li {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.self-host-recent-main {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.self-host-recent-meta {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.self-host-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.self-host-modal {
+  width: min(420px, 100%);
+  margin-bottom: 12px;
+}
+
+.self-host-modal-question {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.self-host-modal-trade {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.self-host-modal-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.self-host-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .license-result {

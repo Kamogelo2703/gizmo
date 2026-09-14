@@ -24,6 +24,33 @@ import { STRATEGY_LABELS, useApp } from "./store.jsx";
 import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
 
 const ADMIN_SESSION_KEY = "apexea-admin-session";
+const SELF_HOST_RECENT_KEY = "apexea-self-host-recent-v1";
+
+function loadSelfHostRecent(mentorEmail) {
+  try {
+    const key = normalizeAdminEmail(mentorEmail);
+    if (!key) return [];
+    const raw = JSON.parse(localStorage.getItem(SELF_HOST_RECENT_KEY) || "{}");
+    const list = Array.isArray(raw?.[key]) ? raw[key] : [];
+    return list.slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+function saveSelfHostRecent(mentorEmail, entry) {
+  try {
+    const key = normalizeAdminEmail(mentorEmail);
+    if (!key || !entry) return [];
+    const raw = JSON.parse(localStorage.getItem(SELF_HOST_RECENT_KEY) || "{}");
+    const prev = Array.isArray(raw?.[key]) ? raw[key] : [];
+    const next = [entry, ...prev].slice(0, 12);
+    localStorage.setItem(SELF_HOST_RECENT_KEY, JSON.stringify({ ...raw, [key]: next }));
+    return next;
+  } catch {
+    return [];
+  }
+}
 
 function isUploadedProfilePhoto(value) {
   const photo = String(value || "").trim();
@@ -140,16 +167,18 @@ export default function AdminPortal() {
     accountType: "",
   });
   const [bankingBusy, setBankingBusy] = useState(false);
-  const [hostSymbol, setHostSymbol] = useState("");
+  const [hostSymbol, setHostSymbol] = useState("XAUUSD");
   const [hostSide, setHostSide] = useState("BUY");
   const [hostVolume, setHostVolume] = useState("0.01");
   const [hostSl, setHostSl] = useState("");
   const [hostTp, setHostTp] = useState("");
   const [hostAccounts, setHostAccounts] = useState([]);
-  const [hostSelected, setHostSelected] = useState([]);
   const [hostLoading, setHostLoading] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
+  const [hostConfirmOpen, setHostConfirmOpen] = useState(false);
   const [hostResult, setHostResult] = useState(null);
+  const [hostDetailsOpen, setHostDetailsOpen] = useState(false);
+  const [hostRecent, setHostRecent] = useState([]);
 
   async function copyLicenseKey(key) {
     const value = String(key || "").trim();
@@ -324,6 +353,7 @@ export default function AdminPortal() {
   useEffect(() => {
     if (!adminOpen || !adminSession || isSuperAdminSession(adminSession)) return;
     if (adminPage !== "self-hosting") return;
+    setHostRecent(loadSelfHostRecent(adminSession.email));
     let cancelled = false;
     async function loadHosted() {
       setHostLoading(true);
@@ -331,16 +361,10 @@ export default function AdminPortal() {
         const accounts = await listMentorHostedAccounts(adminSession.email);
         if (cancelled) return;
         setHostAccounts(accounts);
-        setHostSelected((prev) => {
-          const ids = new Set(accounts.map((row) => row.accountId));
-          const keep = prev.filter((id) => ids.has(id));
-          if (keep.length) return keep;
-          return accounts.map((row) => row.accountId);
-        });
       } catch (error) {
         if (!cancelled) {
           setHostAccounts([]);
-          showToast(error.message || "Could not load connected client accounts");
+          showToast(error.message || "Could not load connected robot clients");
         }
       } finally {
         if (!cancelled) setHostLoading(false);
@@ -1698,16 +1722,15 @@ export default function AdminPortal() {
 
         {!isSuperAdmin && adminPage === "self-hosting" && (
           <section className="admin-page is-active">
-            <h2 className="admin-h1">Self Hosting</h2>
-            <p className="admin-sub">
-              Open trades on your clients&apos; connected MetaTrader accounts. Enter the symbol,
-              stop loss, and take profit, then execute.
-            </p>
+            <div className="admin-card self-host-card">
+              <h2 className="admin-h1 self-host-title">SELF HOSTING</h2>
+              <p className="admin-sub">
+                Place a trade and automatically send it to your connected robot clients.
+              </p>
 
-            <div className="admin-card">
               <form
                 className="license-form self-host-form"
-                onSubmit={async (e) => {
+                onSubmit={(e) => {
                   e.preventDefault();
                   if (hostBusy) return;
                   const symbol = String(hostSymbol || "").trim().toUpperCase();
@@ -1718,6 +1741,10 @@ export default function AdminPortal() {
                     showToast("Enter a symbol");
                     return;
                   }
+                  if (!Number.isFinite(volume) || volume <= 0) {
+                    showToast("Enter a valid lot size");
+                    return;
+                  }
                   if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
                     showToast("Enter a valid stop loss price");
                     return;
@@ -1726,64 +1753,48 @@ export default function AdminPortal() {
                     showToast("Enter a valid take profit price");
                     return;
                   }
-                  if (!hostSelected.length) {
-                    showToast("Select at least one connected client account");
+                  if (!hostAccounts.length) {
+                    showToast("No connected robot clients yet");
                     return;
                   }
-                  setHostBusy(true);
                   setHostResult(null);
-                  try {
-                    const result = await executeMentorSelfHostTrade({
-                      mentorEmail: adminSession.email,
-                      symbol,
-                      side: hostSide,
-                      volume: Number.isFinite(volume) && volume > 0 ? volume : 0.01,
-                      stopLoss,
-                      takeProfit,
-                      accountIds: hostSelected,
-                      comment: "mentor~APEXEA",
-                    });
-                    setHostResult(result);
-                    const placed = Number(result?.placed || 0);
-                    const failed = Number(result?.failed || 0);
-                    if (placed > 0 && failed === 0) {
-                      showToast(`Executed ${placed} trade${placed === 1 ? "" : "s"}`);
-                    } else if (placed > 0) {
-                      showToast(`Placed ${placed}, failed ${failed}`);
-                    } else {
-                      showToast(result?.error || "No trades were placed");
-                    }
-                  } catch (error) {
-                    showToast(error.message || "Could not execute trades");
-                    setHostResult(error.data || { error: error.message });
-                  } finally {
-                    setHostBusy(false);
-                  }
+                  setHostDetailsOpen(false);
+                  setHostConfirmOpen(true);
                 }}
               >
                 <label className="ea-field">
-                  <span>Symbol *</span>
+                  <span>Symbol</span>
                   <input
                     className="admin-input"
                     value={hostSymbol}
                     onChange={(e) => setHostSymbol(e.target.value.toUpperCase())}
-                    placeholder="e.g. XAUUSD"
+                    placeholder="XAUUSD"
                     required
                   />
                 </label>
+
+                <div className="ea-field">
+                  <span>Direction</span>
+                  <div className="self-host-side-row" role="group" aria-label="Direction">
+                    <button
+                      type="button"
+                      className={`self-host-side-btn${hostSide === "BUY" ? " is-active is-buy" : ""}`}
+                      onClick={() => setHostSide("BUY")}
+                    >
+                      BUY
+                    </button>
+                    <button
+                      type="button"
+                      className={`self-host-side-btn${hostSide === "SELL" ? " is-active is-sell" : ""}`}
+                      onClick={() => setHostSide("SELL")}
+                    >
+                      SELL
+                    </button>
+                  </div>
+                </div>
+
                 <label className="ea-field">
-                  <span>Side</span>
-                  <select
-                    className="admin-input"
-                    value={hostSide}
-                    onChange={(e) => setHostSide(e.target.value)}
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                  </select>
-                </label>
-                <label className="ea-field">
-                  <span>Lot size</span>
+                  <span>Lot Size</span>
                   <input
                     className="admin-input"
                     type="number"
@@ -1792,10 +1803,12 @@ export default function AdminPortal() {
                     value={hostVolume}
                     onChange={(e) => setHostVolume(e.target.value)}
                     placeholder="0.01"
+                    required
                   />
                 </label>
+
                 <label className="ea-field">
-                  <span>Stop loss (price) *</span>
+                  <span>Stop Loss</span>
                   <input
                     className="admin-input"
                     type="number"
@@ -1806,8 +1819,9 @@ export default function AdminPortal() {
                     required
                   />
                 </label>
+
                 <label className="ea-field">
-                  <span>Take profit (price) *</span>
+                  <span>Take Profit</span>
                   <input
                     className="admin-input"
                     type="number"
@@ -1819,93 +1833,189 @@ export default function AdminPortal() {
                   />
                 </label>
 
-                <div className="self-host-clients">
-                  <div className="admin-card-title-row" style={{ marginBottom: 8 }}>
-                    <h3>Connected clients</h3>
-                    <button
-                      className="admin-btn admin-btn-outline admin-btn-sm"
-                      type="button"
-                      disabled={hostLoading || !hostAccounts.length}
-                      onClick={() =>
-                        setHostSelected(
-                          hostSelected.length === hostAccounts.length
-                            ? []
-                            : hostAccounts.map((row) => row.accountId)
-                        )
-                      }
-                    >
-                      {hostSelected.length === hostAccounts.length && hostAccounts.length
-                        ? "Clear"
-                        : "Select all"}
-                    </button>
-                  </div>
-                  {hostLoading && !hostAccounts.length ? (
-                    <p className="admin-card-meta">Loading connected accounts…</p>
-                  ) : hostAccounts.length === 0 ? (
-                    <p className="admin-card-meta">
-                      No clients have a live MetaTrader connection yet. When a client connects MT5
-                      in the app with the email on your license key, they appear here.
-                    </p>
-                  ) : (
-                    <ul className="self-host-client-list">
-                      {hostAccounts.map((row) => {
-                        const checked = hostSelected.includes(row.accountId);
-                        return (
-                          <li key={row.accountId}>
-                            <label className="self-host-client-row">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {
-                                  setHostSelected((prev) =>
-                                    checked
-                                      ? prev.filter((id) => id !== row.accountId)
-                                      : [...prev, row.accountId]
-                                  );
-                                }}
-                              />
-                              <span>
-                                <strong>{row.clientName || row.email}</strong>
-                                <span className="admin-card-meta">
-                                  {row.email} · {row.company || row.server} · login {row.login}
-                                </span>
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+                <div className="self-host-status">
+                  <p className="self-host-status-label">CONNECTED ROBOT CLIENTS</p>
+                  <p className="self-host-status-value">
+                    <span className={`self-host-dot${hostAccounts.length ? " is-on" : ""}`} />
+                    {hostLoading && !hostAccounts.length
+                      ? "Checking connections…"
+                      : `${hostAccounts.length} client${hostAccounts.length === 1 ? "" : "s"} connected`}
+                  </p>
                 </div>
 
                 <button
-                  className="admin-btn admin-btn-solid admin-btn-block"
+                  className="admin-btn admin-btn-solid admin-btn-block self-host-execute"
                   type="submit"
                   disabled={hostBusy || !hostAccounts.length}
-                  style={{ marginTop: 14 }}
                 >
-                  {hostBusy ? "Executing…" : "Execute trades"}
+                  EXECUTE TRADE
                 </button>
               </form>
+            </div>
 
-              {hostResult?.results?.length ? (
-                <div className="self-host-results" style={{ marginTop: 14 }}>
-                  <h3>Last execution</h3>
-                  <ul className="self-host-client-list">
-                    {hostResult.results.map((row) => (
-                      <li key={`${row.accountId}-${row.ok ? "ok" : "err"}`}>
-                        <p className="admin-card-meta">
-                          <strong>{row.email}</strong>
+            {hostResult ? (
+              <div className="admin-card self-host-result-card">
+                <p className="self-host-result-eyebrow">TRADE EXECUTED</p>
+                <p className="self-host-result-headline">
+                  {hostResult.side || hostSide} {hostResult.symbol || hostSymbol}
+                </p>
+                <p className="self-host-result-lot">
+                  {Number(hostResult.volume || hostVolume || 0).toFixed(2)} LOT
+                </p>
+                <div className="self-host-result-stats">
+                  <p>
+                    <strong>{Number(hostResult.targeted || hostResult.connected || 0)}</strong>{" "}
+                    clients targeted
+                  </p>
+                  <p>
+                    <strong>{Number(hostResult.placed || 0)}</strong> trades executed
+                  </p>
+                  <p>
+                    <strong>{Number(hostResult.offline || hostResult.failed || 0)}</strong> client
+                    offline
+                  </p>
+                </div>
+                {Array.isArray(hostResult.results) && hostResult.results.length ? (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-outline admin-btn-sm"
+                    onClick={() => setHostDetailsOpen((v) => !v)}
+                  >
+                    {hostDetailsOpen ? "Hide details" : "View details"}
+                  </button>
+                ) : null}
+                {hostDetailsOpen ? (
+                  <ul className="self-host-detail-list">
+                    {hostResult.results.map((row, idx) => (
+                      <li key={`${row.accountId || row.email || "row"}-${idx}`}>
+                        <strong>{row.email || "client"}</strong>
+                        <span>
                           {row.ok
-                            ? ` · ${row.side} ${row.volume} ${row.symbol} filled`
-                            : ` · ${row.error || "failed"}`}
-                        </p>
+                            ? `Executed · ${row.side || hostResult.side} ${row.symbol || hostResult.symbol}`
+                            : row.error || "Offline"}
+                        </span>
                       </li>
                     ))}
                   </ul>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="admin-card self-host-recent-card">
+              <h3 className="self-host-recent-title">Recent Trades</h3>
+              {hostRecent.length === 0 ? (
+                <p className="admin-card-meta">No recent self-hosted trades yet.</p>
+              ) : (
+                <ul className="self-host-recent-list">
+                  {hostRecent.map((row) => (
+                    <li key={row.id}>
+                      <p className="self-host-recent-main">
+                        {row.side} {row.symbol}
+                      </p>
+                      <p className="self-host-recent-meta">
+                        {Number(row.volume || 0).toFixed(2)} LOT
+                      </p>
+                      <p className="self-host-recent-meta">
+                        {row.targeted} clients
+                        <br />
+                        {row.placed} executed
+                        {row.offline ? ` · ${row.offline} offline` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
+
+            {hostConfirmOpen ? (
+              <div className="self-host-modal-backdrop" role="presentation">
+                <div
+                  className="admin-card self-host-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Confirm trade"
+                >
+                  <p className="self-host-modal-question">
+                    Execute this trade for all connected clients?
+                  </p>
+                  <p className="self-host-modal-trade">
+                    {hostSide} {String(hostSymbol || "").trim().toUpperCase()}
+                  </p>
+                  <p className="self-host-modal-meta">Lot: {hostVolume}</p>
+                  <p className="self-host-modal-meta">SL: {hostSl}</p>
+                  <p className="self-host-modal-meta">TP: {hostTp}</p>
+                  <p className="self-host-modal-meta">
+                    {hostAccounts.length} connected client
+                    {hostAccounts.length === 1 ? "" : "s"}
+                  </p>
+                  <div className="self-host-modal-actions">
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-outline"
+                      disabled={hostBusy}
+                      onClick={() => setHostConfirmOpen(false)}
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-solid"
+                      disabled={hostBusy}
+                      onClick={async () => {
+                        if (hostBusy) return;
+                        const symbol = String(hostSymbol || "").trim().toUpperCase();
+                        const stopLoss = Number(hostSl);
+                        const takeProfit = Number(hostTp);
+                        const volume = Number(hostVolume);
+                        setHostBusy(true);
+                        try {
+                          const result = await executeMentorSelfHostTrade({
+                            mentorEmail: adminSession.email,
+                            symbol,
+                            side: hostSide,
+                            volume: Number.isFinite(volume) && volume > 0 ? volume : 0.01,
+                            stopLoss,
+                            takeProfit,
+                            comment: "mentor~APEXEA",
+                          });
+                          setHostResult(result);
+                          setHostConfirmOpen(false);
+                          const entry = {
+                            id: `${Date.now()}-${symbol}-${hostSide}`,
+                            at: Date.now(),
+                            symbol: result.symbol || symbol,
+                            side: result.side || hostSide,
+                            volume: result.volume || volume,
+                            stopLoss,
+                            takeProfit,
+                            targeted: Number(result.targeted || result.connected || 0),
+                            placed: Number(result.placed || 0),
+                            offline: Number(result.offline || result.failed || 0),
+                          };
+                          setHostRecent(saveSelfHostRecent(adminSession.email, entry));
+                          const placed = Number(result?.placed || 0);
+                          if (placed > 0) {
+                            showToast(
+                              `Executed ${placed} trade${placed === 1 ? "" : "s"} for connected clients`
+                            );
+                          } else {
+                            showToast(result?.error || "No trades were placed");
+                          }
+                        } catch (error) {
+                          showToast(error.message || "Could not execute trade");
+                          setHostResult(error.data || { error: error.message });
+                          setHostConfirmOpen(false);
+                        } finally {
+                          setHostBusy(false);
+                        }
+                      }}
+                    >
+                      {hostBusy ? "EXECUTING…" : "EXECUTE TRADE"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
         )}
 
