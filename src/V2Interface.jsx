@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChartScanner from "./ChartScanner.jsx";
+import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
@@ -105,6 +106,7 @@ export default function V2Interface() {
           <section className="v2-view is-active v2-view-home">
             <div className="v2-home-header">
               <div className="v2-home-hero">
+                <EconomicCalendarButton variant="v2" />
                 <div className="v2-home-hero-media" aria-hidden="true">
                   <img
                     className="v2-home-hero-img"

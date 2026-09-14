@@ -384,6 +384,7 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

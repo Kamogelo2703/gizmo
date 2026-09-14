@@ -13,6 +13,7 @@ import licensesHandler from './api/licenses/index.js'
 import licensesPhotoHandler from './api/licenses/photo.js'
 import mentorsHandler from './api/mentors/index.js'
 import mt5AccountsHandler from './api/mt5-accounts/index.js'
+import calendarHandler from './api/calendar/index.js'
 import chartSymbolHandler from './api/chart/symbol.js'
 import chartAnalyzeHandler from './api/chart/analyze.js'
 import paypalConfigHandler from './api/paypal/config.js'
@@ -50,6 +51,11 @@ function metaApiDevPlugin() {
           if (url.pathname === '/api/mt5-accounts' || url.pathname === '/api/mt5-accounts/') {
             req.url = `${url.pathname}${url.search}`
             return mt5AccountsHandler(req, res)
+          }
+
+          if (url.pathname === '/api/calendar' || url.pathname === '/api/calendar/') {
+            req.url = `${url.pathname}${url.search}`
+            return calendarHandler(req, res)
           }
 
           if (url.pathname === '/api/chart/symbol' || url.pathname === '/api/chart/symbol/') {
