@@ -331,8 +331,9 @@ button {
 }
 
 .phone[data-interface="v2"] {
-  /* Industrial black shell — hero carries the artwork */
-  background: #000;
+  /* Kill the soft pink radial on .phone — solid black shell under KAMA */
+  background: #000 !important;
+  background-image: none !important;
 }
 
 .phone[data-interface="v2"] .glow,
@@ -342,12 +343,14 @@ button {
   opacity: 0 !important;
   visibility: hidden !important;
   animation: none !important;
+  pointer-events: none !important;
 }
 
 .phone[data-interface="v2"] .top {
   z-index: 4;
-  background: #000;
-  background-image: none;
+  background: #000 !important;
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .stage {
