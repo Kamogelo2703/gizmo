@@ -8,8 +8,8 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
 /**
- * Client trading app shell. Loads the live apex-ea.com site so licenses,
- * PayPal, Chart Scanner, MetaAPI, and all server secrets stay on Vercel.
+ * Client trading app shell. UI is packaged in the APK for fast cold start;
+ * PayPal, licenses, Chart Scanner, MetaAPI, and secrets stay on apex-ea.com.
  * Mentor/admin portal routes are blocked inside the APK.
  */
 public class MainActivity extends BridgeActivity {
@@ -31,8 +31,9 @@ public class MainActivity extends BridgeActivity {
 
         private void goHome() {
           Bridge b = MainActivity.this.getBridge();
-          if (b != null) {
-            b.getWebView().loadUrl("https://www.apex-ea.com/");
+          if (b != null && b.getWebView() != null) {
+            // Packaged Capacitor assets (not the remote website).
+            b.getWebView().loadUrl("https://localhost/");
           }
         }
 

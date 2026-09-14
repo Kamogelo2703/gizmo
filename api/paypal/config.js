@@ -1,11 +1,11 @@
 import { LIFETIME_CURRENCY, LIFETIME_PRICE, PAYPAL_CLIENT_ID, sendJson } from "./_lib.js";
+import { endOptions } from "../_cors.js";
 
 export const config = { maxDuration: 10 };
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
 

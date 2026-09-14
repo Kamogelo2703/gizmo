@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { FALLBACK_METAAPI_TOKEN } from "./_fallbackToken.js";
+import { applyCorsHeaders } from "../_cors.js";
 
 const PROVISIONING_BASE =
   process.env.METAAPI_PROVISIONING_URL ||
@@ -818,6 +819,7 @@ export async function clearAccountClientEmail(accountId, { token } = {}) {
 
 export function sendJson(res, status, payload) {
   res.statusCode = status;
+  applyCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));

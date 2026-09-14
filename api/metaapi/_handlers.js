@@ -1,6 +1,7 @@
 import { listLicenses } from "../licenses/_lib.js";
 import { listMentors } from "../mentors/_lib.js";
 import { listMt5Accounts, normalizeMt5Account } from "../mt5-accounts/_lib.js";
+import { endOptions } from "../_cors.js";
 import {
   clearAccountClientEmail,
   clientEmailFromAccount,
@@ -48,8 +49,7 @@ async function assertApprovedMentor(email) {
 
 export async function handleBrokers(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "GET") {
@@ -75,8 +75,7 @@ export async function handleBrokers(req, res) {
 
 export async function handleConnect(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "POST") {
@@ -106,8 +105,7 @@ export async function handleConnect(req, res) {
 
 export async function handleStatus(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "GET") {
@@ -134,8 +132,7 @@ export async function handleStatus(req, res) {
 
 export async function handleTrade(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "POST") {
@@ -174,8 +171,7 @@ export async function handleTrade(req, res) {
 
 export async function handleDisconnect(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "POST") {
@@ -229,8 +225,7 @@ export async function handleDisconnect(req, res) {
 
 export async function handleMentorTrade(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "POST") {

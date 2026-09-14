@@ -1,3 +1,4 @@
+import { endOptions } from "../_cors.js";
 import {
   listSignups,
   readJsonBody,
@@ -11,8 +12,7 @@ export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
 

@@ -2,7 +2,8 @@
 
 Capacitor shell for the **client trading app only** (not the mentor portal).
 
-It loads the live production site:
+The UI is packaged inside the APK for a fast cold start. All backends still hit
+the live production API:
 
 `https://www.apex-ea.com`
 

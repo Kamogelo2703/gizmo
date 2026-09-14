@@ -1,4 +1,6 @@
-const API_BASE = "/api/metaapi";
+import { apiUrl } from "./apiOrigin.js";
+
+const API_PATH = "/api/metaapi";
 const TOKEN_KEY = "apexea-metaapi-token";
 
 export function getClientMetaApiToken() {
@@ -21,7 +23,7 @@ export function setClientMetaApiToken(token) {
 
 async function apiFetch(path, { method = "GET", body, signal } = {}) {
   const clientToken = getClientMetaApiToken();
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiUrl(API_PATH)}${path}`, {
     method,
     signal,
     headers: {

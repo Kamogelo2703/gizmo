@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { mediaUrl } from "./apiOrigin.js";
 import {
   fetchSignups,
   mergeSignups,

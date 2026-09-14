@@ -3,7 +3,6 @@
   "appName": "ZETA SCALPER AI",
   "webDir": "dist",
   "server": {
-    "url": "https://www.apex-ea.com",
     "cleartext": false,
     "allowNavigation": [
       "https://www.apex-ea.com/*",
@@ -25,7 +24,8 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1200,
+      "launchShowDuration": 400,
+      "launchAutoHide": true,
       "backgroundColor": "#1a0010",
       "showSpinner": false
     },

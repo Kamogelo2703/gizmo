@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mediaUrl } from "./apiOrigin.js";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
@@ -13,9 +14,9 @@ function resolveHeroPhoto(bot) {
   const id = String(bot?.id || "").trim();
   // Prefer the full-quality API file over tiny legacy data-URL embeds.
   if (id && photo.startsWith("data:image/")) {
-    return `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`;
+    return mediaUrl(`/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`);
   }
-  if (photo) return photo;
+  if (photo) return mediaUrl(photo);
   return "/zeta-fire-portal.jpg";
 }
 
@@ -62,7 +63,7 @@ export default function V2Interface() {
     heroBroken === preferredHero
       ? activeBot?.photo || "/zeta-fire-portal.jpg"
       : preferredHero;
-  const floatSrc = activeBot?.photo || "/logo.png";
+  const floatSrc = mediaUrl(activeBot?.photo || "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     editingSymbol ||
@@ -205,7 +206,7 @@ export default function V2Interface() {
                         setFloatCycle(true);
                       }}
                     >
-                      <img src={bot.photo || "/logo.png"} alt="" width="40" height="40" />
+                      <img src={mediaUrl(bot.photo || "/logo.png")} alt="" width="40" height="40" />
                       <span>{bot.name}</span>
                     </button>
                   ))

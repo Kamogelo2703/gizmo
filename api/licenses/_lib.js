@@ -1,3 +1,4 @@
+import { applyCorsHeaders } from "../_cors.js";
 import {
   findSignup,
   setSignupAppAccessUnlocked,
@@ -1056,6 +1057,7 @@ export async function findLicensesByEmail(email) {
 
 export function sendJson(res, status, payload) {
   res.statusCode = status;
+  applyCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));

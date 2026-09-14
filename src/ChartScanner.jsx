@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { mediaUrl } from "./apiOrigin.js";
 import {
   CHART_DETECTION_STATUS,
   EXECUTE_ENGINE_STEPS,
@@ -646,7 +647,7 @@ export default function ChartScanner({ variant = "default" }) {
                   <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
                     <img
                       className="cs-robot-photo"
-                      src={activeBot?.photo || "/logo.png"}
+                      src={mediaUrl(activeBot?.photo || "/logo.png")}
                       alt=""
                       width="160"
                       height="160"

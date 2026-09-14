@@ -1,3 +1,4 @@
+import { endOptions } from "../_cors.js";
 import {
   persistBotPhoto,
   readBotPhoto,
@@ -24,8 +25,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
 

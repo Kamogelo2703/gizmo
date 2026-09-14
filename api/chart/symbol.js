@@ -1,5 +1,7 @@
+import { applyCorsHeaders, endOptions } from "../_cors.js";
 function sendJson(res, status, payload) {
   res.statusCode = status;
+  applyCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
@@ -222,8 +224,7 @@ export async function detectSymbolWithOpenAI({ image, catalog = [] } = {}) {
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
   if (req.method !== "POST") {

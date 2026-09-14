@@ -1,3 +1,4 @@
+import { applyCorsHeaders } from "../_cors.js";
 const PAYPAL_API_BASE =
   String(process.env.PAYPAL_MODE || "live").toLowerCase() === "sandbox"
     ? "https://api-m.sandbox.paypal.com"
@@ -189,6 +190,7 @@ export function isLifetimeAmountPaid(capture) {
 
 export function sendJson(res, status, payload) {
   res.statusCode = status;
+  applyCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));

@@ -46,3 +46,16 @@ createRoot(document.getElementById("root")).render(
     </AppProvider>
   </StrictMode>
 );
+
+// Hide native splash ASAP once the React shell paints (Android APK only).
+queueMicrotask(() => {
+  try {
+    if (!window.Capacitor?.isNativePlatform?.()) return;
+    import("@capacitor/splash-screen")
+      .then(({ SplashScreen }) => SplashScreen.hide())
+      .catch(() => {});
+  } catch {
+    // ignore on web
+  }
+});
+

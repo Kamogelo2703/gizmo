@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
+import { applyCorsHeaders } from "../_cors.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
@@ -263,6 +264,7 @@ export async function readJsonBody(req) {
 
 export function sendJson(res, status, payload) {
   res.statusCode = status;
+  applyCorsHeaders(res);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));

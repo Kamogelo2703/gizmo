@@ -1,7 +1,9 @@
-const API_BASE = "/api/paypal";
+import { apiUrl } from "./apiOrigin.js";
+
+const API_PATH = "/api/paypal";
 
 async function apiFetch(path, { method = "GET", body } = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiUrl(API_PATH)}${path}`, {
     method,
     headers: {
       Accept: "application/json",

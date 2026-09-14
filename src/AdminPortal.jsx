@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { mediaUrl } from "./apiOrigin.js";
 import AdminAuth from "./AdminAuth.jsx";
 import {
   COMMISSION_USD,
@@ -1391,7 +1392,7 @@ export default function AdminPortal() {
                     type="button"
                     onClick={() => document.getElementById("ea-photo-react")?.click()}
                   >
-                    <img src={photo} alt="" />
+                    <img src={mediaUrl(photo)} alt="" />
                     <span>
                       {photoUploaded || isUploadedProfilePhoto(photo)
                         ? editingEaId
@@ -1519,7 +1520,7 @@ export default function AdminPortal() {
                     <div className="ea-item" key={ea.id}>
                       <span className="ea-avatar">
                         <img
-                          src={ea.photo || "/logo.png"}
+                          src={mediaUrl(ea.photo || "/logo.png")}
                           alt=""
                           onError={(event) => {
                             if (event.currentTarget.src.endsWith("/logo.png")) return;

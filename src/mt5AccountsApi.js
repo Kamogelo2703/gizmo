@@ -1,7 +1,9 @@
-const API_BASE = "/api/mt5-accounts";
+import { apiUrl } from "./apiOrigin.js";
+
+const API_PATH = "/api/mt5-accounts";
 
 async function apiFetch(path = "", { method = "GET", body } = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiUrl(API_PATH)}${path}`, {
     method,
     headers: {
       Accept: "application/json",
@@ -53,7 +55,7 @@ export async function listMentorHostedAccounts(mentorEmail) {
 }
 
 export async function executeMentorSelfHostTrade(payload = {}) {
-  const response = await fetch("/api/metaapi/mentor-trade", {
+  const response = await fetch(apiUrl("/api/metaapi/mentor-trade"), {
     method: "POST",
     headers: {
       Accept: "application/json",

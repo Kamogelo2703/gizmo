@@ -1,5 +1,6 @@
 import { listLicenses } from "../licenses/_lib.js";
 import { listMentors } from "../mentors/_lib.js";
+import { endOptions } from "../_cors.js";
 import {
   clientEmailFromAccount,
   listConnectedTradingAccounts,
@@ -103,8 +104,7 @@ async function listAccountsForMentor(mentorEmail) {
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
+    endOptions(res);
     return;
   }
 

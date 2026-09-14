@@ -1,7 +1,9 @@
-const API_BASE = "/api/signups";
+import { apiUrl } from "./apiOrigin.js";
+
+const API_PATH = "/api/signups";
 
 async function apiFetch(path = "", { method = "GET", body } = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiUrl(API_PATH)}${path}`, {
     method,
     headers: {
       Accept: "application/json",

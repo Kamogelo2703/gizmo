@@ -1,3 +1,4 @@
+import { mediaUrl } from "./apiOrigin.js";
 import { useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
@@ -28,7 +29,7 @@ export default function ZetaInterface() {
   } = useApp();
 
   const running = v2Running;
-  const floatSrc = activeBot?.photo || "/logo.png";
+  const floatSrc = mediaUrl(activeBot?.photo || "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     (activeBot?.symbols && activeBot.symbols[0]) || catalog?.[0] || "XAUUSD";
@@ -70,7 +71,7 @@ export default function ZetaInterface() {
               <div className="avatar-wrap">
                 <img
                   className="avatar"
-                  src={activeBot?.photo || "/logo.png"}
+                  src={mediaUrl(activeBot?.photo || "/logo.png")}
                   alt=""
                   width="160"
                   height="160"
@@ -121,7 +122,7 @@ export default function ZetaInterface() {
                     type="button"
                     onClick={() => selectBot(bot.id)}
                   >
-                    <img src={bot.photo || "/logo.png"} alt="" width="36" height="36" />
+                    <img src={mediaUrl(bot.photo || "/logo.png")} alt="" width="36" height="36" />
                     <span>{bot.name}</span>
                   </button>
                 ))}

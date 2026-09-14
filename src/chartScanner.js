@@ -1,3 +1,4 @@
+import { apiUrl } from "./apiOrigin.js";
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -186,7 +187,7 @@ function emptyDetection(overrides = {}) {
 
 async function detectSymbolWithOpenAI(dataUrl, { catalog = [] } = {}) {
   const image = await shrinkChartImage(dataUrl);
-  const response = await fetch("/api/chart/symbol", {
+  const response = await fetch(apiUrl("/api/chart/symbol"), {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -252,7 +253,7 @@ async function analyzeSetupWithOpenAI(
   { catalog = [], hintSymbol = "" } = {}
 ) {
   const image = await shrinkChartImage(dataUrl);
-  const response = await fetch("/api/chart/analyze", {
+  const response = await fetch(apiUrl("/api/chart/analyze"), {
     method: "POST",
     headers: {
       Accept: "application/json",
