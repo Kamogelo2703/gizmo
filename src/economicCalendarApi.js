@@ -119,13 +119,16 @@ async function apiFetch(path = "", { method = "GET", body } = {}) {
 
 export async function fetchEconomicEvents(mentorEmail = "") {
   const key = normalizeEmail(mentorEmail);
-  const local = readLocalEvents().filter((e) => !key || e.mentorEmail === key);
+  const today = todayDateKey();
+  const local = readLocalEvents()
+    .filter((e) => !key || e.mentorEmail === key)
+    .filter((e) => e.date >= today);
   try {
     const query = key ? `?mentorEmail=${encodeURIComponent(key)}` : "";
     const data = await apiFetch(query);
     const remote = Array.isArray(data?.events) ? data.events : [];
-    const merged = mergeEvents(local, remote);
-    writeLocalEvents(mergeEvents(readLocalEvents(), remote));
+    const merged = mergeEvents(local, remote).filter((e) => e.date >= today);
+    writeLocalEvents(mergeEvents(readLocalEvents(), remote).filter((e) => e.date >= today));
     return key ? merged.filter((e) => e.mentorEmail === key) : merged;
   } catch {
     return local;

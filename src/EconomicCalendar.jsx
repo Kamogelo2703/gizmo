@@ -152,19 +152,19 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
                 <p className="econ-cal-copy">
                   {isToday
                     ? directions
-                      ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Follow your mentor’s directions below.`
-                      : `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Come back once your mentor posts directions.`
+                      ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Follow your mentor’s signal direction below.`
+                      : `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Come back once your mentor posts a signal direction.`
                     : `The next event is on ${formatEventDay(nextEvent.date)} (${nextEvent.title}). Come back on the day for directions.`}
                 </p>
                 {isToday && directions ? (
                   <div className="econ-cal-directions">
-                    <p className="econ-cal-directions-label">Today’s directions</p>
+                    <p className="econ-cal-directions-label">Signal direction</p>
                     <p className="econ-cal-directions-body">{directions}</p>
                   </div>
                 ) : null}
                 <p className="econ-cal-hint">
-                  Shows one event at a time. After this day, it automatically updates to the
-                  next NFP, PPI, CPI, or FOMC.
+                  Shows one event at a time (NFP, PPI, CPI, or FOMC). After this day it updates
+                  automatically. Signal directions remove themselves the day after the event.
                 </p>
               </>
             )}

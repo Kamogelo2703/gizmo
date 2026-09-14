@@ -26,8 +26,11 @@ import {
   saveEconomicEvent,
 } from "./economicCalendarApi.js";
 import {
+  filterActiveMentorDirections,
   findOfficialEvent,
+  formatSignalLockLabel,
   getNextOfficialEvent,
+  isSignalDirectionEditable,
   listUpcomingOfficialEvents,
   matchMentorDirection,
 } from "./economicCalendarSchedule.js";
@@ -410,7 +413,7 @@ export default function AdminPortal() {
 
   useEffect(() => {
     if (!adminOpen || !adminSession || isSuperAdminSession(adminSession)) return undefined;
-    if (adminPage !== "calendar") return undefined;
+    if (adminPage !== "calendar" && adminPage !== "signal-direction") return undefined;
     let cancelled = false;
     async function loadCalendar() {
       try {
@@ -568,6 +571,7 @@ export default function AdminPortal() {
       "commission",
       "self-hosting",
       "calendar",
+      "signal-direction",
     ]);
     if (!isSuper && !mentorPages.has(adminPage)) {
       setAdminPage("dashboard");
@@ -945,6 +949,16 @@ export default function AdminPortal() {
       showToast("Pick an NFP, PPI, CPI, or FOMC event");
       return;
     }
+    if (!isSignalDirectionEditable(official)) {
+      showToast(
+        `Editing locked — signal directions close 1 hour before ${official.title} (${official.timeEt} ET)`
+      );
+      return;
+    }
+    if (!String(calendarDirections || "").trim()) {
+      showToast("Enter a signal direction");
+      return;
+    }
     setCalendarBusy(true);
     try {
       const saved = await saveEconomicEvent({
@@ -956,17 +970,18 @@ export default function AdminPortal() {
         directions: calendarDirections,
       });
       setCalendarEvents((prev) => {
-        const rest = prev.filter(
+        const rest = filterActiveMentorDirections(prev).filter(
           (row) => row.id !== saved.id && row.officialEventId !== official.id
         );
-        return [...rest, saved].sort((a, b) =>
+        return filterActiveMentorDirections([...rest, saved]).sort((a, b) =>
           String(a.date).localeCompare(String(b.date))
         );
       });
-      setCalendarDirections("");
-      showToast(`Directions saved for ${official.title} · ${formatEventDay(official.date)}`);
+      showToast(
+        `Signal direction saved for ${official.title} · clients see it on Economic calendar`
+      );
     } catch (error) {
-      showToast(error.message || "Could not save directions");
+      showToast(error.message || "Could not save signal direction");
     } finally {
       setCalendarBusy(false);
     }
@@ -1104,6 +1119,7 @@ export default function AdminPortal() {
         ["settings", "Settings"],
         ["commission", "Mentor Commission"],
         ["self-hosting", "Self Hosting"],
+        ["signal-direction", "Add Signal Direction"],
       ];
 
   return (
@@ -2280,34 +2296,49 @@ export default function AdminPortal() {
                         </select>
                       </label>
                       <label className="ea-field">
-                        <span>Directions (shown on the day)</span>
+                        <span>Signal direction (shown on Economic calendar that day)</span>
                         <textarea
                           className="admin-input"
                           rows={4}
                           value={calendarDirections}
                           onChange={(e) => setCalendarDirections(e.target.value)}
-                          placeholder="Tell clients what to do on this event day…"
+                          placeholder="Enter the signal direction for clients…"
+                          disabled={selected ? !isSignalDirectionEditable(selected) : true}
                         />
                       </label>
+                      <p className="ea-hint">
+                        {selected
+                          ? formatSignalLockLabel(selected)
+                          : "Pick an event to add a signal direction."}{" "}
+                        Directions remove themselves the day after the event.
+                      </p>
                       <button
                         className="admin-btn admin-btn-solid admin-btn-block"
                         type="submit"
-                        disabled={calendarBusy || !selected}
+                        disabled={
+                          calendarBusy ||
+                          !selected ||
+                          (selected ? !isSignalDirectionEditable(selected) : true)
+                        }
                       >
-                        {calendarBusy ? "Saving…" : "Save directions"}
+                        {calendarBusy
+                          ? "Saving…"
+                          : selected && !isSignalDirectionEditable(selected)
+                            ? "Editing locked"
+                            : "Save signal direction"}
                       </button>
                     </form>
                   </div>
 
                   <div className="admin-card" style={{ marginTop: 14 }}>
                     <div className="admin-card-title-row">
-                      <h3>Your directions</h3>
-                      <span className="admin-badge">{calendarEvents.length}</span>
+                      <h3>Active signal directions</h3>
+                      <span className="admin-badge">{filterActiveMentorDirections(calendarEvents).length}</span>
                     </div>
-                    {calendarEvents.length === 0 ? (
-                      <p className="admin-empty">No directions saved yet</p>
+                    {filterActiveMentorDirections(calendarEvents).length === 0 ? (
+                      <p className="admin-empty">No active signal directions</p>
                     ) : (
-                      [...calendarEvents]
+                      [...filterActiveMentorDirections(calendarEvents)]
                         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
                         .map((event) => (
                           <div className="license-row" key={event.id}>
@@ -2349,6 +2380,162 @@ export default function AdminPortal() {
                             </div>
                           </div>
                         ))
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </section>
+        )}
+
+        {!isSuperAdmin && adminPage === "signal-direction" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Add Signal Direction</h2>
+            <p className="admin-sub">
+              Post a signal direction for the next NFP, PPI, CPI, or FOMC. It appears on the
+              client Economic calendar. You can edit until 1 hour before the event — then it
+              locks. The direction removes itself the day after.
+            </p>
+            {(() => {
+              const upcomingOfficial = listUpcomingOfficialEvents(new Date(), 10);
+              const nextOfficial = getNextOfficialEvent();
+              const selectedId = calendarEditingId || nextOfficial?.id || "";
+              const selected =
+                findOfficialEvent({ id: selectedId }) || nextOfficial || upcomingOfficial[0];
+              const locked = selected ? !isSignalDirectionEditable(selected) : true;
+              const activeDirections = filterActiveMentorDirections(calendarEvents);
+              return (
+                <>
+                  <div className="admin-card">
+                    <div className="admin-card-title-row">
+                      <h3>Goes to Economic calendar</h3>
+                      <span className="admin-badge is-approved">
+                        {nextOfficial ? nextOfficial.title : "None"}
+                      </span>
+                    </div>
+                    {nextOfficial ? (
+                      <p className="admin-card-meta">
+                        Next event clients see: {nextOfficial.title} ·{" "}
+                        {formatEventDay(nextOfficial.date)} · {nextOfficial.timeEt} ET
+                      </p>
+                    ) : (
+                      <p className="admin-empty">No upcoming official events</p>
+                    )}
+                  </div>
+
+                  <div className="admin-card" style={{ marginTop: 14 }}>
+                    <form className="license-form" onSubmit={saveCalendarEvent}>
+                      <label className="ea-field">
+                        <span>Event *</span>
+                        <select
+                          className="admin-input"
+                          value={selected?.id || ""}
+                          onChange={(e) => {
+                            const official = findOfficialEvent({ id: e.target.value });
+                            if (!official) return;
+                            setCalendarEditingId(official.id);
+                            setCalendarDate(official.date);
+                            setCalendarTitle(official.title);
+                            setCalendarDirections(
+                              matchMentorDirection(official, calendarEvents) ||
+                                activeDirections.find(
+                                  (row) =>
+                                    row.id === official.id ||
+                                    row.officialEventId === official.id
+                                )?.directions ||
+                                ""
+                            );
+                          }}
+                          required
+                        >
+                          {upcomingOfficial.map((event) => (
+                            <option key={event.id} value={event.id}>
+                              {event.title} — {formatEventDay(event.date)} · {event.timeEt} ET
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="ea-field">
+                        <span>Signal direction *</span>
+                        <textarea
+                          className="admin-input"
+                          rows={5}
+                          value={calendarDirections}
+                          onChange={(e) => setCalendarDirections(e.target.value)}
+                          placeholder="e.g. Stay flat until the release, then watch XAUUSD…"
+                          disabled={locked}
+                          required
+                        />
+                      </label>
+                      <p className="ea-hint">
+                        {selected ? formatSignalLockLabel(selected) : ""} Directions auto-remove
+                        the day after the event.
+                      </p>
+                      <button
+                        className="admin-btn admin-btn-solid admin-btn-block"
+                        type="submit"
+                        disabled={calendarBusy || !selected || locked}
+                      >
+                        {calendarBusy
+                          ? "Saving…"
+                          : locked
+                            ? "Editing locked (1 hour before event)"
+                            : "Add signal direction"}
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="admin-card" style={{ marginTop: 14 }}>
+                    <div className="admin-card-title-row">
+                      <h3>Active signal directions</h3>
+                      <span className="admin-badge">{activeDirections.length}</span>
+                    </div>
+                    {activeDirections.length === 0 ? (
+                      <p className="admin-empty">No active signal directions</p>
+                    ) : (
+                      activeDirections
+                        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+                        .map((event) => {
+                          const official =
+                            findOfficialEvent({
+                              id: event.officialEventId || event.id,
+                              date: event.date,
+                              title: event.title,
+                            }) || event;
+                          return (
+                            <div className="license-row" key={event.id}>
+                              <strong>
+                                {event.title} · {formatEventDay(event.date)}
+                              </strong>
+                              <span>{event.directions?.slice(0, 140) || "No direction"}</span>
+                              <div className="license-row-actions">
+                                <button
+                                  className="admin-btn admin-btn-outline admin-btn-sm"
+                                  type="button"
+                                  disabled={!isSignalDirectionEditable(official)}
+                                  onClick={() => {
+                                    setCalendarEditingId(official.id || event.id);
+                                    setCalendarDate(official.date || event.date);
+                                    setCalendarTitle(official.title || event.title);
+                                    setCalendarDirections(event.directions || "");
+                                  }}
+                                >
+                                  {isSignalDirectionEditable(official) ? "Edit" : "Locked"}
+                                </button>
+                                <button
+                                  className="admin-btn admin-btn-ghost admin-btn-sm"
+                                  type="button"
+                                  disabled={
+                                    calendarBusy || !isSignalDirectionEditable(official)
+                                  }
+                                  onClick={() => void onDeleteCalendarEvent(event.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
                     )}
                   </div>
                 </>
