@@ -1,6 +1,11 @@
 import { listLicenses } from "../licenses/_lib.js";
 import { listMentors } from "../mentors/_lib.js";
 import {
+  clientEmailFromAccount,
+  listConnectedTradingAccounts,
+  tagAccountClientEmail,
+} from "../metaapi/_lib.js";
+import {
   listMt5Accounts,
   normalizeMt5Account,
   readJsonBody,
@@ -55,15 +60,45 @@ async function listAccountsForMentor(mentorEmail) {
     }
   }
 
+  const byEmail = new Map();
   const accounts = await listMt5Accounts();
-  return accounts
-    .map((row) => normalizeMt5Account(row))
-    .filter(Boolean)
-    .filter((row) => clientMeta.has(row.email))
-    .map((row) => ({
-      ...row,
-      clientName: clientMeta.get(row.email)?.clientName || "",
-    }));
+  for (const row of accounts) {
+    const item = normalizeMt5Account(row);
+    if (!item || !clientMeta.has(item.email)) continue;
+    byEmail.set(item.email, {
+      ...item,
+      clientName: clientMeta.get(item.email)?.clientName || "",
+    });
+  }
+
+  // MetaAPI is the durable source when GitHub registry sync is unavailable.
+  try {
+    const live = await listConnectedTradingAccounts();
+    for (const account of live) {
+      const email = clientEmailFromAccount(account);
+      if (!email || !clientMeta.has(email)) continue;
+      const accountId = String(account.id || account._id || "").trim();
+      if (!accountId) continue;
+      byEmail.set(email, {
+        email,
+        accountId,
+        login: String(account.login || "").trim(),
+        server: String(account.server || "").trim(),
+        company: String(account.name || "").trim(),
+        platform: account.platform === "mt4" ? "MT4" : "MT5",
+        region: String(account.region || account.primaryReplica?.region || "").trim(),
+        connectedAt: Date.now(),
+        updatedAt: Date.now(),
+        clientName: clientMeta.get(email)?.clientName || "",
+      });
+    }
+  } catch {
+    // Keep registry-only results if MetaAPI listing fails.
+  }
+
+  return Array.from(byEmail.values()).sort(
+    (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+  );
 }
 
 export default async function handler(req, res) {
@@ -102,6 +137,14 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       const body = await readJsonBody(req);
       const account = await upsertMt5Account(body);
+      // Tag MetaAPI so mentors can discover this client without GitHub sync.
+      if (account?.accountId && account?.email) {
+        try {
+          await tagAccountClientEmail(account.accountId, account.email);
+        } catch {
+          // best-effort
+        }
+      }
       sendJson(res, 200, { account });
       return;
     }
