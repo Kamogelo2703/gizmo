@@ -83,18 +83,17 @@ export default function V2Interface() {
         {v2View !== "scanner" ? <TopBar /> : null}
         {v2View === "home" && (
           <section className="v2-view is-active v2-view-home">
-            <div className="v2-home-hero">
-              <div className="v2-home-hero-media" aria-hidden="true">
-                <img className="v2-home-hero-img" src={heroSrc} alt="" />
+            <div className="v2-home-header">
+              <div className="v2-home-hero">
+                <div className="v2-home-hero-media" aria-hidden="true">
+                  <img className="v2-home-hero-img" src={heroSrc} alt="" />
+                </div>
               </div>
               <div className="v2-home-hero-copy">
                 <p className="v2-home-hero-kicker">You are trading with</p>
                 <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
               </div>
-            </div>
-
-            {/* Keep existing V2 pill look + button set */}
-            <div className="v2-pill-bar">
+              <div className="v2-pill-bar">
               <button
                 className={`v2-pill-btn${v2Running ? " is-running" : ""}`}
                 type="button"
@@ -147,6 +146,7 @@ export default function V2Interface() {
                 </span>
                 <span className="v2-pill-label">REMOVE</span>
               </button>
+              </div>
             </div>
 
             <p className="v2-powered-by" aria-label="Powered by apexEA">
