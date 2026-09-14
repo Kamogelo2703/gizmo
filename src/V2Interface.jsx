@@ -138,6 +138,10 @@ export default function V2Interface() {
               </button>
             </div>
 
+            <p className="v2-powered-by">
+              Powered by <span>apexEA</span>
+            </p>
+
             <section className="v2-robots">
               <h2 className="v2-robots-title">ROBOT LIST:</h2>
               <div className="v2-robot-list">
