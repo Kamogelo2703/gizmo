@@ -160,12 +160,12 @@ export default function CoverLock() {
     setLockStep("pending");
     showToast(
       current?.status === "declined"
-        ? "Resubmitted — waiting for super admin"
-        : "Submitted — waiting for super admin approval"
+        ? "Resubmitted — payment required for first-time access"
+        : "Email saved — pay lifetime access to continue"
     );
   }
 
-  async function checkStatus() {
+  async function checkPaidStatus() {
     const key = String(coverEmail || email || "")
       .trim()
       .toLowerCase();
@@ -178,18 +178,22 @@ export default function CoverLock() {
       showToast("Submit your email first");
       return;
     }
-    if (current.status === "approved") {
+    if (current.status === "approved" || current.accessPaid) {
       setLockStep("license");
-      showToast("Approved — enter your license key");
+      showToast(
+        current.accessPaid
+          ? "Payment found — enter your license key"
+          : "Approved — enter your license key"
+      );
       return;
     }
     if (current.status === "declined") {
       setLockStep("pending");
-      showToast("Still declined — ask super admin or resubmit with another email");
+      showToast("Still declined — change email or complete lifetime payment");
       return;
     }
     setLockStep("pending");
-    showToast("Still pending — wait for super admin approval");
+    showToast("No payment found yet — pay lifetime access of $35.60 to continue");
   }
 
   async function submitLicense(event) {
@@ -214,8 +218,8 @@ export default function CoverLock() {
           <section className="cover-step is-active">
             <h2 className="app-lock-title cover-title">Unlock ApexEA</h2>
             <p className="app-lock-sub">
-              Enter your email to request access. A super admin will approve or
-              decline your account before you can activate a license key.
+              Enter your email to continue. First-time users must pay lifetime
+              access of <strong>$35.60</strong> before activating a license key.
             </p>
             <form className="app-lock-form" onSubmit={submitEmail}>
               <label className="ea-field">
@@ -232,7 +236,7 @@ export default function CoverLock() {
                 />
               </label>
               <button className="admin-btn admin-btn-solid admin-btn-block" type="submit">
-                Request Access
+                Continue
               </button>
             </form>
           </section>
@@ -243,9 +247,9 @@ export default function CoverLock() {
             <p className="app-lock-eyebrow">Lifetime access</p>
             <h2 className="app-lock-title">Pay with PayPal</h2>
             <p className="app-lock-sub">
-              One-time payment of <strong>$35.60 USD</strong> for{" "}
-              <strong>{coverEmail || email || "your email"}</strong>. When PayPal
-              confirms, you are auto-approved.
+              Mandatory one-time payment of <strong>$35.60 USD</strong> for{" "}
+              <strong>{coverEmail || email || "your email"}</strong>. Required for
+              every first-time user. When PayPal confirms, you are auto-approved.
             </p>
             <div className="paypal-panel">
               {paypalError ? (
@@ -262,10 +266,10 @@ export default function CoverLock() {
             <button
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
-              onClick={checkStatus}
+              onClick={checkPaidStatus}
               style={{ marginTop: 12 }}
             >
-              I already paid — check status
+              I have paid
             </button>
             <button
               className="cover-back"
@@ -280,37 +284,41 @@ export default function CoverLock() {
         {lockStep === "pending" && (
           <section className="cover-step is-active">
             <p className="app-lock-eyebrow">
-              {declined ? "Access declined" : "Pending approval"}
+              {declined ? "Access declined" : "Lifetime access required"}
             </p>
             <h2 className="app-lock-title">
-              {declined ? "Request declined" : "Waiting for approval"}
+              {declined ? "Request declined" : "Pay to unlock"}
             </h2>
             <p className="app-lock-sub">
               {declined
-                ? `${coverEmail || "Your account"} was declined by a super admin. Change email to request again.`
-                : `${coverEmail} is pending. A super admin must approve or decline this account.`}
+                ? `${coverEmail || "Your account"} was declined by a super admin. Change email to request again, or complete lifetime payment if you already paid.`
+                : `First-time users must pay lifetime access of $35.60 for ${coverEmail || "your account"}. This payment is mandatory before you can use the app.`}
             </p>
             <div className="pending-status-card">
               <span className={`admin-badge ${declined ? "is-declined" : "is-pending"}`}>
-                {declined ? "Declined" : "Pending"}
+                {declined ? "Declined" : "Payment required"}
               </span>
               <strong>{coverEmail || "—"}</strong>
             </div>
             <button
               className="admin-btn admin-btn-solid admin-btn-block"
               type="button"
-              onClick={checkStatus}
+              onClick={() => setLockStep("pay")}
             >
-              Check approval status
+              Pay lifetime access of $35.60
             </button>
             <button
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
-              onClick={() => setLockStep("pay")}
+              onClick={checkPaidStatus}
               style={{ marginTop: 10 }}
             >
-              Or pay $35.60 for instant access
+              I have paid
             </button>
+            <p className="ea-hint" style={{ marginTop: 12, textAlign: "center" }}>
+              Already paid and reinstalled the app? Tap <strong>I have paid</strong> to
+              restore access with this email.
+            </p>
             <button
               className="cover-back"
               type="button"
