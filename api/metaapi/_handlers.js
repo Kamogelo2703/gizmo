@@ -153,7 +153,7 @@ export async function handleTrade(req, res) {
       side: body.side || body.action || "BUY",
       stopLoss: body.stopLoss,
       takeProfit: body.takeProfit,
-      comment: body.comment || "bot~apexea",
+      comment: body.comment || "bot~APEXEA",
       region: body.region,
       token,
     });
@@ -296,7 +296,7 @@ export async function handleMentorTrade(req, res) {
 
     const token = tokenFromRequest(req);
     const lot = Number.isFinite(volume) && volume > 0 ? volume : 0.01;
-    const comment = String(body.comment || "mentor~apexea").slice(0, 31);
+    const comment = String(body.comment || "mentor~APEXEA").slice(0, 31);
     const results = [];
 
     for (const target of targets) {

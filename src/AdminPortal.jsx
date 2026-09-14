@@ -1741,7 +1741,7 @@ export default function AdminPortal() {
                       stopLoss,
                       takeProfit,
                       accountIds: hostSelected,
-                      comment: "mentor~apexea",
+                      comment: "mentor~APEXEA",
                     });
                     setHostResult(result);
                     const placed = Number(result?.placed || 0);

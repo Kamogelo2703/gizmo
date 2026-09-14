@@ -641,7 +641,10 @@ export async function placeMarketTrade({
     actionType,
     symbol: resolved.symbol,
     volume: vol,
-    comment: String(comment || "bot~apexea").slice(0, 31),
+    // Always capitalize the APEXEA brand tag in MT5 comments.
+    comment: String(comment || "bot~APEXEA")
+      .replace(/apexea/gi, "APEXEA")
+      .slice(0, 31),
   };
   if (Number.isFinite(Number(stopLoss)) && Number(stopLoss) > 0) {
     body.stopLoss = Number(stopLoss);
