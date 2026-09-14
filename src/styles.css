@@ -330,10 +330,23 @@ button {
   opacity: 0;
 }
 
+/* No ambient pink page wash around Interface 2 */
+html:has(.phone[data-interface="v2"]),
+html:has(.phone[data-interface="v2"]) body {
+  background: #000 !important;
+  background-image: none !important;
+}
+
 .phone[data-interface="v2"] {
   /* Kill the soft pink radial on .phone — solid black shell under KAMA */
   background: #000 !important;
   background-image: none !important;
+}
+
+.phone[data-interface="v2"] .iface-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
 }
 
 .phone[data-interface="v2"] .glow,
