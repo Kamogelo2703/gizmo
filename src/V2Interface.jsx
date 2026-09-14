@@ -88,10 +88,10 @@ export default function V2Interface() {
                 <div className="v2-home-hero-media" aria-hidden="true">
                   <img className="v2-home-hero-img" src={heroSrc} alt="" />
                 </div>
-              </div>
-              <div className="v2-home-hero-copy">
-                <p className="v2-home-hero-kicker">You are trading with</p>
-                <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
+                <div className="v2-home-hero-copy">
+                  <p className="v2-home-hero-kicker">You are trading with</p>
+                  <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
+                </div>
               </div>
               <div className="v2-pill-bar">
               <button

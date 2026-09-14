@@ -3573,7 +3573,8 @@ html:has(.phone[data-interface="v2"]) body {
 
 .v2-view.v2-view-home,
 .v2-view.is-active.v2-view-home {
-  --v2-hero-h: clamp(210px, 42vh, 300px);
+  /* Fill photo from KAMA down to the name row (no black dead space) */
+  --v2-hero-h: clamp(260px, 46vh, 340px);
   position: relative;
   gap: 0;
   /* Bleed past .v2-stage horizontal padding. Must override .v2-view max-width:100%
@@ -3606,7 +3607,9 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 0;
+  height: var(--v2-hero-h);
+  min-height: var(--v2-hero-h);
+  max-height: var(--v2-hero-h);
   flex: 0 0 auto;
   display: block;
   padding: 0;
@@ -3617,29 +3620,26 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-home-hero-media {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 0;
   width: 100%;
-  height: auto;
-  max-height: var(--v2-hero-h);
+  height: 100%;
   margin: 0;
   padding: 0;
   pointer-events: none;
   background: #000;
   line-height: 0;
   overflow: hidden;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
 }
 
 .v2-home-hero-img {
   width: 100%;
-  height: auto;
-  max-width: 100%;
-  max-height: var(--v2-hero-h);
+  height: 100%;
+  max-width: none;
+  max-height: none;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center top;
   transform: none;
   filter: none;
@@ -3655,17 +3655,25 @@ html:has(.phone[data-interface="v2"]) body {
   box-shadow: none !important;
 }
 
-/* Own row between hero and pill — name never sits under the pill */
+/* Sunken into the bottom of the filled photo — clear of the pill below */
 .v2-home-hero-copy {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
   flex: 0 0 auto;
   text-align: center;
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 10px 16px 6px;
-  background: #000;
+  padding: 36px 16px 14px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.55) 42%,
+    rgba(0, 0, 0, 0.92) 100%
+  );
   opacity: 1 !important;
   animation: none !important;
   visibility: visible !important;
@@ -3745,7 +3753,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 3;
   flex: 0 0 auto;
-  margin: 8px auto 12px;
+  margin: 10px auto 12px;
   width: min(86%, 290px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
