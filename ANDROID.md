@@ -1,10 +1,17 @@
 # Android APK (ZETA SCALPER AI)
 
-The Android app is a Capacitor shell that loads the **live production site**:
+Capacitor shell for the **client trading app only** (not the mentor portal).
+
+It loads the live production site:
 
 `https://www.apex-ea.com`
 
-That means MetaAPI, PayPal, Chart Scanner (OpenAI), licenses, mentors, and every other backend/API/secret stay on Vercel — exactly like the website. Nothing sensitive is baked into the APK.
+So MetaAPI, PayPal, Chart Scanner (OpenAI), licenses, MT5, and every other
+backend/API/secret stay on Vercel — exactly like the website. Nothing sensitive
+is baked into the APK.
+
+- **Android:** 7.0+ (API 24 and up) — Capacitor 8 minimum
+- **Portal:** `/admin` is blocked in the native shell
 
 ## Download
 
@@ -16,7 +23,9 @@ That means MetaAPI, PayPal, Chart Scanner (OpenAI), licenses, mentors, and every
 ```bash
 cp android/keystore/signing.properties.example android/keystore/signing.properties
 # set passwords + ensure apexea-release.jks exists under android/keystore/
+export ANDROID_HOME=/home/ubuntu/android-sdk
 npm run android:apk
+cp android/app/build/outputs/apk/release/app-release.apk public/ZETA-SCALPER-AI.apk
 ```
 
 APK output: `android/app/build/outputs/apk/release/app-release.apk`
