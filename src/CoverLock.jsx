@@ -16,6 +16,7 @@ export default function CoverLock() {
     requestSignup,
     getSignup,
     activateLicense,
+    restoreLicensesByEmail,
     showToast,
     openAdmin,
     refreshSignups,
@@ -153,6 +154,11 @@ export default function CoverLock() {
     if (!key) return;
     const current = getSignup(key) || { email: key, status: "pending" };
     if (current?.status === "approved") {
+      const restored = await restoreLicensesByEmail?.(key);
+      if (restored) {
+        setLockStep("cover");
+        return;
+      }
       setLockStep("license");
       showToast("Already approved — enter your license key");
       return;
@@ -179,6 +185,11 @@ export default function CoverLock() {
       return;
     }
     if (current.status === "approved" || current.accessPaid) {
+      const restored = await restoreLicensesByEmail?.(key);
+      if (restored) {
+        setLockStep("cover");
+        return;
+      }
       setLockStep("license");
       showToast(
         current.accessPaid
@@ -339,7 +350,7 @@ export default function CoverLock() {
               {addingBot
                 ? "Enter a new license key to add another robot. Your current bots stay on the home screen."
                 : coverEmail
-                  ? `Approved · ${coverEmail}. Enter your license key to unlock the app.`
+                  ? `Approved · ${coverEmail}. Enter the license key for this email — it works again after reinstall.`
                   : "Enter your license key to unlock the app."}
             </p>
             <form className="app-lock-form" onSubmit={submitLicense}>

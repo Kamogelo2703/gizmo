@@ -1598,12 +1598,16 @@ export function AppProvider({ children }) {
 
       const deviceId = getOrCreateDeviceId();
       const boundDevice = String(entry.deviceId || "").trim();
-      if (entry.used && boundDevice && boundDevice !== deviceId) {
+      const licenseEmail = normalizeEmail(entry.clientEmail);
+      const emailOwnsLicense = Boolean(
+        accountEmail && licenseEmail && accountEmail === licenseEmail
+      );
+      if (entry.used && boundDevice && boundDevice !== deviceId && !emailOwnsLicense) {
         showToast("This license is locked to another phone");
         return false;
       }
 
-      // Bind to this phone first so another device cannot claim the same key.
+      // Bind to this phone (or reclaim by matching email after reinstall / new device).
       let remote = null;
       try {
         remote = await markLicenseUsedRemote(entry.key || key, {
@@ -1736,10 +1740,66 @@ export function AppProvider({ children }) {
         ])
       );
 
-      showToast(`${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`);
+      const wasReclaimed =
+        entry.used &&
+        boundDevice &&
+        boundDevice !== deviceId &&
+        emailOwnsLicense;
+
+      showToast(
+        wasReclaimed
+          ? `${snapshot.name || entry.botName || "Bot"} restored for ${accountEmail}`
+          : `${snapshot.name || entry.botName || "Bot"} activated for ${accountEmail}`
+      );
       return true;
     },
     [coverEmail, getSignup, licenseKeys, showToast]
+  );
+
+  /** Re-bind every non-expired license owned by this email onto this phone. */
+  const restoreLicensesByEmail = useCallback(
+    async (rawEmail = coverEmail) => {
+      const accountEmail = normalizeEmail(rawEmail || coverEmail);
+      if (!accountEmail || !accountEmail.includes("@")) {
+        showToast("Enter the email linked to your license");
+        return false;
+      }
+      const signup = getSignup(accountEmail);
+      if (!signup || signup.status !== "approved") {
+        showToast("Account must be approved before restoring licenses");
+        return false;
+      }
+
+      let remote = [];
+      try {
+        remote = await fetchLicensesByEmail(accountEmail);
+        if (remote.length) setLicenseKeys((prev) => mergeLicenses(prev, remote));
+      } catch {
+        remote = [];
+      }
+
+      const mine = (remote.length ? remote : licenseKeys).filter(
+        (row) =>
+          normalizeEmail(row.clientEmail) === accountEmail &&
+          !isLicenseExpired(row) &&
+          String(row.key || "").trim()
+      );
+
+      if (!mine.length) {
+        return false;
+      }
+
+      let restored = 0;
+      for (const row of mine) {
+        const ok = await activateLicense(row.key);
+        if (ok) restored += 1;
+      }
+      if (restored === 0) {
+        return false;
+      }
+      return true;
+    },
+    [activateLicense, coverEmail, getSignup, licenseKeys, showToast]
   );
 
   const deactivateLicense = useCallback(
@@ -1879,6 +1939,7 @@ export function AppProvider({ children }) {
     licenseKeys,
     generateLicense,
     activateLicense,
+    restoreLicensesByEmail,
     deactivateLicense,
     deleteLicense,
     refreshLicenses,

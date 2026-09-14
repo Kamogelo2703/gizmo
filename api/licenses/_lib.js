@@ -847,9 +847,9 @@ export async function createLicense(payload = {}) {
 }
 
 /**
- * Bind a license to the first phone that activates it.
- * Same phone can re-open; any other phone is rejected.
- * Email is not a hard gate — keys work for any robot once the app is unlocked.
+ * Bind a license to the activating phone.
+ * Same phone can re-open. A different phone is rejected — unless the CoverLock
+ * email matches the license clientEmail (owner reclaim after reinstall / new device).
  */
 export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}) {
   const variants = licenseKeyVariants(rawKey);
@@ -866,6 +866,8 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
     throw err;
   }
 
+  const claimEmail = normalizeEmail(email);
+
   // Peek current license + signup before mutate so commission rules use paid/first-access.
   const currentList = await listLicenses();
   const current =
@@ -877,10 +879,38 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
   }
 
   const boundDevice = String(current.deviceId || "").trim();
+  const licenseEmail = normalizeEmail(current.clientEmail);
+  const emailOwnsLicense = Boolean(
+    claimEmail && licenseEmail && claimEmail === licenseEmail
+  );
+
+  // Used on another phone — allow reclaim only when email matches the key owner.
   if (current.used && boundDevice && boundDevice !== claimDevice) {
-    const err = new Error("This license is locked to another phone");
-    err.status = 403;
-    throw err;
+    if (!emailOwnsLicense) {
+      const err = new Error("This license is locked to another phone");
+      err.status = 403;
+      throw err;
+    }
+    let reclaimed = current;
+    const now = Date.now();
+    await mutateStore((licenses) => {
+      const idx = licenses.findIndex((row) => variants.includes(row.key));
+      if (idx < 0) return licenses;
+      const row = licenses[idx];
+      const next = {
+        ...row,
+        used: true,
+        usedAt: row.usedAt || now,
+        deviceId: claimDevice,
+        boundAt: now,
+        updatedAt: now,
+        clientEmail: row.clientEmail || claimEmail,
+      };
+      licenses[idx] = next;
+      reclaimed = next;
+      return licenses;
+    }, `license email reclaim: ${variants[0]}`);
+    return reclaimed;
   }
 
   // Same phone re-open, or legacy used key with no device yet → claim/keep.
@@ -898,6 +928,7 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
           deviceId: claimDevice,
           boundAt: row.boundAt || Date.now(),
           updatedAt: Date.now(),
+          clientEmail: row.clientEmail || claimEmail || "",
         };
         licenses[idx] = next;
         claimed = next;
@@ -906,8 +937,6 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
     }
     return claimed;
   }
-
-  const claimEmail = normalizeEmail(email);
   const clientEmail = normalizeEmail(current.clientEmail) || claimEmail;
   const signup = clientEmail ? await findSignup(clientEmail) : null;
   const accessPaid = Boolean(signup?.accessPaid);
@@ -940,10 +969,28 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
     }
     const row = licenses[idx];
     const alreadyBound = String(row.deviceId || "").trim();
+    const rowEmail = normalizeEmail(row.clientEmail);
+    const ownsByEmail = Boolean(
+      claimEmail && rowEmail && claimEmail === rowEmail
+    );
     if (row.used && alreadyBound && alreadyBound !== claimDevice) {
-      const err = new Error("This license is locked to another phone");
-      err.status = 403;
-      throw err;
+      if (!ownsByEmail) {
+        const err = new Error("This license is locked to another phone");
+        err.status = 403;
+        throw err;
+      }
+      const next = {
+        ...row,
+        used: true,
+        usedAt: row.usedAt || now,
+        deviceId: claimDevice,
+        boundAt: now,
+        updatedAt: now,
+        clientEmail: row.clientEmail || claimEmail,
+      };
+      licenses[idx] = next;
+      result = next;
+      return licenses;
     }
     if (row.used && (!alreadyBound || alreadyBound === claimDevice)) {
       const next = {
