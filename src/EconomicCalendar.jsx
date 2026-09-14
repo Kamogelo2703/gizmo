@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchEconomicEvents,
   formatEventDay,
-  getEventsOnDate,
-  getNextEvent,
   todayDateKey,
 } from "./economicCalendarApi.js";
+import {
+  getNextOfficialEvent,
+  matchMentorDirection,
+} from "./economicCalendarSchedule.js";
 import { useApp } from "./store.jsx";
 
 function resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }) {
@@ -53,13 +55,20 @@ function resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }) {
 export default function EconomicCalendarButton({ variant = "zeta" }) {
   const { activeBot, coverEmail, eas, licenseKeys } = useApp();
   const [open, setOpen] = useState(false);
-  const [events, setEvents] = useState([]);
+  const [mentorEvents, setMentorEvents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   const mentorEmail = useMemo(
     () => resolveMentorEmail({ activeBot, coverEmail, eas, licenseKeys }),
     [activeBot, coverEmail, eas, licenseKeys]
   );
+
+  // Refresh "today" across midnight so the next event advances automatically.
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -68,9 +77,9 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
       setLoading(true);
       try {
         const list = await fetchEconomicEvents(mentorEmail);
-        if (!cancelled) setEvents(list);
+        if (!cancelled) setMentorEvents(list);
       } catch {
-        if (!cancelled) setEvents([]);
+        if (!cancelled) setMentorEvents([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -80,20 +89,14 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     };
   }, [open, mentorEmail]);
 
-  const today = todayDateKey();
-  const nextEvent = useMemo(() => getNextEvent(events), [events]);
-  const todayEvents = useMemo(() => getEventsOnDate(events, today), [events, today]);
-  const upcoming = useMemo(() => {
-    return (Array.isArray(events) ? events : [])
-      .filter((e) => e.date >= today)
-      .slice(0, 6);
-  }, [events, today]);
-
-  const isToday = nextEvent && nextEvent.date === today;
-  const directionsToday = todayEvents
-    .map((e) => e.directions)
-    .filter(Boolean)
-    .join("\n\n");
+  const now = useMemo(() => new Date(nowTick), [nowTick]);
+  const today = todayDateKey(now);
+  const nextEvent = useMemo(() => getNextOfficialEvent(now), [now]);
+  const isToday = Boolean(nextEvent && nextEvent.date === today);
+  const directions = useMemo(
+    () => matchMentorDirection(nextEvent, mentorEvents),
+    [nextEvent, mentorEvents]
+  );
 
   return (
     <>
@@ -133,45 +136,38 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
             </div>
 
             {loading ? (
-              <p className="econ-cal-copy">Loading events…</p>
+              <p className="econ-cal-copy">Loading next event…</p>
             ) : !nextEvent ? (
               <p className="econ-cal-copy">
-                No upcoming events yet. Your mentor will add dates and directions here.
+                No upcoming NFP, PPI, CPI, or FOMC events on the calendar.
               </p>
             ) : (
               <>
                 <p className="econ-cal-next-label">Next event</p>
-                <p className="econ-cal-next-day">{formatEventDay(nextEvent.date)}</p>
                 <p className="econ-cal-next-title">{nextEvent.title}</p>
+                <p className="econ-cal-next-day">{formatEventDay(nextEvent.date)}</p>
+                {nextEvent.note ? (
+                  <p className="econ-cal-next-note">{nextEvent.note}</p>
+                ) : null}
                 <p className="econ-cal-copy">
                   {isToday
-                    ? directionsToday
-                      ? `The next event is today (${formatEventDay(nextEvent.date)}). Follow your mentor’s directions below.`
-                      : "The next event is today. Come back once your mentor posts directions."
-                    : `The next event is on ${formatEventDay(nextEvent.date)}. Come back on the day for directions.`}
+                    ? directions
+                      ? `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Follow your mentor’s directions below.`
+                      : `The next event is today — ${nextEvent.title} on ${formatEventDay(nextEvent.date)}. Come back once your mentor posts directions.`
+                    : `The next event is on ${formatEventDay(nextEvent.date)} (${nextEvent.title}). Come back on the day for directions.`}
                 </p>
-                {isToday && directionsToday ? (
+                {isToday && directions ? (
                   <div className="econ-cal-directions">
                     <p className="econ-cal-directions-label">Today’s directions</p>
-                    <p className="econ-cal-directions-body">{directionsToday}</p>
+                    <p className="econ-cal-directions-body">{directions}</p>
                   </div>
                 ) : null}
+                <p className="econ-cal-hint">
+                  Shows one event at a time. After this day, it automatically updates to the
+                  next NFP, PPI, CPI, or FOMC.
+                </p>
               </>
             )}
-
-            {upcoming.length > 0 ? (
-              <div className="econ-cal-list">
-                <p className="econ-cal-list-label">Upcoming dates</p>
-                <ul>
-                  {upcoming.map((event) => (
-                    <li key={event.id}>
-                      <strong>{formatEventDay(event.date)}</strong>
-                      <span>{event.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
           </div>
         </div>
       )}

@@ -26,6 +26,12 @@ import {
   saveEconomicEvent,
 } from "./economicCalendarApi.js";
 import {
+  findOfficialEvent,
+  getNextOfficialEvent,
+  listUpcomingOfficialEvents,
+  matchMentorDirection,
+} from "./economicCalendarSchedule.js";
+import {
   executeMentorSelfHostTrade,
   listMentorHostedAccounts,
 } from "./mt5AccountsApi.js";
@@ -916,9 +922,10 @@ export default function AdminPortal() {
   }
 
   function resetCalendarForm() {
-    setCalendarEditingId("");
-    setCalendarDate("");
-    setCalendarTitle("");
+    const next = getNextOfficialEvent();
+    setCalendarEditingId(next?.id || "");
+    setCalendarDate(next?.date || "");
+    setCalendarTitle(next?.title || "NFP");
     setCalendarDirections("");
   }
 
@@ -928,31 +935,38 @@ export default function AdminPortal() {
       showToast("Sign in as a mentor first");
       return;
     }
-    if (!calendarDate) {
-      showToast("Pick an event date");
+    const official =
+      findOfficialEvent({
+        id: calendarEditingId,
+        date: calendarDate,
+        title: calendarTitle,
+      }) || getNextOfficialEvent();
+    if (!official) {
+      showToast("Pick an NFP, PPI, CPI, or FOMC event");
       return;
     }
     setCalendarBusy(true);
     try {
       const saved = await saveEconomicEvent({
-        id: calendarEditingId || undefined,
+        id: official.id,
+        officialEventId: official.id,
         mentorEmail: adminSession.email,
-        date: calendarDate,
-        title: calendarTitle || "Economic event",
+        date: official.date,
+        title: official.title,
         directions: calendarDirections,
       });
       setCalendarEvents((prev) => {
-        const rest = prev.filter((row) => row.id !== saved.id);
-        return [...rest, saved].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        const rest = prev.filter(
+          (row) => row.id !== saved.id && row.officialEventId !== official.id
+        );
+        return [...rest, saved].sort((a, b) =>
+          String(a.date).localeCompare(String(b.date))
+        );
       });
-      resetCalendarForm();
-      showToast(
-        calendarEditingId
-          ? "Event updated — clients will see it on Economic calendar"
-          : "Event saved — clients will see the next date"
-      );
+      setCalendarDirections("");
+      showToast(`Directions saved for ${official.title} · ${formatEventDay(official.date)}`);
     } catch (error) {
-      showToast(error.message || "Could not save event");
+      showToast(error.message || "Could not save directions");
     } finally {
       setCalendarBusy(false);
     }
@@ -2211,109 +2225,135 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Economic Calendar</h2>
             <p className="admin-sub">
-              Add event dates and directions for your clients. They see the next event on Home,
-              and on the day they get your directions.
+              Clients only see the next official event (NFP, PPI, CPI, or FOMC). After that day,
+              it auto-updates to the following event. Add directions for the day.
             </p>
-            <div className="admin-card">
-              <form className="license-form" onSubmit={saveCalendarEvent}>
-                <label className="ea-field">
-                  <span>Event date *</span>
-                  <input
-                    className="admin-input"
-                    type="date"
-                    value={calendarDate}
-                    onChange={(e) => setCalendarDate(e.target.value)}
-                    required
-                  />
-                </label>
-                <label className="ea-field">
-                  <span>Event name</span>
-                  <input
-                    className="admin-input"
-                    value={calendarTitle}
-                    onChange={(e) => setCalendarTitle(e.target.value)}
-                    placeholder="e.g. NFP / FOMC / CPI"
-                  />
-                </label>
-                <label className="ea-field">
-                  <span>Directions (shown on the day)</span>
-                  <textarea
-                    className="admin-input"
-                    rows={4}
-                    value={calendarDirections}
-                    onChange={(e) => setCalendarDirections(e.target.value)}
-                    placeholder="Tell clients what to do on this day…"
-                  />
-                </label>
-                <div className="license-row-actions" style={{ gap: 8 }}>
-                  <button
-                    className="admin-btn admin-btn-solid"
-                    type="submit"
-                    disabled={calendarBusy}
-                  >
-                    {calendarBusy
-                      ? "Saving…"
-                      : calendarEditingId
-                        ? "Update event"
-                        : "Add event"}
-                  </button>
-                  {calendarEditingId ? (
-                    <button
-                      className="admin-btn admin-btn-outline"
-                      type="button"
-                      disabled={calendarBusy}
-                      onClick={resetCalendarForm}
-                    >
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-              </form>
-            </div>
-
-            <div className="admin-card" style={{ marginTop: 14 }}>
-              <div className="admin-card-title-row">
-                <h3>Your events</h3>
-                <span className="admin-badge">{calendarEvents.length}</span>
-              </div>
-              {calendarEvents.length === 0 ? (
-                <p className="admin-empty">No events yet — add your first date above</p>
-              ) : (
-                [...calendarEvents]
-                  .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-                  .map((event) => (
-                    <div className="license-row" key={event.id}>
-                      <strong>{formatEventDay(event.date)}</strong>
-                      <span>
-                        {event.title}
-                        {event.directions ? ` · directions ready` : " · no directions yet"}
+            {(() => {
+              const upcomingOfficial = listUpcomingOfficialEvents(new Date(), 10);
+              const nextOfficial = getNextOfficialEvent();
+              const selectedId = calendarEditingId || nextOfficial?.id || "";
+              const selected =
+                findOfficialEvent({ id: selectedId }) || nextOfficial || upcomingOfficial[0];
+              return (
+                <>
+                  <div className="admin-card">
+                    <div className="admin-card-title-row">
+                      <h3>Next event clients see</h3>
+                      <span className="admin-badge is-approved">
+                        {nextOfficial ? nextOfficial.title : "None"}
                       </span>
-                      <div className="license-row-actions">
-                        <button
-                          className="admin-btn admin-btn-outline admin-btn-sm"
-                          type="button"
-                          onClick={() => {
-                            setCalendarEditingId(event.id);
-                            setCalendarDate(event.date);
-                            setCalendarTitle(event.title || "");
-                            setCalendarDirections(event.directions || "");
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="admin-btn admin-btn-ghost admin-btn-sm"
-                          type="button"
-                          disabled={calendarBusy}
-                          onClick={() => void onDeleteCalendarEvent(event.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
                     </div>
-                  ))
-              )}
-            </div>
+                    {nextOfficial ? (
+                      <p className="admin-card-meta">
+                        {nextOfficial.title} · {formatEventDay(nextOfficial.date)}
+                        {nextOfficial.note ? ` · ${nextOfficial.note}` : ""}
+                      </p>
+                    ) : (
+                      <p className="admin-empty">No upcoming official events</p>
+                    )}
+                  </div>
+
+                  <div className="admin-card" style={{ marginTop: 14 }}>
+                    <form className="license-form" onSubmit={saveCalendarEvent}>
+                      <label className="ea-field">
+                        <span>Official event *</span>
+                        <select
+                          className="admin-input"
+                          value={selected?.id || ""}
+                          onChange={(e) => {
+                            const official = findOfficialEvent({ id: e.target.value });
+                            if (!official) return;
+                            setCalendarEditingId(official.id);
+                            setCalendarDate(official.date);
+                            setCalendarTitle(official.title);
+                            setCalendarDirections(
+                              matchMentorDirection(official, calendarEvents) || ""
+                            );
+                          }}
+                          required
+                        >
+                          {upcomingOfficial.map((event) => (
+                            <option key={event.id} value={event.id}>
+                              {event.title} — {formatEventDay(event.date)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="ea-field">
+                        <span>Directions (shown on the day)</span>
+                        <textarea
+                          className="admin-input"
+                          rows={4}
+                          value={calendarDirections}
+                          onChange={(e) => setCalendarDirections(e.target.value)}
+                          placeholder="Tell clients what to do on this event day…"
+                        />
+                      </label>
+                      <button
+                        className="admin-btn admin-btn-solid admin-btn-block"
+                        type="submit"
+                        disabled={calendarBusy || !selected}
+                      >
+                        {calendarBusy ? "Saving…" : "Save directions"}
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="admin-card" style={{ marginTop: 14 }}>
+                    <div className="admin-card-title-row">
+                      <h3>Your directions</h3>
+                      <span className="admin-badge">{calendarEvents.length}</span>
+                    </div>
+                    {calendarEvents.length === 0 ? (
+                      <p className="admin-empty">No directions saved yet</p>
+                    ) : (
+                      [...calendarEvents]
+                        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+                        .map((event) => (
+                          <div className="license-row" key={event.id}>
+                            <strong>
+                              {event.title} · {formatEventDay(event.date)}
+                            </strong>
+                            <span>
+                              {event.directions
+                                ? event.directions.slice(0, 120)
+                                : "No directions"}
+                            </span>
+                            <div className="license-row-actions">
+                              <button
+                                className="admin-btn admin-btn-outline admin-btn-sm"
+                                type="button"
+                                onClick={() => {
+                                  const official =
+                                    findOfficialEvent({
+                                      id: event.officialEventId || event.id,
+                                      date: event.date,
+                                      title: event.title,
+                                    }) || event;
+                                  setCalendarEditingId(official.id || event.id);
+                                  setCalendarDate(official.date || event.date);
+                                  setCalendarTitle(official.title || event.title);
+                                  setCalendarDirections(event.directions || "");
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="admin-btn admin-btn-ghost admin-btn-sm"
+                                type="button"
+                                disabled={calendarBusy}
+                                onClick={() => void onDeleteCalendarEvent(event.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </section>
         )}
 

@@ -120,6 +120,7 @@ export function publicEvent(row = {}) {
   if (!id || !date || !mentorEmail) return null;
   return {
     id,
+    officialEventId: String(row.officialEventId || id || "").trim(),
     date,
     title: String(row.title || "").trim() || "Economic event",
     directions: String(row.directions || "").trim(),
@@ -293,6 +294,7 @@ export async function upsertEvent(input = {}) {
     const idx = events.findIndex((e) => e.id === id);
     const row = {
       id,
+      officialEventId: String(input.officialEventId || id).trim(),
       date,
       title,
       directions,

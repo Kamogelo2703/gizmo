@@ -7438,17 +7438,33 @@ html:has(.phone[data-interface="v2"]) body {
   font-weight: 700;
 }
 
-.econ-cal-next-day {
-  margin: 0;
-  font-size: 1.15rem;
+.econ-cal-next-title {
+  margin: 0 0 6px;
+  color: #fff;
+  font-size: 1.35rem;
   font-weight: 800;
-  line-height: 1.25;
+  letter-spacing: 0.04em;
 }
 
-.econ-cal-next-title {
-  margin: 4px 0 10px;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.92rem;
+.econ-cal-next-day {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.econ-cal-next-note {
+  margin: -4px 0 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+}
+
+.econ-cal-hint {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .econ-cal-copy {

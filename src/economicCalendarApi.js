@@ -45,6 +45,7 @@ function publicEvent(row = {}) {
   if (!id || !date || !mentorEmail) return null;
   return {
     id,
+    officialEventId: String(row.officialEventId || id || "").trim(),
     date,
     title: String(row.title || "").trim() || "Economic event",
     directions: String(row.directions || "").trim(),
