@@ -65,7 +65,7 @@ export default function ZetaInterface() {
       <main className="stage">
         <TopBar />
         {zetaView === "home" && (
-          <section className="view is-active">
+          <section className="view is-active view-home">
             <div className="hero">
               <EconomicCalendarButton variant="zeta" />
               <div className="avatar-wrap">

@@ -370,7 +370,7 @@ html:has(.phone[data-interface="v2"]) body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 8px 20px 28px;
   min-height: 0;
   max-width: 100%;
