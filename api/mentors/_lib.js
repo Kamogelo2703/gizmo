@@ -496,18 +496,30 @@ export async function updateMentorBanking(email, bankingInput = {}) {
   }
 
   let updated = null;
-  await mutateStore((mentors) => {
-    const list = ensureSuperAdminRecord(mentors);
+  try {
+    await mutateStore((mentors) => {
+      const list = ensureSuperAdminRecord(mentors);
+      const idx = list.findIndex((m) => m.email === key);
+      if (idx < 0) {
+        const err = new Error("Mentor not found");
+        err.status = 404;
+        throw err;
+      }
+      list[idx] = { ...list[idx], banking };
+      updated = list[idx];
+      return list;
+    }, `chore: update banking for ${key}`);
+  } catch (error) {
+    // Keep banking usable offline / when GitHub auth fails: write local store and return.
+    if (error.status === 400 || error.status === 404) throw error;
+    const local = readLocalStore();
+    const list = ensureSuperAdminRecord(local.mentors);
     const idx = list.findIndex((m) => m.email === key);
-    if (idx < 0) {
-      const err = new Error("Mentor not found");
-      err.status = 404;
-      throw err;
-    }
+    if (idx < 0) throw error;
     list[idx] = { ...list[idx], banking };
+    writeLocalStore(list);
     updated = list[idx];
-    return list;
-  }, `chore: update banking for ${key}`);
+  }
 
   return publicMentor(updated);
 }

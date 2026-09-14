@@ -109,6 +109,15 @@ function ensureLocalSuperAdmin(list) {
   return mentors;
 }
 
+function pickBanking(item, prev) {
+  const next = normalizeBanking(item?.banking);
+  const old = normalizeBanking(prev?.banking);
+  if (next.accountNumber) return next;
+  if (old.accountNumber) return old;
+  if (next.updatedAt && (!old.updatedAt || next.updatedAt >= old.updatedAt)) return next;
+  return old.accountName || old.bankName ? old : next;
+}
+
 function mergeMentorLists(localList = [], remoteList = []) {
   const map = new Map();
   // Local first, then remote wins on the same email so GitHub stays source of truth
@@ -129,7 +138,7 @@ function mergeMentorLists(localList = [], remoteList = []) {
       status: String(item.status || prev?.status || "pending").toLowerCase(),
       password: item.password || prev?.password,
       createdAt: Number(item.createdAt || prev?.createdAt) || Date.now(),
-      banking: normalizeBanking(item.banking || prev?.banking),
+      banking: pickBanking(item, prev),
     });
   }
   return Array.from(map.values()).sort(
@@ -315,11 +324,25 @@ export async function updateMentorBanking(email, bankingInput = {}) {
     if (mentor) cacheMentorLocally(mentor);
     return mentor;
   } catch (error) {
-    if (error.status && error.status < 500) throw error;
+    if (error.status === 400) throw error;
     const key = normalizeEmail(email);
     const mentors = ensureLocalSuperAdmin(readLocalMentors());
     const idx = mentors.findIndex((m) => m.email === key);
-    if (idx < 0) throw new Error("Mentor not found");
+    if (idx < 0) {
+      // Create a lightweight local mentor shell so banking can still be saved.
+      mentors.unshift({
+        id: `local-${Date.now()}`,
+        username: key.split("@")[0] || "Mentor",
+        email: key,
+        contact: "",
+        role: "mentor",
+        status: "approved",
+        createdAt: Date.now(),
+        banking,
+      });
+      writeLocalMentors(mentors);
+      return publicLocal(mentors[0]);
+    }
     mentors[idx] = { ...mentors[idx], banking };
     writeLocalMentors(mentors);
     return publicLocal(mentors[idx]);
