@@ -100,7 +100,7 @@ export function normalizeMacroTitle(title) {
 /**
  * Event start instant in the viewer's local clock, based on US/Eastern release time.
  */
-export function getOfficialEventStartMs(event, now = new Date()) {
+export function getOfficialEventStartMs(event) {
   if (!event?.date) return null;
   const timeEt =
     String(event.timeEt || DEFAULT_EVENT_TIMES_ET[normalizeMacroTitle(event.title)] || "08:30")
