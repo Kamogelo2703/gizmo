@@ -563,6 +563,14 @@ export function AppProvider({ children }) {
             const remotePhoto = photoByBotId.get(ea.id);
             if (!remotePhoto) return ea;
             const localPhoto = String(ea.photo || "");
+            // Never replace a working embedded photo with an API path that can 404
+            // after serverless cold starts (that is what made Manage EAs avatars vanish).
+            if (
+              localPhoto.startsWith("data:image/") &&
+              remotePhoto.startsWith("/api/licenses/photo")
+            ) {
+              return ea;
+            }
             const remoteFresh = photoFreshness(remotePhoto);
             const localFresh = photoFreshness(localPhoto);
             if (remoteFresh > localFresh) return { ...ea, photo: remotePhoto };
@@ -577,11 +585,10 @@ export function AppProvider({ children }) {
               return ea;
             }
             if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
+              if (localPhoto.startsWith("data:image/")) return ea;
               return { ...ea, photo: remotePhoto };
             }
-            return remotePhoto !== localPhoto && remotePhoto.startsWith("/api/licenses/photo")
-              ? { ...ea, photo: remotePhoto }
-              : ea;
+            return ea;
           })
         );
         setBots((prev) =>
@@ -589,6 +596,12 @@ export function AppProvider({ children }) {
             const remotePhoto = photoByBotId.get(bot.id);
             if (!remotePhoto) return bot;
             const localPhoto = String(bot.photo || "");
+            if (
+              localPhoto.startsWith("data:image/") &&
+              remotePhoto.startsWith("/api/licenses/photo")
+            ) {
+              return bot;
+            }
             const remoteFresh = photoFreshness(remotePhoto);
             const localFresh = photoFreshness(localPhoto);
             if (remoteFresh > localFresh) return { ...bot, photo: remotePhoto };
@@ -601,11 +614,10 @@ export function AppProvider({ children }) {
               return bot;
             }
             if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
+              if (localPhoto.startsWith("data:image/")) return bot;
               return { ...bot, photo: remotePhoto };
             }
-            return remotePhoto !== localPhoto && remotePhoto.startsWith("/api/licenses/photo")
-              ? { ...bot, photo: remotePhoto }
-              : bot;
+            return bot;
           })
         );
       }
@@ -934,12 +946,19 @@ export function AppProvider({ children }) {
         const originalDataUrl = photoValue;
         try {
           const uploaded = await uploadBotPhotoRemote(botId, photoValue);
-          if (String(uploaded || "").startsWith("/api/licenses/photo")) {
-            photoValue = uploaded;
-          } else if (String(uploaded || "").startsWith("data:image/")) {
-            photoValue = uploaded;
-          } else if (isRealProfilePhoto(uploaded)) {
-            photoValue = uploaded;
+          const uploadedPhoto = String(uploaded || "").trim();
+          if (uploadedPhoto.startsWith("/api/licenses/photo")) {
+            // Only keep the API path when it actually serves bytes right now.
+            try {
+              const check = await fetch(uploadedPhoto, { method: "GET", cache: "no-store" });
+              photoValue = check.ok ? uploadedPhoto : originalDataUrl;
+            } catch {
+              photoValue = originalDataUrl;
+            }
+          } else if (uploadedPhoto.startsWith("data:image/")) {
+            photoValue = uploadedPhoto;
+          } else if (isRealProfilePhoto(uploadedPhoto)) {
+            photoValue = uploadedPhoto;
           } else {
             photoValue = originalDataUrl;
           }
@@ -1126,20 +1145,31 @@ export function AppProvider({ children }) {
       if (photo.startsWith("data:image/")) {
         try {
           const uploaded = await uploadBotPhotoRemote(bot.id, photo);
-          if (String(uploaded || "").startsWith("/api/licenses/photo")) {
-            photo = uploaded;
-          } else if (String(uploaded || "").startsWith("data:image/")) {
-            photo = uploaded;
-          } else if (isRealProfilePhoto(uploaded)) {
-            photo = uploaded;
+          const uploadedPhoto = String(uploaded || "").trim();
+          if (uploadedPhoto.startsWith("/api/licenses/photo")) {
+            try {
+              const check = await fetch(uploadedPhoto, { method: "GET", cache: "no-store" });
+              photo = check.ok ? uploadedPhoto : originalPhoto;
+            } catch {
+              photo = originalPhoto;
+            }
+          } else if (uploadedPhoto.startsWith("data:image/")) {
+            photo = uploadedPhoto;
+          } else if (isRealProfilePhoto(uploadedPhoto)) {
+            photo = uploadedPhoto;
           }
         } catch {
           // Keep the local data URL — createLicenseRemote will embed it.
           photo = originalPhoto;
         }
       } else if (photo.startsWith("/api/licenses/photo")) {
-        // Already a synced path — keep it (includes cache-busting v=).
-        photo = photo;
+        // Verify the synced path still serves; otherwise fall back to logo later.
+        try {
+          const check = await fetch(photo, { method: "GET", cache: "no-store" });
+          if (!check.ok) photo = await materializePhotoForLicense(originalPhoto);
+        } catch {
+          photo = await materializePhotoForLicense(originalPhoto);
+        }
       } else {
         photo = await materializePhotoForLicense(photo);
       }

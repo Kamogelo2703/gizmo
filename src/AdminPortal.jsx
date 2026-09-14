@@ -610,9 +610,9 @@ export default function AdminPortal() {
       const dataUrl = String(reader.result || "");
       const img = new Image();
       img.onload = () => {
-        // Keep the full artwork (no square crop). Cap the longest edge high so
-        // Interface 2's full-bleed hero stays sharp on retina phones.
-        const maxEdge = 2400;
+        // Cap size so GitHub/localStorage can keep the photo durable.
+        // Oversized full-bleed uploads were returning API paths that 404'd later.
+        const maxEdge = 1600;
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height, 1));
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -634,15 +634,12 @@ export default function AdminPortal() {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
-        const preferPng =
-          file.type === "image/png" ||
-          file.type === "image/webp" ||
-          file.type === "image/gif";
-        setPhoto(
-          preferPng
-            ? canvas.toDataURL("image/png")
-            : canvas.toDataURL("image/jpeg", 0.96)
-        );
+        // JPEG stays under the GitHub Contents limit more reliably than PNG.
+        let nextPhoto = canvas.toDataURL("image/jpeg", 0.88);
+        if (nextPhoto.length > 1_100_000) {
+          nextPhoto = canvas.toDataURL("image/jpeg", 0.78);
+        }
+        setPhoto(nextPhoto);
         setPhotoUploaded(true);
         showToast("Picture ready");
       };
@@ -1227,7 +1224,14 @@ export default function AdminPortal() {
                     return (
                     <div className="ea-item" key={ea.id}>
                       <span className="ea-avatar">
-                        <img src={ea.photo || "/logo.png"} alt="" />
+                        <img
+                          src={ea.photo || "/logo.png"}
+                          alt=""
+                          onError={(event) => {
+                            if (event.currentTarget.src.endsWith("/logo.png")) return;
+                            event.currentTarget.src = "/logo.png";
+                          }}
+                        />
                       </span>
                       <div className="ea-meta">
                         <strong>{ea.name}</strong>

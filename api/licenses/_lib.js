@@ -226,7 +226,9 @@ export async function resolveEmbeddablePhoto(botId, photo) {
     if (await githubPhotoExists(botId)) return value;
     const local = await readBotPhoto(botId);
     const embedded = shrinkDataUrl(dataUrlFromPhoto(local));
-    return embedded || value;
+    // Never keep a 404-prone API path when GitHub does not have the bytes.
+    if (embedded && embedded !== "/logo.png") return embedded;
+    return "/logo.png";
   }
 
   return value;
@@ -256,6 +258,12 @@ export async function persistBotPhoto(botId, photo) {
 
   const filePath = `data/ea-photos/${id}.${ext}`;
   try {
+    // GitHub Contents API rejects oversized payloads — fail early to embed instead.
+    if (parsed.base64.length > 900_000) {
+      throw Object.assign(new Error("Photo too large for GitHub Contents API"), {
+        status: 413,
+      });
+    }
     const token = requireToken();
     let sha = null;
     try {
@@ -283,9 +291,12 @@ export async function persistBotPhoto(botId, photo) {
     return botPhotoApiPath(id);
   } catch (error) {
     console.warn("ea photo upload failed", error.message);
-    // Keep serving full-quality bytes from memory/local via the API path.
-    // Do not crush the artwork into a tiny data URL — that makes Home look blurry.
-    return botPhotoApiPath(id);
+    // Embed the bytes so Manage EAs / Home never point at a cold-start 404 API path.
+    const local = readLocalBotPhoto(id);
+    const embedded = shrinkDataUrl(dataUrlFromPhoto(local) || value, 1_150_000);
+    if (embedded && embedded.startsWith("data:image/")) return embedded;
+    if (value.startsWith("data:image/") && value.length <= 1_150_000) return value;
+    return "/logo.png";
   }
 }
 
@@ -364,9 +375,9 @@ function shouldReplacePhoto(prevPhoto, nextPhoto) {
   const nextV = photoVersion(next);
   if (nextV || prevV) return nextV >= prevV;
 
-  // Prefer durable API path over a stale embedded data URL from device migration.
-  if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return true;
-  if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return false;
+  // Prefer a working embedded photo over an API path that may 404 after cold start.
+  if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return false;
+  if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return true;
   // Prefer the larger (sharper) embedded artwork when both are data URLs.
   if (next.startsWith("data:") && prev.startsWith("data:")) {
     return next.length > prev.length + 2048;
