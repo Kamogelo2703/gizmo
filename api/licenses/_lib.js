@@ -329,6 +329,31 @@ export async function readBotPhoto(botId) {
   return null;
 }
 
+/** Rewrite mentorName on every license owned by this mentor email. */
+export async function syncMentorNameToLicenses(mentorEmail, mentorName) {
+  const email = normalizeEmail(mentorEmail);
+  const name = String(mentorName || "").trim();
+  if (!email || !email.includes("@") || !name) return [];
+
+  let updated = [];
+  await mutateStore((licenses) => {
+    updated = [];
+    return licenses.map((row) => {
+      if (normalizeEmail(row.mentorEmail) !== email) return row;
+      if (String(row.mentorName || "").trim() === name) return row;
+      const next = {
+        ...row,
+        mentorName: name,
+        updatedAt: Date.now(),
+      };
+      updated.push(next);
+      return next;
+    });
+  }, `mentor name sync: ${email}`);
+
+  return updated;
+}
+
 /** Rewrite bot.photo on every license that belongs to this EA. */
 export async function syncBotPhotoToLicenses(botId, photoPath) {
   const id = String(botId || "").trim();

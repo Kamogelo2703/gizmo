@@ -6,6 +6,7 @@ import {
   sendJson,
   setMentorStatus,
   updateMentorBanking,
+  updateMentorProfile,
 } from "./_lib.js";
 
 export const config = { maxDuration: 30 };
@@ -54,6 +55,12 @@ export default async function handler(req, res) {
         return;
       }
 
+      if (action === "profile") {
+        const mentor = await updateMentorProfile(body.email, body.profile || body);
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
       sendJson(res, 400, { error: "Unknown action" });
       return;
     }
@@ -64,6 +71,12 @@ export default async function handler(req, res) {
 
       if (action === "banking") {
         const mentor = await updateMentorBanking(body.email, body.banking || body);
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
+      if (action === "profile") {
+        const mentor = await updateMentorProfile(body.email, body.profile || body);
         sendJson(res, 200, { mentor });
         return;
       }

@@ -403,6 +403,49 @@ export async function updateMentorBanking(email, bankingInput = {}) {
   }
 }
 
+export async function updateMentorProfile(email, profileInput = {}) {
+  const key = normalizeEmail(email);
+  const username = String(profileInput.username || "").trim();
+  const contact = String(profileInput.contact || profileInput.contactNumber || "").trim();
+  if (!key.includes("@")) throw new Error("Enter a valid email");
+  if (!username) throw new Error("Enter a username");
+  if (contact && contact.replace(/\D/g, "").length < 7) {
+    throw new Error("Enter a valid contact number");
+  }
+
+  try {
+    const data = await apiFetch("", {
+      method: "POST",
+      body: {
+        action: "profile",
+        email: key,
+        username,
+        contact,
+      },
+    });
+    const mentor = data?.mentor || null;
+    if (mentor) {
+      cacheMentorLocally(mentor);
+      return publicLocal(mentor);
+    }
+  } catch (error) {
+    if (error.status && error.status < 500 && error.status !== 401 && error.status !== 403) {
+      throw error;
+    }
+  }
+
+  const mentors = ensureLocalSuperAdmin(readLocalMentors());
+  const idx = mentors.findIndex((m) => m.email === key);
+  if (idx < 0) throw new Error("Mentor not found");
+  mentors[idx] = {
+    ...mentors[idx],
+    username,
+    ...(contact ? { contact } : {}),
+  };
+  writeLocalMentors(mentors);
+  return publicLocal(mentors[idx]);
+}
+
 export const COMMISSION_USD = 3.08;
 export const COMMISSION_ZAR = 50;
 export const WITHDRAW_MIN_KEYS = 5;

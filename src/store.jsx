@@ -851,7 +851,7 @@ export function AppProvider({ children }) {
     return formatFromEmail(anyOwner?.ownerEmail);
   }, [activeBot, coverEmail, eas, licenseKeys]);
 
-  /** Mentor-set username ("main text") shown in the top header. */
+  /** Mentor username from the portal — shown in the client top header (KAMA). */
   const mainTextDisplay = useMemo(() => {
     const account = normalizeEmail(coverEmail);
     const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
@@ -859,7 +859,8 @@ export function AppProvider({ children }) {
 
     const pick = (row) => {
       if (!row) return "";
-      return String(row.mainText || row.clientName || "").trim();
+      // Prefer the mentor's portal username; fall back to legacy main text.
+      return String(row.mentorName || row.mainText || row.clientName || "").trim();
     };
 
     if (botId) {

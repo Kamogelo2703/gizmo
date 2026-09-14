@@ -6,6 +6,7 @@ import {
   fetchMentors,
   SUPER_ADMIN_EMAIL,
   updateMentorBanking,
+  updateMentorProfile,
   updateMentorStatus,
   WITHDRAW_MIN_KEYS,
 } from "./mentorsApi.js";
@@ -179,6 +180,9 @@ export default function AdminPortal() {
   const [hostResult, setHostResult] = useState(null);
   const [hostDetailsOpen, setHostDetailsOpen] = useState(false);
   const [hostRecent, setHostRecent] = useState([]);
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileContact, setProfileContact] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
 
   async function copyLicenseKey(key) {
     const value = String(key || "").trim();
@@ -415,6 +419,15 @@ export default function AdminPortal() {
       };
     });
   }, [mentors, adminSession?.email]);
+
+  useEffect(() => {
+    if (!adminSession?.email) return;
+    const mine = mentors.find(
+      (m) => normalizeAdminEmail(m.email) === normalizeAdminEmail(adminSession.email)
+    );
+    setProfileUsername(String(mine?.username || adminSession.username || "").trim());
+    setProfileContact(String(mine?.contact || "").trim());
+  }, [mentors, adminSession?.email, adminSession?.username]);
 
   async function refreshMentorsList() {
     try {
@@ -1275,8 +1288,9 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Generate License Key</h2>
             <p className="admin-sub">
-              Main text is the username shown at the top of the client app. Enter it with the
-              client email and bot — the key syncs so they can activate on any phone after approval.
+              Client name is shown with the license. Your mentor username (from Profile) appears
+              at the top of the client app. Enter the client name with their email and bot — the
+              key syncs so they can activate on any phone after approval.
             </p>
             <div className="admin-card">
               <form
@@ -1314,7 +1328,7 @@ export default function AdminPortal() {
                 }}
               >
                 <label className="ea-field">
-                  <span>Main text (username) *</span>
+                  <span>Client name *</span>
                   <input
                     className="admin-input"
                     value={licenseClientName}
@@ -1489,17 +1503,112 @@ export default function AdminPortal() {
         {adminPage === "profile" && (
           <section className="admin-page is-active">
             <h2 className="admin-h1">Profile</h2>
-            <p className="admin-sub">Your mentor account details</p>
+            <p className="admin-sub">
+              Edit your mentor details. Your username appears at the top of your clients&apos;
+              app.
+            </p>
             <div className="admin-card">
               <div className="admin-card-title-row">
                 <h3>Account</h3>
                 <span className="admin-badge is-approved">{adminSession.status || "approved"}</span>
               </div>
-              <p className="admin-card-meta"><strong>Username:</strong> {adminSession.username || "—"}</p>
-              <p className="admin-card-meta"><strong>Email:</strong> {adminSession.email}</p>
-              <p className="admin-card-meta"><strong>Role:</strong> Mentor</p>
-              <p className="admin-card-meta"><strong>EAs:</strong> {myEas.length}</p>
-              <p className="admin-card-meta"><strong>License keys:</strong> {myLicenses.length}</p>
+              {!isSuperAdmin ? (
+                <form
+                  className="license-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (profileBusy) return;
+                    const username = String(profileUsername || "").trim();
+                    const contact = String(profileContact || "").trim();
+                    if (!username) {
+                      showToast("Enter a username");
+                      return;
+                    }
+                    setProfileBusy(true);
+                    try {
+                      const updated = await updateMentorProfile(adminSession.email, {
+                        username,
+                        contact,
+                      });
+                      const nextSession = {
+                        ...adminSession,
+                        username: updated?.username || username,
+                      };
+                      writeAdminSession(nextSession);
+                      setAdminSession(nextSession);
+                      setMentors((prev) => {
+                        const key = normalizeAdminEmail(adminSession.email);
+                        const mapped = prev.map((m) =>
+                          normalizeAdminEmail(m.email) === key
+                            ? {
+                                ...m,
+                                username: updated?.username || username,
+                                contact: updated?.contact ?? contact,
+                              }
+                            : m
+                        );
+                        if (!mapped.some((m) => normalizeAdminEmail(m.email) === key)) {
+                          mapped.unshift(updated || { ...adminSession, username, contact });
+                        }
+                        return mapped;
+                      });
+                      await refreshLicenses?.();
+                      showToast("Profile saved — clients will see your username");
+                    } catch (error) {
+                      showToast(error.message || "Could not save profile");
+                    } finally {
+                      setProfileBusy(false);
+                    }
+                  }}
+                >
+                  <label className="ea-field">
+                    <span>Username</span>
+                    <input
+                      className="admin-input"
+                      value={profileUsername}
+                      onChange={(e) => setProfileUsername(e.target.value)}
+                      placeholder="Shown on client app header"
+                      required
+                    />
+                  </label>
+                  <label className="ea-field">
+                    <span>Contact number</span>
+                    <input
+                      className="admin-input"
+                      type="tel"
+                      value={profileContact}
+                      onChange={(e) => setProfileContact(e.target.value)}
+                      placeholder="Phone / WhatsApp"
+                    />
+                  </label>
+                  <label className="ea-field">
+                    <span>Email</span>
+                    <input className="admin-input" value={adminSession.email || ""} disabled />
+                  </label>
+                  <p className="admin-card-meta">
+                    Role: Mentor · EAs: {myEas.length} · License keys: {myLicenses.length}
+                  </p>
+                  <button
+                    className="admin-btn admin-btn-solid admin-btn-block"
+                    type="submit"
+                    disabled={profileBusy}
+                  >
+                    {profileBusy ? "Saving…" : "Save profile"}
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <p className="admin-card-meta">
+                    <strong>Username:</strong> {adminSession.username || "—"}
+                  </p>
+                  <p className="admin-card-meta">
+                    <strong>Email:</strong> {adminSession.email}
+                  </p>
+                  <p className="admin-card-meta">
+                    <strong>Role:</strong> Super admin
+                  </p>
+                </>
+              )}
             </div>
           </section>
         )}

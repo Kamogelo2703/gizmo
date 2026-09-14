@@ -495,6 +495,84 @@ export async function setMentorStatus(email, status) {
   return publicMentor(updated);
 }
 
+export async function updateMentorProfile(email, profileInput = {}) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+  if (key === SUPER_ADMIN_EMAIL) {
+    const err = new Error("Cannot edit the super admin profile here");
+    err.status = 400;
+    throw err;
+  }
+
+  const username = String(profileInput.username || "").trim();
+  const contactRaw = profileInput.contact ?? profileInput.contactNumber ?? profileInput.phone;
+  const contact =
+    contactRaw == null || contactRaw === ""
+      ? null
+      : normalizePhone(contactRaw);
+
+  if (!username) {
+    const err = new Error("Enter a username");
+    err.status = 400;
+    throw err;
+  }
+  if (contact != null && contact.length < 7) {
+    const err = new Error("Enter a valid contact number");
+    err.status = 400;
+    throw err;
+  }
+
+  let updated = null;
+  try {
+    await mutateStore((mentors) => {
+      const list = ensureSuperAdminRecord(mentors);
+      const idx = list.findIndex((m) => m.email === key);
+      if (idx < 0) {
+        const err = new Error("Mentor not found");
+        err.status = 404;
+        throw err;
+      }
+      list[idx] = {
+        ...list[idx],
+        username,
+        ...(contact != null ? { contact } : {}),
+      };
+      updated = list[idx];
+      return list;
+    }, `chore: update mentor profile ${key}`);
+  } catch (error) {
+    if (error.status === 400 || error.status === 404) throw error;
+    const store = await readStore().catch(() => readLocalStore());
+    const list = ensureSuperAdminRecord(store.mentors || []);
+    const idx = list.findIndex((m) => m.email === key);
+    if (idx < 0) {
+      const err = new Error("Mentor not found");
+      err.status = 404;
+      throw err;
+    }
+    list[idx] = {
+      ...list[idx],
+      username,
+      ...(contact != null ? { contact } : {}),
+    };
+    writeLocalStore(list);
+    updated = list[idx];
+  }
+
+  try {
+    const { syncMentorNameToLicenses } = await import("../licenses/_lib.js");
+    await syncMentorNameToLicenses(key, username);
+  } catch (error) {
+    console.warn("mentor name license sync failed", error.message);
+  }
+
+  return publicMentor(updated);
+}
+
 export async function updateMentorBanking(email, bankingInput = {}) {
   const key = normalizeEmail(email);
   if (!key || !key.includes("@")) {
