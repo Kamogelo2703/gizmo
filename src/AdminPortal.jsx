@@ -623,9 +623,9 @@ export default function AdminPortal() {
       const dataUrl = String(reader.result || "");
       const img = new Image();
       img.onload = () => {
-        // Cap size so GitHub/localStorage can keep the photo durable.
-        // Oversized full-bleed uploads were returning API paths that 404'd later.
-        const maxEdge = 1600;
+        // Keep uploads small enough for phone localStorage + GitHub photo sync.
+        // Oversized gallery photos were filling Safari quota and blocking Save.
+        const maxEdge = 900;
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height, 1));
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -647,10 +647,26 @@ export default function AdminPortal() {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
-        // JPEG stays under the GitHub Contents limit more reliably than PNG.
-        let nextPhoto = canvas.toDataURL("image/jpeg", 0.88);
-        if (nextPhoto.length > 1_100_000) {
-          nextPhoto = canvas.toDataURL("image/jpeg", 0.78);
+        let quality = 0.72;
+        let nextPhoto = canvas.toDataURL("image/jpeg", quality);
+        while (nextPhoto.length > 180_000 && quality > 0.45) {
+          quality -= 0.08;
+          nextPhoto = canvas.toDataURL("image/jpeg", quality);
+        }
+        if (nextPhoto.length > 280_000) {
+          // Final shrink pass at smaller canvas.
+          const small = document.createElement("canvas");
+          const sw = Math.max(1, Math.round(width * 0.7));
+          const sh = Math.max(1, Math.round(height * 0.7));
+          small.width = sw;
+          small.height = sh;
+          const sctx = small.getContext("2d");
+          if (sctx) {
+            sctx.imageSmoothingEnabled = true;
+            sctx.imageSmoothingQuality = "high";
+            sctx.drawImage(canvas, 0, 0, sw, sh);
+            nextPhoto = small.toDataURL("image/jpeg", 0.65);
+          }
         }
         setPhoto(nextPhoto);
         setPhotoUploaded(true);

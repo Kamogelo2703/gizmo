@@ -170,6 +170,22 @@ function isRealProfilePhoto(value) {
   );
 }
 
+/** Photos kept in localStorage must stay tiny — mobile Safari quota is ~5MB total. */
+const MAX_STORED_DATA_URL = 48_000;
+
+function slimPhotoForStorage(value) {
+  const photo = String(value || "").trim();
+  if (!photo) return "/logo.png";
+  if (photo === "/logo.png") return photo;
+  if (photo.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(photo)) return photo;
+  if (photo.startsWith("data:image/")) {
+    // Large embeds blow quota (and multiply across every license row).
+    if (photo.length > MAX_STORED_DATA_URL) return "/logo.png";
+    return photo;
+  }
+  return photo;
+}
+
 /** Prefer a real uploaded/synced photo over the placeholder logo. */
 function pickProfilePhoto(...candidates) {
   for (const value of candidates) {
@@ -182,16 +198,7 @@ function pickProfilePhoto(...candidates) {
   return "/logo.png";
 }
 
-/** Keep modest data-URL avatars so profile photos survive reload without GitHub. */
-function persistablePhoto(value) {
-  const photo = String(value || "").trim();
-  if (!photo) return "/logo.png";
-  // Prefer API paths; allow larger data URLs so full-bleed heroes stay sharp.
-  if (photo.startsWith("data:image/") && photo.length > 1_200_000) return "/logo.png";
-  return photo;
-}
-
-function stripHeavyPhotos(payload) {
+function slimPayloadForStorage(payload) {
   return {
     ...payload,
     eas: (payload.eas || []).map((ea) => ({
@@ -200,20 +207,37 @@ function stripHeavyPhotos(payload) {
         .trim()
         .toLowerCase(),
       ownerId: String(ea.ownerId || ea.mentorId || "").trim(),
-      photo: persistablePhoto(ea.photo),
+      photo: slimPhotoForStorage(ea.photo),
     })),
     bots: (payload.bots || []).map((bot) => ({
       ...bot,
-      photo: persistablePhoto(bot.photo),
+      photo: slimPhotoForStorage(bot.photo),
     })),
     licenseKeys: (payload.licenseKeys || []).map((row) => ({
       ...row,
       bot: row.bot
         ? {
             ...row.bot,
-            photo: persistablePhoto(row.bot.photo),
+            photo: slimPhotoForStorage(row.bot.photo),
           }
         : row.bot,
+    })),
+  };
+}
+
+function stripAllEmbeddedPhotos(payload) {
+  const wipe = (photo) => {
+    const value = String(photo || "").trim();
+    if (value.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(value)) return value;
+    return "/logo.png";
+  };
+  return {
+    ...payload,
+    eas: (payload.eas || []).map((ea) => ({ ...ea, photo: wipe(ea.photo) })),
+    bots: (payload.bots || []).map((bot) => ({ ...bot, photo: wipe(bot.photo) })),
+    licenseKeys: (payload.licenseKeys || []).map((row) => ({
+      ...row,
+      bot: row.bot ? { ...row.bot, photo: wipe(row.bot.photo) } : row.bot,
     })),
   };
 }
@@ -222,8 +246,6 @@ function stripHeavyPhotos(payload) {
 async function materializePhotoForLicense(photo) {
   const value = String(photo || "").trim();
   if (!value || value === "/logo.png") return "/logo.png";
-  // Keep API / remote URLs as-is — embedding as data URLs crushed artwork to
-  // ~256px and made the Interface 2 hero look blurry on phones.
   if (value.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(value)) {
     return value;
   }
@@ -232,17 +254,38 @@ async function materializePhotoForLicense(photo) {
 }
 
 function saveState(payload) {
-  const raw = JSON.stringify(payload);
+  const slim = slimPayloadForStorage(payload);
+  const raw = JSON.stringify(slim);
   localStorage.setItem(STORAGE_KEY, raw);
   // Keep the last non-empty EA snapshot so an empty overwrite can be recovered.
-  if (eaCount(payload) > 0) {
-    localStorage.setItem(BACKUP_KEY, raw);
+  if (eaCount(slim) > 0) {
+    try {
+      localStorage.setItem(BACKUP_KEY, raw);
+    } catch {
+      // Backup is optional — primary save already succeeded.
+    }
   }
 }
 
 function clearEaBackup() {
   try {
     localStorage.removeItem(BACKUP_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function clearAppStoragePressure() {
+  clearEaBackup();
+  try {
+    // Drop known heavy keys that are not required for EA save.
+    localStorage.removeItem("apexea-app-v1-backup");
+    localStorage.removeItem("apexea-float-pos");
+    localStorage.removeItem("apexea-float-pos-zeta");
+    localStorage.removeItem("apexea-float-pos-v2");
+    localStorage.removeItem("apexea-self-host-recent-v1");
+    localStorage.removeItem("apexea-daily-scans-v1");
+    localStorage.removeItem("apexea-trade-management");
   } catch {
     // ignore
   }
@@ -264,7 +307,34 @@ const defaultState = {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const saved = loadState();
+  const savedRaw = loadState();
+  const saved = savedRaw
+    ? {
+        ...savedRaw,
+        ...slimPayloadForStorage(savedRaw),
+      }
+    : null;
+  // Free quota from older oversized photo embeds / backups as soon as the app boots.
+  if (typeof window !== "undefined") {
+    try {
+      clearAppStoragePressure();
+      if (saved) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(slimPayloadForStorage(saved)));
+      }
+    } catch {
+      try {
+        clearAppStoragePressure();
+        if (saved) {
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(stripAllEmbeddedPhotos(saved))
+          );
+        }
+      } catch {
+        // ignore — persist effect will keep trying
+      }
+    }
+  }
   const [activeInterface, setActiveInterface] = useState(
     saved?.activeInterface === "v2" ? "v2" : "zeta"
   );
@@ -420,10 +490,59 @@ export function AppProvider({ children }) {
       saveState(payload);
     } catch {
       try {
-        saveState(stripHeavyPhotos(payload));
-        showToast("Storage full — EA photos reset to logo so data can save");
+        clearAppStoragePressure();
+        saveState(payload);
       } catch {
-        showToast("Could not save — storage is full. Remove old site data.");
+        try {
+          clearAppStoragePressure();
+          const stripped = stripAllEmbeddedPhotos(payload);
+          saveState(stripped);
+          // Slim in-memory state so we stop rewriting oversized embeds.
+          setEas((prev) =>
+            prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
+          );
+          setBots((prev) =>
+            prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
+          );
+          setLicenseKeys((prev) =>
+            prev.map((row) =>
+              row.bot
+                ? {
+                    ...row,
+                    bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
+                  }
+                : row
+            )
+          );
+          showToast("Storage was full — cleared local image cache so saves can continue");
+        } catch {
+          try {
+            clearEaBackup();
+            const minimal = stripAllEmbeddedPhotos(payload);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+            setEas((prev) =>
+              prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
+            );
+            setBots((prev) =>
+              prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
+            );
+            setLicenseKeys((prev) =>
+              prev.map((row) =>
+                row.bot
+                  ? {
+                      ...row,
+                      bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
+                    }
+                  : row
+              )
+            );
+            showToast("Storage was full — EA saved; re-upload the picture if needed");
+          } catch {
+            showToast(
+              "Could not save — storage is full. Clear site data for apex-ea.com and retry."
+            );
+          }
+        }
       }
     }
   }, [
@@ -941,33 +1060,52 @@ export function AppProvider({ children }) {
         id ||
         `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
-      // Upload gallery/camera data URLs. Prefer the versioned API path so every
-      // device picks up the newest picture instead of a stale embedded data URL.
+      // Upload gallery/camera data URLs. Prefer a short API path in app state so
+      // localStorage never fills up with multi-MB embeds (that blocked saves).
       if (photoValue.startsWith("data:image/")) {
         const originalDataUrl = photoValue;
         try {
           const uploaded = await uploadBotPhotoRemote(botId, photoValue);
           const uploadedPhoto = String(uploaded || "").trim();
           if (uploadedPhoto.startsWith("/api/licenses/photo")) {
-            // Only keep the API path when it actually serves bytes right now.
             try {
               const check = await fetch(uploadedPhoto, { method: "GET", cache: "no-store" });
-              photoValue = check.ok ? uploadedPhoto : originalDataUrl;
+              photoValue = check.ok ? uploadedPhoto : slimPhotoForStorage(originalDataUrl);
             } catch {
-              photoValue = originalDataUrl;
+              photoValue = slimPhotoForStorage(originalDataUrl);
             }
-          } else if (uploadedPhoto.startsWith("data:image/")) {
+          } else if (
+            uploadedPhoto.startsWith("data:image/") &&
+            uploadedPhoto.length <= MAX_STORED_DATA_URL
+          ) {
             photoValue = uploadedPhoto;
-          } else if (isRealProfilePhoto(uploadedPhoto)) {
+          } else if (
+            uploadedPhoto.startsWith("/api/licenses/photo") ||
+            /^https?:\/\//i.test(uploadedPhoto)
+          ) {
             photoValue = uploadedPhoto;
           } else {
-            photoValue = originalDataUrl;
+            photoValue = slimPhotoForStorage(originalDataUrl);
+            if (photoValue === "/logo.png") {
+              showToast("Picture uploaded — avatar will show once storage frees up");
+            }
           }
         } catch {
-          photoValue = originalDataUrl;
-          showToast("Picture saved on this device — license keys will carry it");
+          photoValue = slimPhotoForStorage(originalDataUrl);
+          if (photoValue === "/logo.png") {
+            showToast("Picture too large for this phone — try a smaller image");
+          } else {
+            showToast("Picture saved on this device");
+          }
         }
       }
+
+      // API paths are safe; huge data URLs are slimmed so license rows do not explode quota.
+      const statePhoto =
+        photoValue.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(photoValue)
+          ? photoValue
+          : slimPhotoForStorage(photoValue);
+      const licensePhoto = slimPhotoForStorage(statePhoto);
 
       if (id) {
         setEas((prev) =>
@@ -977,7 +1115,7 @@ export function AppProvider({ children }) {
                   ...ea,
                   name,
                   strategy,
-                  photo: photoValue,
+                  photo: statePhoto,
                   symbols: cleanSymbols,
                   ownerEmail: owner.ownerEmail || ea.ownerEmail || "",
                   ownerId: owner.ownerId || ea.ownerId || "",
@@ -987,7 +1125,7 @@ export function AppProvider({ children }) {
         );
         setBots((prev) =>
           prev.map((bot) =>
-            bot.id === id ? { ...bot, name, photo: photoValue, active: true } : bot
+            bot.id === id ? { ...bot, name, photo: statePhoto, active: true } : bot
           )
         );
         setLicenseKeys((prev) =>
@@ -1002,7 +1140,7 @@ export function AppProvider({ children }) {
                 ...(row.bot || { id, name, strategy: "scalper", symbols: [] }),
                 id,
                 name: name || row.bot?.name || row.botName || "Bot",
-                photo: photoValue,
+                photo: licensePhoto,
               },
             };
           })
@@ -1018,7 +1156,7 @@ export function AppProvider({ children }) {
             id: botId,
             name,
             strategy,
-            photo: photoValue,
+            photo: statePhoto,
             symbols: cleanSymbols,
             ...owner,
           },
@@ -1029,7 +1167,7 @@ export function AppProvider({ children }) {
           {
             id: botId,
             name,
-            photo: photoValue,
+            photo: statePhoto,
             active: true,
             selected: true,
           },

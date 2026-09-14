@@ -293,9 +293,12 @@ export async function persistBotPhoto(botId, photo) {
     console.warn("ea photo upload failed", error.message);
     // Embed the bytes so Manage EAs / Home never point at a cold-start 404 API path.
     const local = readLocalBotPhoto(id);
-    const embedded = shrinkDataUrl(dataUrlFromPhoto(local) || value, 1_150_000);
+    const embedded = shrinkDataUrl(dataUrlFromPhoto(local) || value, 40_000);
     if (embedded && embedded.startsWith("data:image/")) return embedded;
-    if (value.startsWith("data:image/") && value.length <= 1_150_000) return value;
+    if (value.startsWith("data:image/") && value.length <= 40_000) return value;
+    // Prefer advertising the API path only when local bytes exist for this process;
+    // otherwise clients would get a permanent 404.
+    if (local?.buffer?.length) return botPhotoApiPath(id);
     return "/logo.png";
   }
 }
