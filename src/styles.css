@@ -6633,3 +6633,69 @@ html:has(.phone[data-interface="v2"]) body {
     font-size: 0.7rem;
   }
 }
+
+/* Interface 2 premium scanner paywall */
+.v2-scanner-paywall {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  padding: 18px 16px calc(18px + var(--safe-bottom, 0px));
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(155, 120, 255, 0.18), transparent 55%),
+    radial-gradient(90% 60% at 100% 8%, rgba(90, 140, 255, 0.14), transparent 50%),
+    linear-gradient(180deg, #f4f3fd 0%, #f7f6ff 42%, #efeafc 100%);
+  overflow: auto;
+}
+
+.v2-scanner-paywall-card {
+  width: min(100%, 420px);
+  margin: auto;
+  padding: 22px 18px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(130, 120, 190, 0.18);
+  box-shadow: 0 18px 40px rgba(70, 60, 140, 0.12);
+}
+
+.v2-scanner-paywall-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.v2-scanner-paywall-title {
+  margin: 0 0 8px;
+  font-family: var(--font-v2);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #1f1638;
+}
+
+.v2-scanner-paywall-copy {
+  margin: 0 0 16px;
+  color: #5b5672;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.v2-scanner-paywall-email {
+  margin: 0 0 12px;
+  color: #3b3554;
+  font-size: 0.9rem;
+}
+
+.v2-scanner-paywall-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.v2-scanner-paywall-paypal {
+  margin-bottom: 12px;
+  min-height: 48px;
+}

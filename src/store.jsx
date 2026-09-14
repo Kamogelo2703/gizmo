@@ -148,6 +148,9 @@ function loadState() {
         coverEmail: primary?.coverEmail || backup.coverEmail || "",
         signups: primary?.signups?.length ? primary.signups : backup.signups || [],
         activeInterface: primary?.activeInterface || backup.activeInterface || "zeta",
+        premiumScannerEmails: Array.isArray(primary?.premiumScannerEmails)
+          ? primary.premiumScannerEmails
+          : backup.premiumScannerEmails || [],
       };
     }
     return primary || backup;
@@ -286,6 +289,18 @@ export function AppProvider({ children }) {
   const [appColor, setAppColorState] = useState(
     normalizeHexColor(saved?.appColor || DEFAULT_APP_COLOR)
   );
+  const [premiumScannerEmails, setPremiumScannerEmails] = useState(() => {
+    const list = Array.isArray(saved?.premiumScannerEmails)
+      ? saved.premiumScannerEmails
+      : [];
+    return list
+      .map((email) =>
+        String(email || "")
+          .trim()
+          .toLowerCase()
+      )
+      .filter((email) => email.includes("@"));
+  });
   const [toast, setToast] = useState("");
   const [adminOpen, setAdminOpenState] = useState(() =>
     typeof window !== "undefined" ? isAdminPath() : false
@@ -406,6 +421,7 @@ export function AppProvider({ children }) {
       catalog,
       symbolMeta,
       appColor,
+      premiumScannerEmails,
     };
 
     try {
@@ -428,12 +444,35 @@ export function AppProvider({ children }) {
     catalog,
     symbolMeta,
     appColor,
+    premiumScannerEmails,
     showToast,
   ]);
 
   const hasActiveBot = useMemo(
     () => bots.some((b) => b.active),
     [bots]
+  );
+
+  const v2ScannerPremium = useMemo(() => {
+    const email = normalizeEmail(coverEmail);
+    if (!email) return false;
+    return premiumScannerEmails.includes(email);
+  }, [coverEmail, premiumScannerEmails]);
+
+  const unlockV2ScannerPremium = useCallback(
+    (email = coverEmail) => {
+      const key = normalizeEmail(email);
+      if (!key || !key.includes("@")) {
+        showToast("Missing email for premium unlock");
+        return false;
+      }
+      setCoverEmail(key);
+      setPremiumScannerEmails((prev) =>
+        prev.includes(key) ? prev : [...prev, key]
+      );
+      return true;
+    },
+    [coverEmail, showToast]
   );
 
   const activeBot = useMemo(() => {
@@ -1406,6 +1445,8 @@ export function AppProvider({ children }) {
     bots,
     activeBot,
     hasActiveBot,
+    v2ScannerPremium,
+    unlockV2ScannerPremium,
     selectBot,
     removeActiveBot,
     licenseKeys,

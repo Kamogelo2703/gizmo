@@ -30,17 +30,17 @@ export async function fetchPaypalConfig() {
   return apiFetch("/config");
 }
 
-export async function createPaypalOrder(email) {
+export async function createPaypalOrder(email, purpose = "access") {
   return apiFetch("/create-order", {
     method: "POST",
-    body: { email },
+    body: { email, purpose },
   });
 }
 
-export async function capturePaypalOrder(orderId, email) {
+export async function capturePaypalOrder(orderId, email, purpose = "access") {
   return apiFetch("/capture-order", {
     method: "POST",
-    body: { orderId, email },
+    body: { orderId, email, purpose },
   });
 }
 

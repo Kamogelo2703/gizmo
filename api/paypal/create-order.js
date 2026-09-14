@@ -22,12 +22,16 @@ export default async function handler(req, res) {
 
   try {
     const body = await readJsonBody(req);
-    const order = await createLifetimeOrder(body.email);
+    const order = await createLifetimeOrder(body.email, {
+      purpose: body.purpose || "access",
+    });
     sendJson(res, 200, {
       id: order.id,
       status: order.status,
       amount: LIFETIME_PRICE,
       currency: LIFETIME_CURRENCY,
+      purpose:
+        String(body.purpose || "").toLowerCase() === "scanner" ? "scanner" : "access",
     });
   } catch (error) {
     sendJson(res, error.status || 500, {

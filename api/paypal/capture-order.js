@@ -1,12 +1,13 @@
-import { setSignupStatus, upsertSignup } from "../signups/_lib.js";
 import {
   captureLifetimeOrder,
   extractCaptureEmail,
+  extractCapturePurpose,
   isCaptureCompleted,
   isLifetimeAmountPaid,
   readJsonBody,
   sendJson,
 } from "./_lib.js";
+import { setSignupStatus, upsertSignup } from "../signups/_lib.js";
 
 export const config = { maxDuration: 30 };
 
@@ -28,6 +29,8 @@ export default async function handler(req, res) {
     const fallbackEmail = String(body.email || "")
       .trim()
       .toLowerCase();
+    const requestedPurpose =
+      String(body.purpose || "").toLowerCase() === "scanner" ? "scanner" : "";
 
     const capture = await captureLifetimeOrder(orderId);
     if (!isCaptureCompleted(capture)) {
@@ -50,6 +53,8 @@ export default async function handler(req, res) {
       return;
     }
 
+    const purpose = extractCapturePurpose(capture) || requestedPurpose || "access";
+
     // Ensure the signup exists, then auto-approve because payment cleared.
     await upsertSignup(email, { status: "pending" });
     const signup = await setSignupStatus(email, "approved");
@@ -58,6 +63,7 @@ export default async function handler(req, res) {
       ok: true,
       orderId,
       email,
+      purpose,
       signup,
       captureStatus: capture.status,
     });

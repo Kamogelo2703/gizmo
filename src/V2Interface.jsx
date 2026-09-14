@@ -5,6 +5,7 @@ import { useApp } from "./store.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
 import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
+import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 
 export default function V2Interface() {
   const {
@@ -29,6 +30,7 @@ export default function V2Interface() {
     setLockStep,
     getSignup,
     coverEmail,
+    v2ScannerPremium,
   } = useApp();
 
   const [lotSize, setLotSize] = useState(0.01);
@@ -334,7 +336,11 @@ export default function V2Interface() {
 
         {v2View === "scanner" && (
           <section className="v2-view is-active">
-            <ChartScanner variant="v2" />
+            {v2ScannerPremium ? (
+              <ChartScanner variant="v2" />
+            ) : (
+              <V2ScannerPaywall onClose={() => setV2View("home")} />
+            )}
           </section>
         )}
 

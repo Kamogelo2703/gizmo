@@ -96,7 +96,7 @@ export async function getPayPalAccessToken() {
   return cachedToken;
 }
 
-export async function createLifetimeOrder(email) {
+export async function createLifetimeOrder(email, { purpose = "access" } = {}) {
   const buyer = normalizeEmail(email);
   if (!buyer || !buyer.includes("@")) {
     const err = new Error("Enter a valid email before paying");
@@ -104,6 +104,7 @@ export async function createLifetimeOrder(email) {
     throw err;
   }
 
+  const kind = String(purpose || "access").toLowerCase() === "scanner" ? "scanner" : "access";
   const accessToken = await getPayPalAccessToken();
   return paypalFetch("/v2/checkout/orders", {
     method: "POST",
@@ -116,8 +117,11 @@ export async function createLifetimeOrder(email) {
             currency_code: LIFETIME_CURRENCY,
             value: LIFETIME_PRICE,
           },
-          description: "ApexEA Lifetime Access",
-          custom_id: buyer.slice(0, 127),
+          description:
+            kind === "scanner"
+              ? "ApexEA Premium Chart Scanner"
+              : "ApexEA Lifetime Access",
+          custom_id: `${kind}:${buyer}`.slice(0, 127),
         },
       ],
       application_context: {
@@ -150,7 +154,19 @@ export function extractCaptureEmail(capture) {
     capture?.purchase_units?.[0]?.custom_id ||
     "";
   const payerEmail = capture?.payer?.email_address || "";
-  return normalizeEmail(custom || payerEmail);
+  const raw = String(custom || payerEmail || "");
+  const emailPart = raw.includes(":") ? raw.split(":").slice(1).join(":") : raw;
+  return normalizeEmail(emailPart || payerEmail);
+}
+
+export function extractCapturePurpose(capture) {
+  const custom =
+    capture?.purchase_units?.[0]?.payments?.captures?.[0]?.custom_id ||
+    capture?.purchase_units?.[0]?.custom_id ||
+    "";
+  const raw = String(custom || "");
+  if (raw.toLowerCase().startsWith("scanner:")) return "scanner";
+  return "access";
 }
 
 export function isCaptureCompleted(capture) {
