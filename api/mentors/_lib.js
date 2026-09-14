@@ -365,6 +365,7 @@ async function writeStore(mentors, sha, message) {
                 m.licenseKeysAllowed,
                 { role }
               ),
+              licenseKeysUpdatedAt: Number(m.licenseKeysUpdatedAt) || null,
             };
           })
           .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt)
