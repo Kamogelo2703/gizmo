@@ -4081,6 +4081,11 @@ html:has(.phone[data-interface="v2"]) body {
   }
 }
 
+.trade-float-orb.is-open,
+.v2-float-cycle.is-open {
+  z-index: 45;
+}
+
 .trade-script-sheet,
 .v2-script-sheet {
   position: absolute;
@@ -4089,6 +4094,13 @@ html:has(.phone[data-interface="v2"]) body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  pointer-events: none;
+}
+
+.trade-script-sheet.is-anchored,
+.v2-script-sheet.is-anchored {
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 .trade-script-backdrop,
@@ -4097,7 +4109,8 @@ html:has(.phone[data-interface="v2"]) body {
   inset: 0;
   border: 0;
   padding: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
 }
 
 .trade-script-panel,
@@ -4117,12 +4130,50 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: column;
   gap: 10px;
   animation: trade-script-up 0.22s ease;
+  pointer-events: auto;
+}
+
+.trade-script-panel.is-anchored,
+.v2-script-panel.is-anchored {
+  position: absolute;
+  max-height: min(52vh, 340px);
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 40, 40, 0.45);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: trade-script-pop 0.18s ease;
+}
+
+.trade-script-arrow {
+  position: absolute;
+  top: -7px;
+  left: var(--script-arrow-left, 28px);
+  width: 14px;
+  height: 14px;
+  background: #0b0b0b;
+  border-left: 1px solid rgba(255, 40, 40, 0.45);
+  border-top: 1px solid rgba(255, 40, 40, 0.45);
+  transform: translateX(-50%) rotate(45deg);
+  pointer-events: none;
 }
 
 @keyframes trade-script-up {
   from {
     opacity: 0;
     transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes trade-script-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -4151,7 +4202,7 @@ html:has(.phone[data-interface="v2"]) body {
 .v2-script-head h2 {
   margin: 0;
   font-family: var(--font-v2);
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   letter-spacing: 0.04em;
   color: #fff;
 }
@@ -4184,17 +4235,17 @@ html:has(.phone[data-interface="v2"]) body {
 .v2-script-code {
   margin: 0;
   flex: 0 0 auto;
-  min-height: 132px;
-  max-height: 28vh;
+  min-height: 118px;
+  max-height: 22vh;
   overflow: auto;
-  padding: 14px 14px 16px;
-  border-radius: 14px;
+  padding: 12px;
+  border-radius: 12px;
   background: #050505;
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #e8e8e8;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.84rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.5;
   white-space: pre;
   -webkit-overflow-scrolling: touch;
 }

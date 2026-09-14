@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { buildBotTradeComment } from "./metaApi.js";
 
 const FLOAT_SIZE = 58;
 const DRAG_THRESHOLD = 8;
 const TYPE_MS = 22;
+const POPOVER_GAP = 10;
+const POPOVER_WIDTH = 280;
 
 function loadFloatPos(storageKey) {
   try {
@@ -55,7 +57,9 @@ export default function TradeScriptOrb({
   const [scriptOpen, setScriptOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [typingDone, setTypingDone] = useState(false);
+  const [popoverPos, setPopoverPos] = useState({ left: 8, top: 80, arrowLeft: 28 });
   const floatRef = useRef(null);
+  const panelRef = useRef(null);
   const dragRef = useRef({
     active: false,
     moved: false,
@@ -68,6 +72,42 @@ export default function TradeScriptOrb({
 
   const fullScript = script || "";
   const tradeComment = comment || buildBotTradeComment(botName);
+
+  function measurePopover() {
+    const orb = floatRef.current;
+    const layer = orb?.offsetParent;
+    if (!orb || !layer) return;
+    const layerRect = layer.getBoundingClientRect();
+    const orbRect = orb.getBoundingClientRect();
+    const panelWidth = Math.min(POPOVER_WIDTH, layer.clientWidth - 16);
+    const panelHeight = panelRef.current?.offsetHeight || 260;
+
+    // Prefer centered under the orb.
+    let left = orbRect.left - layerRect.left + orbRect.width / 2 - panelWidth / 2;
+    left = Math.min(layer.clientWidth - panelWidth - 8, Math.max(8, left));
+
+    let top = orbRect.bottom - layerRect.top + POPOVER_GAP;
+    const maxTop = Math.max(8, layer.clientHeight - panelHeight - 8);
+    if (top > maxTop) {
+      // Flip above if not enough room below.
+      top = Math.max(8, orbRect.top - layerRect.top - panelHeight - POPOVER_GAP);
+    }
+
+    const arrowLeft = Math.min(
+      panelWidth - 18,
+      Math.max(16, orbRect.left - layerRect.left + orbRect.width / 2 - left)
+    );
+
+    setPopoverPos({ left, top, arrowLeft, width: panelWidth });
+  }
+
+  useLayoutEffect(() => {
+    if (!scriptOpen) return undefined;
+    measurePopover();
+    const onResize = () => measurePopover();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [scriptOpen, floatPos, typed, visible]);
 
   useEffect(() => {
     if (!scriptOpen) {
@@ -179,7 +219,7 @@ export default function TradeScriptOrb({
       {visible ? (
         <button
           ref={floatRef}
-          className={`trade-float-orb is-on${floatPos ? " is-placed" : ""}`}
+          className={`trade-float-orb is-on${floatPos ? " is-placed" : ""}${scriptOpen ? " is-open" : ""}`}
           type="button"
           aria-label={`${botName} trade script`}
           title="Drag to move · tap for trade script"
@@ -201,14 +241,24 @@ export default function TradeScriptOrb({
       ) : null}
 
       {scriptOpen ? (
-        <div className="trade-script-sheet" role="dialog" aria-modal="true" aria-label="Open trade script">
+        <div className="trade-script-sheet is-anchored" role="dialog" aria-modal="true" aria-label="Open trade script">
           <button
             className="trade-script-backdrop"
             type="button"
             aria-label="Close script"
             onClick={() => setScriptOpen(false)}
           />
-          <div className="trade-script-panel">
+          <div
+            ref={panelRef}
+            className="trade-script-panel is-anchored"
+            style={{
+              left: `${popoverPos.left}px`,
+              top: `${popoverPos.top}px`,
+              width: `${popoverPos.width || POPOVER_WIDTH}px`,
+              ["--script-arrow-left"]: `${popoverPos.arrowLeft}px`,
+            }}
+          >
+            <span className="trade-script-arrow" aria-hidden="true" />
             <header className="trade-script-head">
               <div>
                 <p className="trade-script-kicker">Opening trades</p>
@@ -219,7 +269,7 @@ export default function TradeScriptOrb({
               </button>
             </header>
             <p className="trade-script-note">
-              Comment tag <strong>{tradeComment}</strong> · robot stays running
+              Comment tag <strong>{tradeComment}</strong>
             </p>
             <pre className={`trade-script-code${typingDone ? " is-done" : " is-typing"}`}>
               {typed}
