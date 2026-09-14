@@ -1285,6 +1285,14 @@ html:has(.phone[data-interface="v2"]) body {
   min-height: 0;
 }
 
+/* Interface 1 home: grow with content so TopBar + hero scroll away like V2. */
+.stage > .view.is-active.view-home {
+  flex: 1 0 auto;
+  min-height: 100%;
+  width: 100%;
+  align-self: stretch;
+}
+
 .stage {
   position: relative;
 }
