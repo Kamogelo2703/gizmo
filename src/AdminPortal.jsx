@@ -121,6 +121,7 @@ export default function AdminPortal() {
   const [licenseClientEmail, setLicenseClientEmail] = useState("");
   const [licenseDuration, setLicenseDuration] = useState("1m");
   const [licenseSearch, setLicenseSearch] = useState("");
+  const [commissionSearch, setCommissionSearch] = useState("");
   const [latestKey, setLatestKey] = useState("");
   const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
   const [licenseSheetOpen, setLicenseSheetOpen] = useState(false);
@@ -716,6 +717,28 @@ export default function AdminPortal() {
         b.sold - a.sold ||
         String(a.mentor.username || "").localeCompare(String(b.mentor.username || ""))
     );
+
+  const commissionQuery = String(commissionSearch || "")
+    .trim()
+    .toLowerCase();
+  const filteredCommissionRows = !commissionQuery
+    ? commissionRows
+    : commissionRows.filter(({ mentor, banking }) => {
+        const username = String(mentor.username || "").toLowerCase();
+        const email = String(mentor.email || "").toLowerCase();
+        const contact = String(mentor.contact || "").toLowerCase();
+        const accountName = String(banking?.accountName || "").toLowerCase();
+        const bankName = String(banking?.bankName || "").toLowerCase();
+        const accountNumber = String(banking?.accountNumber || "").toLowerCase();
+        return (
+          username.includes(commissionQuery) ||
+          email.includes(commissionQuery) ||
+          contact.includes(commissionQuery) ||
+          accountName.includes(commissionQuery) ||
+          bankName.includes(commissionQuery) ||
+          accountNumber.includes(commissionQuery)
+        );
+      });
 
   const nav = isSuperAdmin
     ? [
@@ -1626,18 +1649,36 @@ export default function AdminPortal() {
 
         {isSuperAdmin && adminPage === "commissions" && (
           <section className="admin-page is-active">
-            <h2 className="admin-h1">Mentor Commissions</h2>
+            <div className="admin-title-row">
+              <h2 className="admin-h1">Mentor Commissions</h2>
+            </div>
             <p className="admin-sub">
               Track paid first-time unlocks (${COMMISSION_USD.toFixed(2)} / R{COMMISSION_ZAR} each),
               and banking details so you can pay commissions. Generated-only keys and reuse on
               already-unlocked accounts do not count.
             </p>
+            <div className="admin-search-row" style={{ marginBottom: 12 }}>
+              <input
+                className="admin-input"
+                type="search"
+                value={commissionSearch}
+                onChange={(e) => setCommissionSearch(e.target.value)}
+                placeholder="Search mentor by name, email, or phone"
+                aria-label="Search mentors"
+              />
+            </div>
             {commissionRows.length === 0 ? (
               <div className="admin-card">
                 <p className="admin-empty">No approved mentors yet</p>
               </div>
+            ) : filteredCommissionRows.length === 0 ? (
+              <div className="admin-card">
+                <p className="admin-empty">
+                  No mentors match “{commissionSearch.trim()}”
+                </p>
+              </div>
             ) : (
-              commissionRows.map(({ mentor, sold, usd, zar, withdrawable, banking }) => {
+              filteredCommissionRows.map(({ mentor, sold, usd, zar, withdrawable, banking }) => {
                 const hasBanking = Boolean(
                   banking?.accountName && banking?.bankName && banking?.accountNumber
                 );
