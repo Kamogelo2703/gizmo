@@ -3550,18 +3550,22 @@ button {
   display: none;
 }
 
-.v2-view-home {
+.v2-view.v2-view-home,
+.v2-view.is-active.v2-view-home {
   position: relative;
   gap: 0;
-  /* Bleed past .v2-stage horizontal padding — must beat max-width:100% on .v2-view
+  /* Bleed past .v2-stage horizontal padding. Must override .v2-view max-width:100%
      or the sheet only shifts left and leaves a dark gap on the right. */
+  flex: 1 0 auto;
   width: calc(100% + 36px);
-  max-width: none;
+  max-width: none !important;
+  min-width: calc(100% + 36px);
   margin: -8px -18px 0;
   padding: 0;
   background: #fff;
   min-height: 100%;
   box-sizing: border-box;
+  align-self: flex-start;
   /* Home stays solid — Powered by apexEA must never fade with view enter animation */
   animation: none !important;
   opacity: 1 !important;
