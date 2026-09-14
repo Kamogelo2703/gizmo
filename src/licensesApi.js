@@ -240,3 +240,11 @@ export async function deactivateLicenseRemote(key) {
   });
   return normalizeLicense(data?.license);
 }
+
+export async function deleteLicenseRemote(key) {
+  const data = await apiFetch("", {
+    method: "PATCH",
+    body: { key: normalizeLicenseKey(key), action: "delete" },
+  });
+  return normalizeLicense(data?.license);
+}

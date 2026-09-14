@@ -66,6 +66,7 @@ export default function AdminPortal() {
     licenseKeys,
     generateLicense,
     deactivateLicense,
+    deleteLicense,
     refreshLicenses,
     catalog,
     ensureCatalog,
@@ -123,6 +124,19 @@ export default function AdminPortal() {
     if (result) {
       await refreshLicenses?.();
       if (latestKey === key) setLicenseSheetOpen(true);
+    }
+  }
+
+  async function onDeleteLicense(key) {
+    const label = String(key || "").trim();
+    if (!label) return;
+    const ok = window.confirm(`Delete license ${label}? This cannot be undone.`);
+    if (!ok) return;
+    const deleted = await deleteLicense?.(key);
+    if (deleted && latestKey === key) {
+      setLatestKey("");
+      setLatestLicenseMeta(null);
+      setLicenseSheetOpen(false);
     }
   }
 
@@ -1051,6 +1065,15 @@ export default function AdminPortal() {
                       >
                         {entry.used ? "Deactivate" : "Reset"}
                       </button>
+                      {isSuperAdmin ? (
+                        <button
+                          className="admin-btn admin-btn-ghost admin-btn-sm"
+                          type="button"
+                          onClick={() => void onDeleteLicense(entry.key)}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))

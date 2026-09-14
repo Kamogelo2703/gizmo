@@ -1,6 +1,7 @@
 import {
   createLicense,
   deactivateLicense,
+  deleteLicense,
   findLicense,
   findLicensesByEmail,
   listLicenses,
@@ -53,12 +54,27 @@ export default async function handler(req, res) {
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
       const action = String(body.action || "").toLowerCase();
+      if (action === "delete" || body.delete === true) {
+        const license = await deleteLicense(body.key);
+        sendJson(res, 200, { license, deleted: true });
+        return;
+      }
       const shouldDeactivate =
         action === "deactivate" || body.used === false || body.deactivate === true;
       const license = shouldDeactivate
         ? await deactivateLicense(body.key)
         : await markLicenseUsed(body.key);
       sendJson(res, 200, { license });
+      return;
+    }
+
+    if (req.method === "DELETE") {
+      const host = req.headers.host || "localhost";
+      const url = new URL(req.url || "/", `http://${host}`);
+      const key = url.searchParams.get("key") || "";
+      const body = key ? { key } : await readJsonBody(req);
+      const license = await deleteLicense(body.key);
+      sendJson(res, 200, { license, deleted: true });
       return;
     }
 

@@ -761,6 +761,29 @@ export async function deactivateLicense(rawKey) {
   return result;
 }
 
+export async function deleteLicense(rawKey) {
+  const variants = licenseKeyVariants(rawKey);
+  if (!variants.length) {
+    const err = new Error("License key is required");
+    err.status = 400;
+    throw err;
+  }
+
+  let result = null;
+  await mutateStore((licenses) => {
+    const idx = licenses.findIndex((row) => variants.includes(row.key));
+    if (idx < 0) {
+      const err = new Error("Invalid license key");
+      err.status = 404;
+      throw err;
+    }
+    result = licenses[idx];
+    return licenses.filter((_, i) => i !== idx);
+  }, `license deleted: ${variants[0]}`);
+
+  return result;
+}
+
 export async function findLicense(rawKey) {
   const variants = licenseKeyVariants(rawKey);
   if (!variants.length) return null;

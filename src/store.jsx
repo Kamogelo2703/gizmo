@@ -16,6 +16,7 @@ import {
 import {
   createLicenseRemote,
   deactivateLicenseRemote,
+  deleteLicenseRemote,
   fetchLicense,
   fetchLicenses,
   fetchLicensesByEmail,
@@ -1316,6 +1317,30 @@ export function AppProvider({ children }) {
     [licenseKeys, showToast]
   );
 
+  const deleteLicense = useCallback(
+    async (rawKey) => {
+      const key = normalizeLicenseKey(rawKey);
+      if (!key) {
+        showToast("Missing license key");
+        return false;
+      }
+      const variants = licenseKeyVariants(key);
+      setLicenseKeys((prev) =>
+        prev.filter((item) => !variants.includes(normalizeLicenseKey(item.key)))
+      );
+      try {
+        await deleteLicenseRemote(key);
+        showToast("License deleted");
+        return true;
+      } catch (error) {
+        showToast(error.message || "Could not delete license");
+        await refreshLicenses?.();
+        return false;
+      }
+    },
+    [refreshLicenses, showToast]
+  );
+
   const saveSymbolMeta = useCallback((symbol, meta) => {
     setSymbolMeta((prev) => ({ ...prev, [symbol]: meta }));
     ensureCatalog(symbol);
@@ -1376,6 +1401,7 @@ export function AppProvider({ children }) {
     generateLicense,
     activateLicense,
     deactivateLicense,
+    deleteLicense,
     refreshLicenses,
     catalog,
     ensureCatalog,
