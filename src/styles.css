@@ -7370,6 +7370,38 @@ html:has(.phone[data-interface="v2"]) body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.econ-cal-btn-label {
+  position: relative;
+  z-index: 2;
+}
+
+.econ-cal-btn-ring {
+  position: absolute;
+  inset: -3px;
+  z-index: 1;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  border-top-color: var(--pink, #ff2d7a);
+  border-right-color: rgba(var(--pink-hot-rgb, 255, 64, 129), 0.85);
+  animation: trade-float-spin 1.4s linear infinite;
+  pointer-events: none;
+}
+
+.econ-cal-btn-ring--outer {
+  inset: -6px;
+  border-width: 1.5px;
+  border-radius: 16px;
+  border-top-color: rgba(255, 255, 255, 0.75);
+  border-right-color: rgba(var(--pink-rgb, 255, 45, 122), 0.55);
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  animation-duration: 2.2s;
+  animation-direction: reverse;
+  opacity: 0.9;
 }
 
 .econ-cal-btn-v2 {
