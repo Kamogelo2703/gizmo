@@ -113,6 +113,97 @@ export function normalizeEventDate(value) {
   return `${y}-${m}-${day}`;
 }
 
+function todayDateKeyEt(now = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const y = parts.find((p) => p.type === "year")?.value;
+    const m = parts.find((p) => p.type === "month")?.value;
+    const d = parts.find((p) => p.type === "day")?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    // fall through
+  }
+  return normalizeEventDate(now.toISOString().slice(0, 10));
+}
+
+const DEFAULT_EVENT_TIMES_ET = {
+  NFP: "08:30",
+  PPI: "08:30",
+  CPI: "08:30",
+  FOMC: "14:00",
+};
+
+function normalizeMacroTitle(title) {
+  const raw = String(title || "")
+    .trim()
+    .toUpperCase();
+  if (DEFAULT_EVENT_TIMES_ET[raw]) return raw;
+  if (/\bNFP\b|NON[\s-]?FARM|PAYROLL/i.test(raw)) return "NFP";
+  if (/\bPPI\b|PRODUCER PRICE/i.test(raw)) return "PPI";
+  if (/\bCPI\b|CONSUMER PRICE/i.test(raw)) return "CPI";
+  if (/\bFOMC\b|FED(ERAL)?\s*RESERVE|RATE DECISION/i.test(raw)) return "FOMC";
+  return raw;
+}
+
+function getEventStartMs(date, title, timeEt) {
+  const day = normalizeEventDate(date);
+  if (!day) return null;
+  const macro = normalizeMacroTitle(title);
+  const clock =
+    String(timeEt || DEFAULT_EVENT_TIMES_ET[macro] || "08:30").trim() || "08:30";
+  const [hh, mm] = clock.split(":").map((n) => Number(n));
+  const hour = Number.isFinite(hh) ? hh : 8;
+  const minute = Number.isFinite(mm) ? mm : 30;
+  const probe = new Date(`${day}T12:00:00Z`);
+  const etParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(probe);
+  const tzName = etParts.find((p) => p.type === "timeZoneName")?.value || "GMT-4";
+  const match = tzName.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/i);
+  let offset = "-04:00";
+  if (match) {
+    const sign = match[1].startsWith("-") ? "-" : "+";
+    const oh = String(Math.abs(Number(match[1]))).padStart(2, "0");
+    const om = String(match[2] ? Number(match[2]) : 0).padStart(2, "0");
+    offset = `${sign}${oh}:${om}`;
+  }
+  const iso = `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${offset}`;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function getEditLockState({ date, title, timeEt }, now = new Date()) {
+  const day = normalizeEventDate(date);
+  const today = todayDateKeyEt(now);
+  if (!day) return { editable: false, message: "Enter a valid event date" };
+  if (day < today) {
+    return {
+      editable: false,
+      message: "Signal direction expired — it removes itself the day after the event",
+    };
+  }
+  const start = getEventStartMs(day, title, timeEt);
+  if (start == null) return { editable: true, message: "" };
+  const lockAt = start - 60 * 60 * 1000;
+  if (now.getTime() >= lockAt) {
+    const macro = normalizeMacroTitle(title) || "event";
+    return {
+      editable: false,
+      message: `Editing locked — closes 1 hour before ${macro}`,
+    };
+  }
+  return { editable: true, message: "" };
+}
+
 export function publicEvent(row = {}) {
   const id = String(row.id || "").trim();
   const date = normalizeEventDate(row.date || row.eventDate);
@@ -264,8 +355,24 @@ async function mutateStore(mutator, message) {
 export async function listEvents({ mentorEmail = "" } = {}) {
   const store = await readStore();
   const key = normalizeEmail(mentorEmail);
-  let events = store.events.map(publicEvent).filter(Boolean);
+  const today = todayDateKeyEt();
+  let events = store.events
+    .map(publicEvent)
+    .filter(Boolean)
+    // Signal directions remove themselves the day after the event.
+    .filter((e) => e.date >= today);
   if (key) events = events.filter((e) => e.mentorEmail === key);
+
+  // Persist purge when expired rows still sit in the store.
+  const purged = store.events.map(publicEvent).filter(Boolean).filter((e) => e.date >= today);
+  if (purged.length !== store.events.length) {
+    try {
+      await writeStore(purged, store.sha, "chore: purge expired economic calendar directions");
+    } catch {
+      writeLocalStore(purged);
+    }
+  }
+
   return events.sort(
     (a, b) => String(a.date).localeCompare(String(b.date)) || a.createdAt - b.createdAt
   );
@@ -289,9 +396,18 @@ export async function upsertEvent(input = {}) {
     throw err;
   }
 
+  const lock = getEditLockState({ date, title, timeEt: input.timeEt });
+  if (!lock.editable) {
+    const err = new Error(lock.message);
+    err.status = 403;
+    throw err;
+  }
+
   let saved = null;
   await mutateStore((events) => {
-    const idx = events.findIndex((e) => e.id === id);
+    const today = todayDateKeyEt();
+    const kept = events.filter((e) => normalizeEventDate(e.date) >= today);
+    const idx = kept.findIndex((e) => e.id === id);
     const row = {
       id,
       officialEventId: String(input.officialEventId || id).trim(),
@@ -299,15 +415,15 @@ export async function upsertEvent(input = {}) {
       title,
       directions,
       mentorEmail,
-      createdAt: idx >= 0 ? events[idx].createdAt || Date.now() : Date.now(),
+      createdAt: idx >= 0 ? kept[idx].createdAt || Date.now() : Date.now(),
       updatedAt: Date.now(),
     };
     saved = row;
     if (idx >= 0) {
-      events[idx] = row;
-      return events;
+      kept[idx] = row;
+      return kept;
     }
-    return [row, ...events];
+    return [row, ...kept];
   }, `chore: upsert economic event ${date} · ${mentorEmail}`);
 
   return publicEvent(saved);
