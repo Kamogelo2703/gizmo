@@ -3625,17 +3625,25 @@ button {
 .v2-home-hero-shade::after {
   content: "";
   position: absolute;
-  left: -4%;
-  bottom: 12%;
-  width: 62%;
-  height: 48%;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 52%;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse 70% 60% at 28% 72%,
-    rgba(0, 0, 0, 0.92) 0%,
-    rgba(0, 0, 0, 0.7) 38%,
-    transparent 72%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.55) 28%,
+      rgba(0, 0, 0, 0.88) 58%,
+      #000 100%
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 22% 55%,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(0, 0, 0, 0.75) 45%,
+      transparent 75%
+    );
 }
 
 .v2-home-hero-copy {
