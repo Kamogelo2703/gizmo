@@ -36,6 +36,51 @@ export function normalizeLicenseKey(key) {
     .replace(/[^A-Z0-9-]/g, "");
 }
 
+export const LICENSE_DURATIONS = [
+  { id: "1m", label: "1 month", months: 1 },
+  { id: "3m", label: "3 months", months: 3 },
+  { id: "2y", label: "2 years", months: 24 },
+  { id: "lifetime", label: "Lifetime", months: null },
+];
+
+export function resolveLicenseExpiry(durationId, from = Date.now()) {
+  const id = String(durationId || "lifetime")
+    .trim()
+    .toLowerCase();
+  const preset = LICENSE_DURATIONS.find((item) => item.id === id);
+  if (!preset || preset.months == null) {
+    return { duration: "lifetime", expiresAt: null };
+  }
+  const start = new Date(Number(from) || Date.now());
+  start.setMonth(start.getMonth() + preset.months);
+  return { duration: preset.id, expiresAt: start.getTime() };
+}
+
+export function isLicenseExpired(row, now = Date.now()) {
+  const expiresAt = Number(row?.expiresAt || 0);
+  if (!expiresAt) return false;
+  return expiresAt <= now;
+}
+
+export function formatLicenseDuration(row) {
+  const id = String(row?.duration || "").toLowerCase();
+  const preset = LICENSE_DURATIONS.find((item) => item.id === id);
+  if (preset) return preset.label;
+  if (!row?.expiresAt) return "Lifetime";
+  return "Timed";
+}
+
+export function formatLicenseExpiry(row) {
+  if (isLicenseExpired(row)) return "Expired";
+  const expiresAt = Number(row?.expiresAt || 0);
+  if (!expiresAt) return "No expiry";
+  try {
+    return `Expires ${new Date(expiresAt).toLocaleDateString()}`;
+  } catch {
+    return "Timed";
+  }
+}
+
 /** Try common lookalike swaps so APEX-0M60… still matches if typed as O. */
 export function licenseKeyVariants(rawKey) {
   const base = normalizeLicenseKey(rawKey);
@@ -79,6 +124,10 @@ export function normalizeLicense(row) {
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     mentorName,
     used: Boolean(row?.used),
+    duration: String(row?.duration || (row?.expiresAt ? "timed" : "lifetime")).trim() || "lifetime",
+    expiresAt: row?.expiresAt == null || row?.expiresAt === ""
+      ? null
+      : Number(row.expiresAt) || null,
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
     updatedAt: Number(row?.updatedAt || row?.usedAt || row?.createdAt) || Date.now(),
@@ -116,6 +165,12 @@ export function mergeLicenses(localList = [], remoteList = []) {
       mentorEmail: row.mentorEmail || prev.mentorEmail || "",
       mentorId: row.mentorId || prev.mentorId || "",
       mentorName: row.mentorName || prev.mentorName || "",
+      duration: preferIncoming
+        ? row.duration || prev.duration || "lifetime"
+        : prev.duration || row.duration || "lifetime",
+      expiresAt: preferIncoming
+        ? row.expiresAt ?? prev.expiresAt ?? null
+        : prev.expiresAt ?? row.expiresAt ?? null,
       // Newer updatedAt wins so deactivate (used:false) can stick.
       used: preferIncoming ? Boolean(row.used) : Boolean(prev.used || row.used),
       usedAt: preferIncoming

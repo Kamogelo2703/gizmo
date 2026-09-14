@@ -4,6 +4,12 @@ import {
   fetchMentors,
   updateMentorStatus,
 } from "./mentorsApi.js";
+import {
+  formatLicenseDuration,
+  formatLicenseExpiry,
+  isLicenseExpired,
+  LICENSE_DURATIONS,
+} from "./licensesApi.js";
 import { STRATEGY_LABELS, useApp } from "./store.jsx";
 import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
 
@@ -88,6 +94,8 @@ export default function AdminPortal() {
   const [licenseBotId, setLicenseBotId] = useState("");
   const [licenseClientName, setLicenseClientName] = useState("");
   const [licenseClientEmail, setLicenseClientEmail] = useState("");
+  const [licenseDuration, setLicenseDuration] = useState("1m");
+  const [licenseSearch, setLicenseSearch] = useState("");
   const [latestKey, setLatestKey] = useState("");
   const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
   const [licenseSheetOpen, setLicenseSheetOpen] = useState(false);
@@ -446,6 +454,24 @@ export default function AdminPortal() {
         const ownerId = String(row.mentorId || "");
         if (owner === mentorEmail || (mentorId && ownerId === mentorId)) return true;
         return eaIds.has(row.botId);
+      });
+
+  const licenseQuery = String(licenseSearch || "")
+    .trim()
+    .toLowerCase();
+  const filteredLicenses = !licenseQuery
+    ? myLicenses
+    : myLicenses.filter((row) => {
+        const name = String(row.clientName || row.mainText || "").toLowerCase();
+        const email = String(row.clientEmail || "").toLowerCase();
+        const key = String(row.key || "").toLowerCase();
+        const bot = String(row.botName || "").toLowerCase();
+        return (
+          name.includes(licenseQuery) ||
+          email.includes(licenseQuery) ||
+          key.includes(licenseQuery) ||
+          bot.includes(licenseQuery)
+        );
       });
 
   const usedKeys = myLicenses.filter((k) => k.used);
@@ -927,6 +953,7 @@ export default function AdminPortal() {
                     clientName: licenseClientName,
                     mainText: licenseClientName,
                     clientEmail: licenseClientEmail,
+                    duration: licenseDuration,
                     mentorEmail: adminSession.email,
                     mentorId: adminSession.id,
                     mentorName: adminSession.username || "",
@@ -992,6 +1019,21 @@ export default function AdminPortal() {
                     )}
                   </select>
                 </label>
+                <label className="ea-field">
+                  <span>License duration *</span>
+                  <select
+                    className="admin-input"
+                    value={licenseDuration}
+                    onChange={(e) => setLicenseDuration(e.target.value)}
+                    required
+                  >
+                    {LICENSE_DURATIONS.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button className="admin-btn admin-btn-solid admin-btn-block" type="submit">
                   Generate License Key
                 </button>
@@ -1027,21 +1069,36 @@ export default function AdminPortal() {
             <div className="admin-card" style={{ marginTop: 14 }}>
               <div className="admin-card-title-row">
                 <h3>Generated keys</h3>
-                <span className="admin-badge">{myLicenses.length}</span>
+                <span className="admin-badge">{filteredLicenses.length}</span>
+              </div>
+              <div className="admin-search-row" style={{ marginBottom: 12 }}>
+                <input
+                  className="admin-input"
+                  type="search"
+                  value={licenseSearch}
+                  onChange={(e) => setLicenseSearch(e.target.value)}
+                  placeholder="Search by name, email, or key"
+                  aria-label="Search license keys"
+                />
               </div>
               {myLicenses.length === 0 ? (
                 <p className="admin-empty">No license keys yet</p>
+              ) : filteredLicenses.length === 0 ? (
+                <p className="admin-empty">No keys match “{licenseSearch.trim()}”</p>
               ) : (
-                [...myLicenses].reverse().map((entry) => (
+                [...filteredLicenses].reverse().map((entry) => (
                   <div
-                    className={`license-row${entry.used ? " is-used" : ""}`}
+                    className={`license-row${entry.used ? " is-used" : ""}${
+                      isLicenseExpired(entry) ? " is-expired" : ""
+                    }`}
                     key={`${entry.key}-${entry.createdAt}`}
                   >
                     <strong>{entry.key}</strong>
                     <span>
                       {entry.clientName ? `${entry.clientName} · ` : ""}
                       {entry.clientEmail || "no email"} · {entry.botName} ·{" "}
-                      {entry.used ? "Used" : "Available"}
+                      {entry.used ? "Used" : "Available"} · {formatLicenseDuration(entry)} ·{" "}
+                      {formatLicenseExpiry(entry)}
                     </span>
                     <div className="license-row-actions">
                       <button

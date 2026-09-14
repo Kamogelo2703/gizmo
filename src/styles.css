@@ -3137,6 +3137,11 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 0.72;
 }
 
+.license-row.is-expired {
+  opacity: 0.78;
+  border-color: rgba(180, 40, 40, 0.35);
+}
+
 .license-row-actions {
   display: flex;
   flex-wrap: wrap;

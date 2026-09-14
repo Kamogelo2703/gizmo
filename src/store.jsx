@@ -24,6 +24,8 @@ import {
   markLicenseUsedRemote,
   normalizeLicenseKey,
   licenseKeyVariants,
+  isLicenseExpired,
+  resolveLicenseExpiry,
   photoFreshness,
   pickFresherPhoto,
   uploadBotPhotoRemote,
@@ -995,6 +997,7 @@ export function AppProvider({ children }) {
         mentorEmail = "",
         mentorId = "",
         mentorName = "",
+        duration = "lifetime",
       } = {}
     ) => {
       const bot = bots.find((b) => b.id === botId);
@@ -1022,6 +1025,8 @@ export function AppProvider({ children }) {
           .toLowerCase() || "";
       const ownerId = String(mentorId || ea?.ownerId || "").trim();
       const ownerName = String(mentorName || "").trim();
+      const createdAt = Date.now();
+      const timing = resolveLicenseExpiry(duration, createdAt);
 
       // Prefer the versioned API photo path so every activation gets the latest
       // picture. Fall back to an embedded data URL only when upload cannot sync.
@@ -1059,7 +1064,9 @@ export function AppProvider({ children }) {
         mentorId: ownerId,
         mentorName: ownerName,
         used: false,
-        createdAt: Date.now(),
+        duration: timing.duration,
+        expiresAt: timing.expiresAt,
+        createdAt,
         usedAt: null,
         updatedAt: Date.now(),
         bot: {
@@ -1194,6 +1201,10 @@ export function AppProvider({ children }) {
       }
       if (entry.used) {
         showToast("License key already used");
+        return false;
+      }
+      if (isLicenseExpired(entry)) {
+        showToast("License key has expired — ask your mentor for a new one");
         return false;
       }
 

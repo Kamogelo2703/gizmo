@@ -28,6 +28,18 @@ export function normalizeLicenseKey(key) {
     .replace(/[^A-Z0-9-]/g, "");
 }
 
+function resolveLicenseExpiry(durationId, from = Date.now()) {
+  const id = String(durationId || "lifetime")
+    .trim()
+    .toLowerCase();
+  const months =
+    id === "1m" ? 1 : id === "3m" ? 3 : id === "2y" ? 24 : null;
+  if (months == null) return { duration: "lifetime", expiresAt: null };
+  const start = new Date(Number(from) || Date.now());
+  start.setMonth(start.getMonth() + months);
+  return { duration: id, expiresAt: start.getTime() };
+}
+
 export function licenseKeyVariants(rawKey) {
   const base = normalizeLicenseKey(rawKey);
   if (!base) return [];
@@ -373,6 +385,11 @@ function normalizeLicense(row) {
     mentorId: String(row?.mentorId || row?.ownerId || "").trim(),
     mentorName: String(row?.mentorName || row?.ownerName || "").trim(),
     used: Boolean(row?.used),
+    duration: String(row?.duration || (row?.expiresAt ? "timed" : "lifetime")).trim() || "lifetime",
+    expiresAt:
+      row?.expiresAt == null || row?.expiresAt === ""
+        ? null
+        : Number(row.expiresAt) || null,
     createdAt: Number(row?.createdAt) || Date.now(),
     usedAt: row?.usedAt ? Number(row.usedAt) : null,
     updatedAt:
@@ -638,6 +655,19 @@ export async function createLicense(payload = {}) {
         : [],
   };
 
+  const createdAt = Number(payload.createdAt) || Date.now();
+  const durationPayload = resolveLicenseExpiry(
+    payload.duration || "lifetime",
+    createdAt
+  );
+  if (payload.expiresAt != null && payload.expiresAt !== "" && payload.duration) {
+    durationPayload.duration = String(payload.duration);
+    durationPayload.expiresAt =
+      String(payload.duration).toLowerCase() === "lifetime"
+        ? null
+        : Number(payload.expiresAt) || durationPayload.expiresAt;
+  }
+
   let result = null;
   await mutateStore((licenses) => {
     const existing = licenses.find((row) => row.key === key);
@@ -661,6 +691,9 @@ export async function createLicense(payload = {}) {
         mentorName:
           existing.mentorName ||
           String(payload.mentorName || payload.ownerName || "").trim(),
+        duration: existing.duration || durationPayload.duration,
+        expiresAt:
+          existing.expiresAt != null ? existing.expiresAt : durationPayload.expiresAt,
         updatedAt: replacePhoto
           ? Date.now()
           : Number(existing.updatedAt || existing.usedAt || existing.createdAt) ||
@@ -688,7 +721,9 @@ export async function createLicense(payload = {}) {
       mentorId: String(payload.mentorId || payload.ownerId || "").trim(),
       mentorName: String(payload.mentorName || payload.ownerName || "").trim(),
       used: false,
-      createdAt: Number(payload.createdAt) || Date.now(),
+      duration: durationPayload.duration,
+      expiresAt: durationPayload.expiresAt,
+      createdAt,
       usedAt: null,
       updatedAt: Date.now(),
       bot,
