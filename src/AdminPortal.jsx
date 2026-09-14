@@ -1033,7 +1033,7 @@ export default function AdminPortal() {
                     className="admin-input"
                     value={licenseClientName}
                     onChange={(e) => setLicenseClientName(e.target.value)}
-                    placeholder="e.g. Trapgoatkaymow"
+                    placeholder="e.g. Sam smith"
                     required
                   />
                 </label>
