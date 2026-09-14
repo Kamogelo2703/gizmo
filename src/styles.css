@@ -6057,6 +6057,8 @@ button {
 }
 
 .view-scanner.cs-v2 .cs-controls {
+  display: grid;
+  grid-template-columns: 1.15fr 1.2fr 1fr;
   gap: 10px;
   padding: 14px;
   border-radius: 20px;
