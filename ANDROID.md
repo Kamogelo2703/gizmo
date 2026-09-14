@@ -17,10 +17,10 @@ is baked into the APK.
 
 ## Download
 
-- Branded page (logo + name): https://www.apex-ea.com/download
-- Sideload file: `public/apex-ea.apk`
-- Direct APK: https://www.apex-ea.com/apex-ea.apk
+- Direct APK (instant download): https://www.apex-ea.com/apex-ea.apk
+- Short link (same file): https://www.apex-ea.com/download
 - Legacy URL (same package): https://www.apex-ea.com/ZETA-SCALPER-AI.apk
+- Sideload file: `public/apex-ea.apk`
 
 ## Rebuild
 

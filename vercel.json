@@ -35,17 +35,26 @@
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
       "source": "/download",
-      "destination": "/download.html"
+      "destination": "/apex-ea.apk",
+      "permanent": false
     },
     {
       "source": "/download/",
-      "destination": "/download.html"
+      "destination": "/apex-ea.apk",
+      "permanent": false
     },
     {
-      "source": "/((?!api/|apex-ea\\.apk|ZETA-SCALPER-AI\\.apk|download\\.html).*)",
+      "source": "/download.html",
+      "destination": "/apex-ea.apk",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!api/|apex-ea\\.apk|ZETA-SCALPER-AI\\.apk).*)",
       "destination": "/index.html"
     }
   ]
