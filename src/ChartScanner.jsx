@@ -624,93 +624,48 @@ export default function ChartScanner({ variant = "default" }) {
 
       <div className={`cs-stage${engineActive ? " is-running" : ""}${preview ? " has-chart" : ""}`}>
         <div className="cs-stage-main">
-          {variant === "v2" && !preview ? (
-            <div className="cs-lock-copy">
-              <p className="cs-lock-title">Lock onto a chart to scan</p>
-              <p className="cs-lock-sub">Point your camera or upload a chart</p>
-            </div>
-          ) : null}
-
           <div className="cs-viewport" aria-label="Chart preview">
-            {variant === "v2" ? (
-              <>
-                <span className="cs-bracket cs-bracket--tl" aria-hidden="true" />
-                <span className="cs-bracket cs-bracket--tr" aria-hidden="true" />
-                <span className="cs-bracket cs-bracket--bl" aria-hidden="true" />
-                <span className="cs-bracket cs-bracket--br" aria-hidden="true" />
-              </>
-            ) : null}
             {preview ? (
               <img className="cs-chart" src={preview} alt="Chart to scan" />
             ) : (
               <div className="cs-empty">
-                {variant === "v2" ? (
-                  <div
-                    className={`cs-sniper${engineActive ? " is-scanning" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <span className="cs-sniper-ring cs-sniper-ring--outer" />
-                    <span className="cs-sniper-ring cs-sniper-ring--mid" />
-                    <span className="cs-sniper-ring cs-sniper-ring--inner" />
-                    <span className="cs-sniper-ticks" />
-                    <span className="cs-sniper-cross" />
-                    <span className="cs-sniper-needle" />
-                    <span className="cs-sniper-sweep" />
-                    <span className="cs-sniper-dot" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="cs-slogan cs-slogan--left" aria-hidden="true">
-                      Discipline Builds Freedom
-                    </p>
-                    <div className="cs-robot-frame">
-                      <span className="cs-robot-glow" aria-hidden="true" />
-                      <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
-                        <img
-                          className="cs-robot-photo"
-                          src={activeBot?.photo || "/logo.png"}
-                          alt=""
-                          width="160"
-                          height="160"
-                        />
-                        <span className="stop-energy">
-                          {Array.from({ length: 18 }, (_, i) => (
-                            <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
-                          ))}
-                        </span>
-                      </span>
-                    </div>
-                    <p className="cs-slogan cs-slogan--right" aria-hidden="true">
-                      Trade Analyze Execute Grow
-                    </p>
-                  </>
-                )}
+                <p className="cs-slogan cs-slogan--left" aria-hidden="true">
+                  Discipline Builds Freedom
+                </p>
+                <div className="cs-robot-frame">
+                  <span className="cs-robot-glow" aria-hidden="true" />
+                  <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
+                    <img
+                      className="cs-robot-photo"
+                      src={activeBot?.photo || "/logo.png"}
+                      alt=""
+                      width="160"
+                      height="160"
+                    />
+                    <span className="stop-energy">
+                      {Array.from({ length: 18 }, (_, i) => (
+                        <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
+                      ))}
+                    </span>
+                  </span>
+                </div>
+                <p className="cs-slogan cs-slogan--right" aria-hidden="true">
+                  Trade Analyze Execute Grow
+                </p>
               </div>
             )}
             <div
-              className={`cs-scan-beam${engineActive && variant !== "v2" ? " is-on" : ""}`}
+              className={`cs-scan-beam${engineActive ? " is-on" : ""}`}
               aria-hidden="true"
             />
             <div
-              className={`cs-scan-grid${engineActive && variant !== "v2" ? " is-on" : ""}`}
+              className={`cs-scan-grid${engineActive ? " is-on" : ""}`}
               aria-hidden="true"
             />
             {engineActive ? (
               <div className="cs-engine-chip">
                 <span className="cs-engine-pulse" />
                 <span>{engineMode === "scanning" ? "Scanning" : "Trading"}</span>
-              </div>
-            ) : null}
-            {variant === "v2" && preview && engineActive ? (
-              <div className="cs-sniper cs-sniper--overlay is-scanning" aria-hidden="true">
-                <span className="cs-sniper-ring cs-sniper-ring--outer" />
-                <span className="cs-sniper-ring cs-sniper-ring--mid" />
-                <span className="cs-sniper-ring cs-sniper-ring--inner" />
-                <span className="cs-sniper-ticks" />
-                <span className="cs-sniper-cross" />
-                <span className="cs-sniper-needle" />
-                <span className="cs-sniper-sweep" />
-                <span className="cs-sniper-dot" />
               </div>
             ) : null}
           </div>
@@ -747,33 +702,21 @@ export default function ChartScanner({ variant = "default" }) {
               disabled={busy}
             >
               <span className="cs-capture-icon" aria-hidden="true">
-                {variant === "v2" ? (
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M5 7.5A1.5 1.5 0 0 1 6.5 6h11A1.5 1.5 0 0 1 19 7.5v9A1.5 1.5 0 0 1 17.5 18h-11A1.5 1.5 0 0 1 5 16.5v-9Z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    />
-                    <path
-                      d="M8 14.5 10.2 12l2.1 2.1L15.5 11l2.5 3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="9.2" cy="9.2" r="1.1" fill="currentColor" />
-                  </svg>
-                )}
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5 7.5A1.5 1.5 0 0 1 6.5 6h11A1.5 1.5 0 0 1 19 7.5v9A1.5 1.5 0 0 1 17.5 18h-11A1.5 1.5 0 0 1 5 16.5v-9Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M8 14.5 10.2 12l2.1 2.1L15.5 11l2.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="9.2" cy="9.2" r="1.1" fill="currentColor" />
+                </svg>
               </span>
               <span className="cs-capture-text">
                 <strong>Upload</strong>
@@ -807,37 +750,21 @@ export default function ChartScanner({ variant = "default" }) {
         <div className="cs-engine-top">
           <div className="cs-engine-label">
             <span className="cs-engine-gear" aria-hidden="true">
-              {variant === "v2" ? (
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M19.4 13.2v-2.4l-1.7-.3a5.8 5.8 0 0 0-.5-1.2l1-1.4-1.7-1.7-1.4 1a5.8 5.8 0 0 0-1.2-.5L13.2 4.6h-2.4l-.3 1.7a5.8 5.8 0 0 0-1.2.5l-1.4-1-1.7 1.7 1 1.4a5.8 5.8 0 0 0-.5 1.2l-1.7.3v2.4l1.7.3c.1.4.3.8.5 1.2l-1 1.4 1.7 1.7 1.4-1c.4.2.8.4 1.2.5l.3 1.7h2.4l.3-1.7c.4-.1.8-.3 1.2-.5l1.4 1 1.7-1.7-1-1.4c.2-.4.4-.8.5-1.2l1.7-.3Z"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none">
-                  <rect
-                    x="4.5"
-                    y="4.5"
-                    width="15"
-                    height="15"
-                    rx="2.2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M8 8h3.2v3.2H8V8Zm4.8 0H16v3.2h-3.2V8ZM8 12.8h3.2V16H8v-3.2Zm4.8 0H16V16h-3.2v-3.2Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              )}
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect
+                  x="4.5"
+                  y="4.5"
+                  width="15"
+                  height="15"
+                  rx="2.2"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+                <path
+                  d="M8 8h3.2v3.2H8V8Zm4.8 0H16v3.2h-3.2V8ZM8 12.8h3.2V16H8v-3.2Zm4.8 0H16V16h-3.2v-3.2Z"
+                  fill="currentColor"
+                />
+              </svg>
             </span>
             <div>
               <p className="cs-engine-kicker">Trading Engine</p>
