@@ -35,8 +35,7 @@ export default async function handler(req, res) {
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
       if (body.premiumScanner === true || body.action === "premiumScanner") {
-        await upsertSignup(body.email, { status: "pending" });
-        await setSignupStatus(body.email, "approved");
+        // Single write — setSignupPremiumScanner also approves the account.
         const signup = await setSignupPremiumScanner(body.email, true);
         sendJson(res, 200, { signup, premiumScanner: true });
         return;

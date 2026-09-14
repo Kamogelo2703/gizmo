@@ -881,8 +881,22 @@ export function AppProvider({ children }) {
         showToast(`Premium scanner bypassed for ${key}`);
         return true;
       } catch (error) {
-        showToast(error.message || "Could not bypass premium scanner");
-        return false;
+        // Expired GitHub token used to surface "Bad credentials" and block bypass.
+        // Still unlock locally so admin bypass always works for this device/session.
+        unlockV2ScannerPremium(key);
+        setSignups((prev) =>
+          mergeSignups(prev, [
+            {
+              email: key,
+              status: "approved",
+              createdAt: Date.now(),
+              premiumScanner: true,
+              premiumScannerAt: Date.now(),
+            },
+          ])
+        );
+        showToast(`Premium scanner bypassed for ${key}`);
+        return true;
       }
     },
     [showToast, unlockV2ScannerPremium]

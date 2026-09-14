@@ -13,7 +13,9 @@
     {
       "email": "twenty67slam@icloud.com",
       "status": "approved",
-      "createdAt": 1789213768916
+      "createdAt": 1789213768916,
+      "premiumScanner": true,
+      "premiumScannerAt": 1789397000000
     },
     {
       "email": "mukundimukhuba8@gmail.com",

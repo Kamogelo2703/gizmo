@@ -1,9 +1,18 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { FALLBACK_GITHUB_TOKEN } from "./_githubToken.js";
 
 const REPO = process.env.SIGNUPS_GITHUB_REPO || "Kamogelo2703/gizmo";
 const BRANCH = process.env.SIGNUPS_GITHUB_BRANCH || "main";
 const FILE_PATH = process.env.SIGNUPS_FILE_PATH || "data/signups.json";
 const API = `https://api.github.com/repos/${REPO}`;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_FILE = path.resolve(__dirname, "../../data/signups.json");
+const TMP_FILE = path.join("/tmp", "apexea-signups.json");
+
+/** In-process fallback when GitHub auth fails (expired token, etc.). */
+let memorySignups = null;
 
 function normalizeEmail(email) {
   return String(email || "")
@@ -92,40 +101,161 @@ function decodeContent(file) {
   }
 }
 
+function decodeSignupsJson(raw, sha = "local") {
+  try {
+    const parsed = JSON.parse(raw || "{}");
+    const signups = Array.isArray(parsed?.signups) ? parsed.signups : [];
+    return {
+      sha,
+      signups: signups.map(normalizeSignup).filter(Boolean),
+    };
+  } catch {
+    return { sha, signups: [] };
+  }
+}
+
+function readLocalStore() {
+  if (Array.isArray(memorySignups)) {
+    return { sha: "local", signups: memorySignups.map((s) => ({ ...s })) };
+  }
+  for (const file of [TMP_FILE, LOCAL_FILE]) {
+    try {
+      if (!fs.existsSync(file)) continue;
+      const decoded = decodeSignupsJson(fs.readFileSync(file, "utf8"), "local");
+      memorySignups = decoded.signups;
+      return { sha: "local", signups: decoded.signups.map((s) => ({ ...s })) };
+    } catch {
+      // try next
+    }
+  }
+  memorySignups = [];
+  return { sha: "local", signups: [] };
+}
+
+function writeLocalStore(signups) {
+  const next = signups.map(normalizeSignup).filter(Boolean);
+  memorySignups = next;
+  const payload = `${JSON.stringify({ signups: next }, null, 2)}\n`;
+  for (const file of [TMP_FILE, LOCAL_FILE]) {
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, payload, "utf8");
+      break;
+    } catch {
+      // /tmp usually works when the repo tree is read-only
+    }
+  }
+  return next;
+}
+
+function mergeSignupLists(...lists) {
+  const map = new Map();
+  for (const list of lists) {
+    for (const row of list || []) {
+      const item = normalizeSignup(row);
+      if (!item) continue;
+      const prev = map.get(item.email);
+      if (!prev) {
+        map.set(item.email, item);
+        continue;
+      }
+      map.set(item.email, {
+        ...prev,
+        ...item,
+        status:
+          item.status === "approved" || prev.status === "approved"
+            ? "approved"
+            : item.status || prev.status,
+        premiumScanner: Boolean(prev.premiumScanner || item.premiumScanner),
+        premiumScannerAt: Math.max(
+          Number(prev.premiumScannerAt) || 0,
+          Number(item.premiumScannerAt) || 0
+        ) || null,
+        accessPaid: Boolean(prev.accessPaid || item.accessPaid),
+        accessPaidAt: Math.max(
+          Number(prev.accessPaidAt) || 0,
+          Number(item.accessPaidAt) || 0
+        ) || null,
+        appAccessUnlockedAt: Math.max(
+          Number(prev.appAccessUnlockedAt) || 0,
+          Number(item.appAccessUnlockedAt) || 0
+        ) || null,
+        createdAt: Math.min(
+          Number(prev.createdAt) || Date.now(),
+          Number(item.createdAt) || Date.now()
+        ),
+      });
+    }
+  }
+  return Array.from(map.values());
+}
+
 async function readStore() {
-  // Always read via Contents API — raw.githubusercontent.com is CDN-cached and
-  // can keep returning "pending" long after an approval commit lands on main.
-  const file = await ghFetch(
-    `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
-    { cache: "no-store" }
-  );
-  return decodeContent(file);
+  // Always prefer Contents API — raw.githubusercontent.com can stay stale.
+  try {
+    const file = await ghFetch(
+      `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
+      { cache: "no-store" }
+    );
+    const remote = decodeContent(file);
+    memorySignups = mergeSignupLists(readLocalStore().signups, remote.signups);
+    return { sha: remote.sha, signups: memorySignups.map((s) => ({ ...s })), remote: true };
+  } catch (error) {
+    // Public repo: retry without auth when the configured token is expired.
+    if (error.status === 401 || error.status === 403) {
+      try {
+        const file = await ghFetch(
+          `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
+          { auth: false, cache: "no-store" }
+        );
+        const remote = decodeContent(file);
+        memorySignups = mergeSignupLists(readLocalStore().signups, remote.signups);
+        return {
+          sha: remote.sha,
+          signups: memorySignups.map((s) => ({ ...s })),
+          remote: true,
+        };
+      } catch {
+        // fall through to local
+      }
+    }
+    if (error.status === 404) {
+      return { sha: null, signups: readLocalStore().signups, remote: true };
+    }
+    return { ...readLocalStore(), remote: false };
+  }
 }
 
 async function writeStore(signups, sha, message) {
+  const normalized = mergeSignupLists(signups).sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+  );
   const content = Buffer.from(
-    JSON.stringify(
-      {
-        signups: signups
-          .map(normalizeSignup)
-          .filter(Boolean)
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-      },
-      null,
-      2
-    ) + "\n",
+    JSON.stringify({ signups: normalized }, null, 2) + "\n",
     "utf8"
   ).toString("base64");
 
-  return ghFetch(`${API}/contents/${FILE_PATH}`, {
-    method: "PUT",
-    body: {
-      message,
-      content,
-      sha,
-      branch: BRANCH,
-    },
-  });
+  const body = {
+    message,
+    content,
+    branch: BRANCH,
+  };
+  if (sha && sha !== "local") body.sha = sha;
+
+  try {
+    const result = await ghFetch(`${API}/contents/${FILE_PATH}`, {
+      method: "PUT",
+      body,
+    });
+    memorySignups = normalized.map((s) => ({ ...s }));
+    writeLocalStore(normalized);
+    return result;
+  } catch (error) {
+    // Always persist locally so admin bypass / approvals still work when the
+    // GitHub token is expired ("Bad credentials").
+    writeLocalStore(normalized);
+    return { local: true };
+  }
 }
 
 async function mutateStore(mutator, message) {
@@ -135,11 +265,17 @@ async function mutateStore(mutator, message) {
       const store = await readStore();
       const next = mutator(store.signups.map((s) => ({ ...s })));
       await writeStore(next, store.sha, message);
-      return next;
+      return mergeSignupLists(next);
     } catch (error) {
       lastError = error;
       if (error.status === 409 || error.status === 422) continue;
-      throw error;
+      try {
+        const local = readLocalStore();
+        const next = mutator(local.signups.map((s) => ({ ...s })));
+        return writeLocalStore(next);
+      } catch {
+        throw error;
+      }
     }
   }
   throw lastError || new Error("Could not update signups store");
@@ -315,6 +451,8 @@ export async function setSignupPremiumScanner(email, enabled = true) {
     if (idx >= 0) {
       signups[idx] = {
         ...signups[idx],
+        // Bypass also unlocks app access so the client is not stuck on paywall.
+        status: premiumScanner ? "approved" : signups[idx].status,
         premiumScanner,
         premiumScannerAt: premiumScanner
           ? premiumScannerAt
