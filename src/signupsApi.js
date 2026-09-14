@@ -47,6 +47,14 @@ export async function updateSignupStatus(email, status) {
   return data?.signup || null;
 }
 
+export async function updateSignupPremiumScanner(email) {
+  const data = await apiFetch("", {
+    method: "PATCH",
+    body: { email, premiumScanner: true, action: "premiumScanner" },
+  });
+  return data?.signup || null;
+}
+
 export function mergeSignups(localList = [], remoteList = []) {
   const map = new Map();
   [...localList, ...remoteList].forEach((item) => {

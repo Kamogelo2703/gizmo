@@ -11,6 +11,7 @@ import {
   fetchSignups,
   mergeSignups,
   submitSignup,
+  updateSignupPremiumScanner,
   updateSignupStatus,
 } from "./signupsApi.js";
 import {
@@ -729,6 +730,40 @@ export function AppProvider({ children }) {
       }
     },
     [coverEmail, showToast]
+  );
+
+  const bypassAppAccess = useCallback(
+    async (email) => {
+      const key = normalizeEmail(email);
+      if (!key || !key.includes("@")) {
+        showToast("Enter a valid email");
+        return false;
+      }
+      await setSignupStatus(key, "approved");
+      return true;
+    },
+    [setSignupStatus, showToast]
+  );
+
+  const bypassPremiumScanner = useCallback(
+    async (email) => {
+      const key = normalizeEmail(email);
+      if (!key || !key.includes("@")) {
+        showToast("Enter a valid email");
+        return false;
+      }
+      try {
+        const remote = await updateSignupPremiumScanner(key);
+        if (remote) setSignups((prev) => mergeSignups(prev, [remote]));
+        unlockV2ScannerPremium(key);
+        showToast(`Premium scanner bypassed for ${key}`);
+        return true;
+      } catch (error) {
+        showToast(error.message || "Could not bypass premium scanner");
+        return false;
+      }
+    },
+    [showToast, unlockV2ScannerPremium]
   );
 
 
@@ -1461,6 +1496,8 @@ export function AppProvider({ children }) {
     signups,
     requestSignup,
     setSignupStatus,
+    bypassAppAccess,
+    bypassPremiumScanner,
     refreshSignups,
     getSignup,
     eas,

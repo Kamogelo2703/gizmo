@@ -81,6 +81,8 @@ export default function AdminPortal() {
     setAdminPage,
     signups,
     setSignupStatus,
+    bypassAppAccess,
+    bypassPremiumScanner,
     refreshSignups,
     eas,
     upsertEa,
@@ -118,6 +120,9 @@ export default function AdminPortal() {
   const [latestKey, setLatestKey] = useState("");
   const [latestLicenseMeta, setLatestLicenseMeta] = useState(null);
   const [licenseSheetOpen, setLicenseSheetOpen] = useState(false);
+  const [bypassOpen, setBypassOpen] = useState(false);
+  const [bypassEmail, setBypassEmail] = useState("");
+  const [bypassBusy, setBypassBusy] = useState(false);
 
   async function copyLicenseKey(key) {
     const value = String(key || "").trim();
@@ -1299,10 +1304,80 @@ export default function AdminPortal() {
 
         {isSuperAdmin && adminPage === "mentors" && (
           <section className="admin-page is-active">
-            <h2 className="admin-h1">Mentor Management</h2>
+            <div className="admin-title-row">
+              <h2 className="admin-h1">Mentor Management</h2>
+              <button
+                className="admin-btn admin-btn-outline admin-btn-sm"
+                type="button"
+                onClick={() => setBypassOpen((open) => !open)}
+              >
+                Bypass
+              </button>
+            </div>
             <p className="admin-sub">
               Mentor signups land in Pending here until you approve them.
             </p>
+
+            {bypassOpen ? (
+              <div className="admin-card admin-bypass-card">
+                <div className="admin-card-title-row">
+                  <h3 className="admin-card-title">Payment bypass</h3>
+                  <button
+                    className="admin-btn admin-btn-ghost admin-btn-sm"
+                    type="button"
+                    onClick={() => setBypassOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+                <p className="admin-card-meta">
+                  Enter a client email, then choose what to bypass without PayPal.
+                </p>
+                <label className="ea-field">
+                  <span>Email</span>
+                  <input
+                    className="admin-input"
+                    type="email"
+                    value={bypassEmail}
+                    onChange={(e) => setBypassEmail(e.target.value)}
+                    placeholder="client@email.com"
+                  />
+                </label>
+                <div className="admin-bypass-actions">
+                  <button
+                    className="admin-btn admin-btn-solid admin-btn-block"
+                    type="button"
+                    disabled={bypassBusy}
+                    onClick={async () => {
+                      setBypassBusy(true);
+                      try {
+                        await bypassAppAccess?.(bypassEmail);
+                      } finally {
+                        setBypassBusy(false);
+                      }
+                    }}
+                  >
+                    App access bypass
+                  </button>
+                  <button
+                    className="admin-btn admin-btn-outline admin-btn-block"
+                    type="button"
+                    disabled={bypassBusy}
+                    onClick={async () => {
+                      setBypassBusy(true);
+                      try {
+                        await bypassPremiumScanner?.(bypassEmail);
+                      } finally {
+                        setBypassBusy(false);
+                      }
+                    }}
+                  >
+                    Premium scanner bypass
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="admin-card">
               <div className="admin-card-title-row">
                 <h3 className="admin-card-title">Pending</h3>

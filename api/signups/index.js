@@ -2,6 +2,7 @@ import {
   listSignups,
   readJsonBody,
   sendJson,
+  setSignupPremiumScanner,
   setSignupStatus,
   upsertSignup,
 } from "./_lib.js";
@@ -33,6 +34,13 @@ export default async function handler(req, res) {
 
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
+      if (body.premiumScanner === true || body.action === "premiumScanner") {
+        await upsertSignup(body.email, { status: "pending" });
+        await setSignupStatus(body.email, "approved");
+        const signup = await setSignupPremiumScanner(body.email, true);
+        sendJson(res, 200, { signup, premiumScanner: true });
+        return;
+      }
       const signup = await setSignupStatus(body.email, body.status);
       sendJson(res, 200, { signup });
       return;
