@@ -579,50 +579,44 @@ export default function ChartScanner({ variant = "default" }) {
         <div className="cs-head-main">
           <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
           <h2 className="cs-title">Chart Scanner</h2>
-          {variant === "v2" ? (
-            <p className="cs-tagline">Scan · Analyze · Trade Smarter</p>
-          ) : null}
+          <p className="cs-tagline">Scan · Analyze · Trade Smarter</p>
         </div>
         <div className="cs-head-meta">
-          {variant === "v2" ? (
-            <button
-              className="cs-settings-btn"
-              type="button"
-              aria-label="Switch interface"
-              title="Switch interface"
-              onClick={toggleInterface}
-            >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <button
+            className="cs-settings-btn"
+            type="button"
+            aria-label="Switch interface"
+            title="Switch interface"
+            onClick={toggleInterface}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 7h10M4 12h16M4 17h12"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+              />
+              <circle cx="16" cy="7" r="2.2" fill="currentColor" />
+              <circle cx="8" cy="12" r="2.2" fill="currentColor" />
+              <circle cx="14" cy="17" r="2.2" fill="currentColor" />
+            </svg>
+          </button>
+          <span className="cs-scans-left">
+            <span className="cs-scans-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
                 <path
-                  d="M4 7h10M4 12h16M4 17h12"
+                  d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"
                   stroke="currentColor"
-                  strokeWidth="1.9"
+                  strokeWidth="1.8"
                   strokeLinecap="round"
                 />
-                <circle cx="16" cy="7" r="2.2" fill="currentColor" />
-                <circle cx="8" cy="12" r="2.2" fill="currentColor" />
-                <circle cx="14" cy="17" r="2.2" fill="currentColor" />
+                <circle cx="12" cy="12" r="2.2" fill="currentColor" />
               </svg>
-            </button>
-          ) : null}
-          <span className="cs-scans-left">
-            {variant === "v2" ? (
-              <span className="cs-scans-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="12" cy="12" r="2.2" fill="currentColor" />
-                </svg>
-              </span>
-            ) : null}
+            </span>
             {`${scansLeft} scans left`}
           </span>
           <span className={`cs-mt-pill${connected ? " is-on" : ""}`}>
-            {variant === "v2" ? <span className="cs-mt-dot" aria-hidden="true" /> : null}
+            <span className="cs-mt-dot" aria-hidden="true" />
             {connected ? `MT5 · ${mt5Session.login}` : "MT5 offline"}
           </span>
         </div>
@@ -650,11 +644,6 @@ export default function ChartScanner({ variant = "default" }) {
               <img className="cs-chart" src={preview} alt="Chart to scan" />
             ) : (
               <div className="cs-empty">
-                {variant !== "v2" ? (
-                  <p className="cs-empty-copy">
-                    Point the camera at a chart or upload a screenshot
-                  </p>
-                ) : null}
                 {variant === "v2" ? (
                   <div
                     className={`cs-sniper${engineActive ? " is-scanning" : ""}`}
@@ -670,13 +659,31 @@ export default function ChartScanner({ variant = "default" }) {
                     <span className="cs-sniper-dot" />
                   </div>
                 ) : (
-                  <span className="cs-empty-orb" aria-hidden="true">
-                    <span className="stop-energy">
-                      {Array.from({ length: 18 }, (_, i) => (
-                        <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
-                      ))}
-                    </span>
-                  </span>
+                  <>
+                    <p className="cs-slogan cs-slogan--left" aria-hidden="true">
+                      Discipline Builds Freedom
+                    </p>
+                    <div className="cs-robot-frame">
+                      <span className="cs-robot-glow" aria-hidden="true" />
+                      <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
+                        <img
+                          className="cs-robot-photo"
+                          src={activeBot?.photo || "/logo.png"}
+                          alt=""
+                          width="160"
+                          height="160"
+                        />
+                        <span className="stop-energy">
+                          {Array.from({ length: 18 }, (_, i) => (
+                            <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
+                          ))}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="cs-slogan cs-slogan--right" aria-hidden="true">
+                      Trade Analyze Execute Grow
+                    </p>
+                  </>
                 )}
               </div>
             )}
@@ -710,7 +717,7 @@ export default function ChartScanner({ variant = "default" }) {
 
           <div className={`cs-capture-row${engineActive ? " is-scanning" : ""}`}>
             <button
-              className={`cs-capture-btn${variant === "v2" ? " is-primary" : ""}`}
+              className="cs-capture-btn is-primary"
               type="button"
               onClick={openCamera}
               disabled={busy}
@@ -725,50 +732,56 @@ export default function ChartScanner({ variant = "default" }) {
                   <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
                 </svg>
               </span>
-              {variant === "v2" ? (
-                <span className="cs-capture-text">
-                  <strong>Camera</strong>
-                  <em>Open camera</em>
-                </span>
-              ) : (
-                "Camera"
-              )}
-              {variant === "v2" ? (
-                <span className="cs-capture-chevron" aria-hidden="true">
-                  ›
-                </span>
-              ) : null}
+              <span className="cs-capture-text">
+                <strong>Camera</strong>
+                <em>Open camera</em>
+              </span>
+              <span className="cs-capture-chevron" aria-hidden="true">
+                ›
+              </span>
             </button>
             <button
-              className={`cs-capture-btn${variant === "v2" ? " is-ghost" : ""}`}
+              className="cs-capture-btn is-ghost"
               type="button"
               onClick={openUpload}
               disabled={busy}
             >
               <span className="cs-capture-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                {variant === "v2" ? (
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 4v10m0-10 3.5 3.5M12 4 8.5 7.5M5 14.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M5 7.5A1.5 1.5 0 0 1 6.5 6h11A1.5 1.5 0 0 1 19 7.5v9A1.5 1.5 0 0 1 17.5 18h-11A1.5 1.5 0 0 1 5 16.5v-9Z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                    <path
+                      d="M8 14.5 10.2 12l2.1 2.1L15.5 11l2.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="9.2" cy="9.2" r="1.1" fill="currentColor" />
+                  </svg>
+                )}
               </span>
-              {variant === "v2" ? (
-                <span className="cs-capture-text">
-                  <strong>Upload</strong>
-                  <em>Choose image</em>
-                </span>
-              ) : (
-                "Upload"
-              )}
-              {variant === "v2" ? (
-                <span className="cs-capture-chevron" aria-hidden="true">
-                  ›
-                </span>
-              ) : null}
+              <span className="cs-capture-text">
+                <strong>Upload</strong>
+                <em>Choose image</em>
+              </span>
+              <span className="cs-capture-chevron" aria-hidden="true">
+                ›
+              </span>
             </button>
           </div>
         </div>
@@ -793,8 +806,8 @@ export default function ChartScanner({ variant = "default" }) {
       <div className={`cs-engine${engineActive ? " is-open" : ""}`} aria-live="polite">
         <div className="cs-engine-top">
           <div className="cs-engine-label">
-            {variant === "v2" ? (
-              <span className="cs-engine-gear" aria-hidden="true">
+            <span className="cs-engine-gear" aria-hidden="true">
+              {variant === "v2" ? (
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
                     d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
@@ -808,8 +821,24 @@ export default function ChartScanner({ variant = "default" }) {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </span>
-            ) : null}
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect
+                    x="4.5"
+                    y="4.5"
+                    width="15"
+                    height="15"
+                    rx="2.2"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M8 8h3.2v3.2H8V8Zm4.8 0H16v3.2h-3.2V8ZM8 12.8h3.2V16H8v-3.2Zm4.8 0H16V16h-3.2v-3.2Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              )}
+            </span>
             <div>
               <p className="cs-engine-kicker">Trading Engine</p>
               <p className="cs-engine-status">
@@ -922,15 +951,13 @@ export default function ChartScanner({ variant = "default" }) {
 
       <div className="cs-tp-config" aria-label="Take-profit risk reward ratios">
         <p className="cs-tp-config-label">
-          {variant === "v2" ? (
-            <span className="cs-tp-config-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.7" />
-                <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
-                <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-              </svg>
-            </span>
-          ) : null}
+          <span className="cs-tp-config-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.7" />
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+              <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+            </svg>
+          </span>
           TP targets
         </p>
         <div className="cs-tp-config-row" role="group" aria-label="Fixed TP ratios">
