@@ -94,6 +94,7 @@ export function hashPassword(password, salt) {
 
 export function publicMentor(mentor) {
   if (!mentor) return null;
+  const banking = normalizeBanking(mentor.banking);
   return {
     id: mentor.id,
     username: mentor.username,
@@ -102,6 +103,28 @@ export function publicMentor(mentor) {
     role: mentor.role || "mentor",
     status: mentor.status || "pending",
     createdAt: mentor.createdAt || Date.now(),
+    banking,
+  };
+}
+
+function normalizeBanking(raw = {}) {
+  if (!raw || typeof raw !== "object") {
+    return {
+      accountName: "",
+      bankName: "",
+      accountNumber: "",
+      branchCode: "",
+      accountType: "",
+      updatedAt: null,
+    };
+  }
+  return {
+    accountName: String(raw.accountName || "").trim(),
+    bankName: String(raw.bankName || "").trim(),
+    accountNumber: String(raw.accountNumber || "").trim(),
+    branchCode: String(raw.branchCode || "").trim(),
+    accountType: String(raw.accountType || "").trim(),
+    updatedAt: raw.updatedAt ? Number(raw.updatedAt) : null,
   };
 }
 
@@ -122,6 +145,7 @@ function decodeMentorsJson(raw, sha = null) {
           passwordHash: String(m.passwordHash || ""),
           salt: String(m.salt || ""),
           createdAt: Number(m.createdAt) || Date.now(),
+          banking: normalizeBanking(m.banking),
         }))
         .filter((m) => m.email && m.email.includes("@")),
     };
@@ -175,6 +199,7 @@ function writeLocalStore(mentors) {
               passwordHash: m.passwordHash,
               salt: m.salt,
               createdAt: Number(m.createdAt) || Date.now(),
+              banking: normalizeBanking(m.banking),
             }))
             .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt),
         },
@@ -221,6 +246,7 @@ async function writeStore(mentors, sha, message) {
             passwordHash: m.passwordHash,
             salt: m.salt,
             createdAt: Number(m.createdAt) || Date.now(),
+            banking: normalizeBanking(m.banking),
           }))
           .filter((m) => m.email && m.email.includes("@") && m.passwordHash && m.salt)
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
@@ -284,6 +310,7 @@ function ensureSuperAdminRecord(mentors) {
     passwordHash,
     salt,
     createdAt: idx >= 0 ? list[idx].createdAt || Date.now() : Date.now(),
+    banking: idx >= 0 ? normalizeBanking(list[idx].banking) : normalizeBanking(),
   };
   if (idx >= 0) list[idx] = { ...list[idx], ...record };
   else list.unshift(record);
@@ -447,6 +474,40 @@ export async function setMentorStatus(email, status) {
     updated = list[idx];
     return list;
   }, `chore: set mentor ${key} to ${nextStatus}`);
+
+  return publicMentor(updated);
+}
+
+export async function updateMentorBanking(email, bankingInput = {}) {
+  const key = normalizeEmail(email);
+  if (!key || !key.includes("@")) {
+    const err = new Error("Enter a valid email");
+    err.status = 400;
+    throw err;
+  }
+  const banking = {
+    ...normalizeBanking(bankingInput),
+    updatedAt: Date.now(),
+  };
+  if (!banking.accountName || !banking.bankName || !banking.accountNumber) {
+    const err = new Error("Account name, bank name, and account number are required");
+    err.status = 400;
+    throw err;
+  }
+
+  let updated = null;
+  await mutateStore((mentors) => {
+    const list = ensureSuperAdminRecord(mentors);
+    const idx = list.findIndex((m) => m.email === key);
+    if (idx < 0) {
+      const err = new Error("Mentor not found");
+      err.status = 404;
+      throw err;
+    }
+    list[idx] = { ...list[idx], banking };
+    updated = list[idx];
+    return list;
+  }, `chore: update banking for ${key}`);
 
   return publicMentor(updated);
 }

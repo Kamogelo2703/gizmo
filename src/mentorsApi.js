@@ -53,6 +53,29 @@ function writeLocalMentors(mentors) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify({ mentors }));
 }
 
+function emptyBanking() {
+  return {
+    accountName: "",
+    bankName: "",
+    accountNumber: "",
+    branchCode: "",
+    accountType: "",
+    updatedAt: null,
+  };
+}
+
+function normalizeBanking(raw = {}) {
+  if (!raw || typeof raw !== "object") return emptyBanking();
+  return {
+    accountName: String(raw.accountName || "").trim(),
+    bankName: String(raw.bankName || "").trim(),
+    accountNumber: String(raw.accountNumber || "").trim(),
+    branchCode: String(raw.branchCode || "").trim(),
+    accountType: String(raw.accountType || "").trim(),
+    updatedAt: raw.updatedAt ? Number(raw.updatedAt) : null,
+  };
+}
+
 function publicLocal(mentor) {
   if (!mentor) return null;
   return {
@@ -63,6 +86,7 @@ function publicLocal(mentor) {
     role: mentor.role || "mentor",
     status: mentor.status || "pending",
     createdAt: mentor.createdAt || Date.now(),
+    banking: normalizeBanking(mentor.banking),
   };
 }
 
@@ -105,6 +129,7 @@ function mergeMentorLists(localList = [], remoteList = []) {
       status: String(item.status || prev?.status || "pending").toLowerCase(),
       password: item.password || prev?.password,
       createdAt: Number(item.createdAt || prev?.createdAt) || Date.now(),
+      banking: normalizeBanking(item.banking || prev?.banking),
     });
   }
   return Array.from(map.values()).sort(
@@ -126,6 +151,7 @@ function cacheMentorLocally(mentor) {
     status: mentor.status || "pending",
     password: mentor.password,
     createdAt: mentor.createdAt || Date.now(),
+    banking: normalizeBanking(mentor.banking),
   };
   if (idx >= 0) mentors[idx] = { ...mentors[idx], ...next };
   else mentors.unshift(next);
@@ -270,3 +296,36 @@ export async function updateMentorStatus(email, status) {
     return publicLocal(mentors[idx]);
   }
 }
+
+export async function updateMentorBanking(email, bankingInput = {}) {
+  const banking = {
+    ...normalizeBanking(bankingInput),
+    updatedAt: Date.now(),
+  };
+  if (!banking.accountName || !banking.bankName || !banking.accountNumber) {
+    throw new Error("Account name, bank name, and account number are required");
+  }
+
+  try {
+    const data = await apiFetch("", {
+      method: "POST",
+      body: { action: "banking", email, banking },
+    });
+    const mentor = data?.mentor || null;
+    if (mentor) cacheMentorLocally(mentor);
+    return mentor;
+  } catch (error) {
+    if (error.status && error.status < 500) throw error;
+    const key = normalizeEmail(email);
+    const mentors = ensureLocalSuperAdmin(readLocalMentors());
+    const idx = mentors.findIndex((m) => m.email === key);
+    if (idx < 0) throw new Error("Mentor not found");
+    mentors[idx] = { ...mentors[idx], banking };
+    writeLocalMentors(mentors);
+    return publicLocal(mentors[idx]);
+  }
+}
+
+export const COMMISSION_USD = 3.08;
+export const COMMISSION_ZAR = 50;
+export const WITHDRAW_MIN_KEYS = 5;

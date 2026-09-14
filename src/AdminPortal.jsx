@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminAuth from "./AdminAuth.jsx";
 import {
+  COMMISSION_USD,
+  COMMISSION_ZAR,
   fetchMentors,
   SUPER_ADMIN_EMAIL,
+  updateMentorBanking,
   updateMentorStatus,
+  WITHDRAW_MIN_KEYS,
 } from "./mentorsApi.js";
 import {
   formatLicenseDuration,
@@ -123,6 +127,14 @@ export default function AdminPortal() {
   const [bypassOpen, setBypassOpen] = useState(false);
   const [bypassEmail, setBypassEmail] = useState("");
   const [bypassBusy, setBypassBusy] = useState(false);
+  const [bankingForm, setBankingForm] = useState({
+    accountName: "",
+    bankName: "",
+    accountNumber: "",
+    branchCode: "",
+    accountType: "",
+  });
+  const [bankingBusy, setBankingBusy] = useState(false);
 
   async function copyLicenseKey(key) {
     const value = String(key || "").trim();
@@ -259,13 +271,32 @@ export default function AdminPortal() {
     }
     loadMentors();
     // Poll faster on Mentors page so new signups show in Pending quickly.
-    const ms = adminPage === "mentors" ? 5000 : 12000;
+    const ms =
+      adminPage === "mentors" || adminPage === "commissions" || adminPage === "commission"
+        ? 5000
+        : 12000;
     const timer = setInterval(loadMentors, ms);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [adminOpen, adminSession, adminPage]);
+
+  useEffect(() => {
+    if (!adminSession?.email) return;
+    const mine = mentors.find(
+      (m) => normalizeAdminEmail(m.email) === normalizeAdminEmail(adminSession.email)
+    );
+    const banking = mine?.banking;
+    if (!banking) return;
+    setBankingForm({
+      accountName: banking.accountName || "",
+      bankName: banking.bankName || "",
+      accountNumber: banking.accountNumber || "",
+      branchCode: banking.branchCode || "",
+      accountType: banking.accountType || "",
+    });
+  }, [mentors, adminSession?.email]);
 
   async function refreshMentorsList() {
     try {
@@ -274,6 +305,32 @@ export default function AdminPortal() {
       showToast("Mentors refreshed");
     } catch (error) {
       showToast(error.message || "Could not refresh mentors");
+    }
+  }
+
+  async function saveMentorBanking() {
+    if (!adminSession?.email) return;
+    setBankingBusy(true);
+    try {
+      const updated = await updateMentorBanking(adminSession.email, bankingForm);
+      setMentors((prev) => {
+        const next = prev.map((m) => (m.email === updated.email ? updated : m));
+        if (!next.some((m) => m.email === updated.email)) next.unshift(updated);
+        return next;
+      });
+      const banking = updated?.banking || bankingForm;
+      setBankingForm({
+        accountName: banking.accountName || "",
+        bankName: banking.bankName || "",
+        accountNumber: banking.accountNumber || "",
+        branchCode: banking.branchCode || "",
+        accountType: banking.accountType || "",
+      });
+      showToast("Banking details saved");
+    } catch (error) {
+      showToast(error.message || "Could not save banking details");
+    } finally {
+      setBankingBusy(false);
     }
   }
 
@@ -293,6 +350,7 @@ export default function AdminPortal() {
       "licenses",
       "profile",
       "settings",
+      "commission",
     ]);
     if (!isSuper && !mentorPages.has(adminPage)) {
       setAdminPage("dashboard");
@@ -533,10 +591,50 @@ export default function AdminPortal() {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, 8);
 
+  function countSoldKeysForMentor(mentor) {
+    const email = normalizeAdminEmail(mentor?.email);
+    const id = String(mentor?.id || "");
+    return licenseKeys.filter((row) => {
+      const owner = normalizeAdminEmail(row.mentorEmail);
+      const ownerId = String(row.mentorId || "");
+      return (email && owner === email) || (id && ownerId === id);
+    }).length;
+  }
+
+  const soldKeysCount = countSoldKeysForMentor(adminSession);
+  const commissionUsd = Number((soldKeysCount * COMMISSION_USD).toFixed(2));
+  const commissionZar = soldKeysCount * COMMISSION_ZAR;
+  const canWithdraw = soldKeysCount >= WITHDRAW_MIN_KEYS;
+  const keysUntilWithdraw = Math.max(0, WITHDRAW_MIN_KEYS - soldKeysCount);
+
+  const commissionRows = mentors
+    .filter((m) => {
+      const role = String(m.role || "").toLowerCase();
+      const status = String(m.status || "").toLowerCase();
+      return role !== "superadmin" && status === "approved";
+    })
+    .map((mentor) => {
+      const sold = countSoldKeysForMentor(mentor);
+      return {
+        mentor,
+        sold,
+        usd: Number((sold * COMMISSION_USD).toFixed(2)),
+        zar: sold * COMMISSION_ZAR,
+        withdrawable: sold >= WITHDRAW_MIN_KEYS,
+        banking: mentor.banking || {},
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.sold - a.sold ||
+        String(a.mentor.username || "").localeCompare(String(b.mentor.username || ""))
+    );
+
   const nav = isSuperAdmin
     ? [
         ["dashboard", "Dashboard"],
         ["mentors", "Mentors"],
+        ["commissions", "Commissions"],
         ["clients", "Clients"],
         ["top-mentors", "Top Mentors"],
         ["activate", "Activate Accounts"],
@@ -551,6 +649,7 @@ export default function AdminPortal() {
         ["licenses", "License Keys"],
         ["profile", "Profile"],
         ["settings", "Settings"],
+        ["commission", "Mentor Commission"],
       ];
 
   return (
@@ -1302,6 +1401,207 @@ export default function AdminPortal() {
           </section>
         )}
 
+        {!isSuperAdmin && adminPage === "commission" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Mentor Commission</h2>
+            <p className="admin-sub">
+              Earn ${COMMISSION_USD.toFixed(2)} (R{COMMISSION_ZAR}) for every license key purchase.
+              Withdrawals open after {WITHDRAW_MIN_KEYS} license keys sold.
+            </p>
+
+            <div className="admin-stat-stack">
+              <article className="admin-stat-card">
+                <p className="admin-stat-label">License keys sold</p>
+                <p className="admin-stat-value">{soldKeysCount}</p>
+              </article>
+              <article className="admin-stat-card">
+                <p className="admin-stat-label">Commission earned</p>
+                <p className="admin-stat-value">${commissionUsd.toFixed(2)}</p>
+                <p className="admin-card-meta">R{commissionZar}</p>
+              </article>
+              <article className="admin-stat-card">
+                <p className="admin-stat-label">Withdrawal status</p>
+                <p className="admin-stat-value">{canWithdraw ? "Ready" : "Locked"}</p>
+                <p className="admin-card-meta">
+                  {canWithdraw
+                    ? "You can withdraw your commission"
+                    : `${keysUntilWithdraw} more sale${keysUntilWithdraw === 1 ? "" : "s"} to unlock`}
+                </p>
+              </article>
+            </div>
+
+            <div className="admin-card" style={{ marginTop: 14 }}>
+              <div className="admin-card-title-row">
+                <h3>How it works</h3>
+                <span className={`admin-badge${canWithdraw ? " is-approved" : " is-pending"}`}>
+                  {canWithdraw ? "Withdrawable" : "Building"}
+                </span>
+              </div>
+              <p className="admin-card-meta">
+                As a mentor you get <strong>${COMMISSION_USD.toFixed(2)}</strong> which is{" "}
+                <strong>R{COMMISSION_ZAR}</strong> for every license key purchase.
+              </p>
+              <p className="admin-card-meta">
+                Commission becomes withdrawable after <strong>{WITHDRAW_MIN_KEYS}</strong> license
+                keys are sold.
+              </p>
+            </div>
+
+            <div className="admin-card" style={{ marginTop: 14 }}>
+              <div className="admin-card-title-row">
+                <h3>Banking details</h3>
+                <span className="admin-badge">Payout</span>
+              </div>
+              <p className="ea-hint">
+                Add your banking details so commissions can be paid to you.
+              </p>
+              <label className="ea-field">
+                <span>Account name</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={bankingForm.accountName}
+                  onChange={(e) =>
+                    setBankingForm((prev) => ({ ...prev, accountName: e.target.value }))
+                  }
+                  placeholder="Full name on the account"
+                />
+              </label>
+              <label className="ea-field">
+                <span>Bank name</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={bankingForm.bankName}
+                  onChange={(e) =>
+                    setBankingForm((prev) => ({ ...prev, bankName: e.target.value }))
+                  }
+                  placeholder="e.g. FNB, Capitec, Standard Bank"
+                />
+              </label>
+              <label className="ea-field">
+                <span>Account number</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={bankingForm.accountNumber}
+                  onChange={(e) =>
+                    setBankingForm((prev) => ({ ...prev, accountNumber: e.target.value }))
+                  }
+                  placeholder="Account number"
+                />
+              </label>
+              <label className="ea-field">
+                <span>Branch code</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={bankingForm.branchCode}
+                  onChange={(e) =>
+                    setBankingForm((prev) => ({ ...prev, branchCode: e.target.value }))
+                  }
+                  placeholder="Optional"
+                />
+              </label>
+              <label className="ea-field">
+                <span>Account type</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={bankingForm.accountType}
+                  onChange={(e) =>
+                    setBankingForm((prev) => ({ ...prev, accountType: e.target.value }))
+                  }
+                  placeholder="Cheque / Savings"
+                />
+              </label>
+              <button
+                className="admin-btn admin-btn-solid admin-btn-block"
+                type="button"
+                disabled={bankingBusy}
+                onClick={saveMentorBanking}
+                style={{ marginTop: 12 }}
+              >
+                {bankingBusy ? "Saving…" : "Save banking details"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isSuperAdmin && adminPage === "commissions" && (
+          <section className="admin-page is-active">
+            <h2 className="admin-h1">Mentor Commissions</h2>
+            <p className="admin-sub">
+              Track license sales, earnings (${COMMISSION_USD.toFixed(2)} / R{COMMISSION_ZAR} per
+              key), and banking details so you can pay commissions.
+            </p>
+            {commissionRows.length === 0 ? (
+              <div className="admin-card">
+                <p className="admin-empty">No approved mentors yet</p>
+              </div>
+            ) : (
+              commissionRows.map(({ mentor, sold, usd, zar, withdrawable, banking }) => {
+                const hasBanking = Boolean(
+                  banking?.accountName && banking?.bankName && banking?.accountNumber
+                );
+                return (
+                  <div className="admin-card" style={{ marginTop: 14 }} key={mentor.id || mentor.email}>
+                    <div className="admin-card-title-row">
+                      <h3>{mentor.username || "Mentor"}</h3>
+                      <span className={`admin-badge${withdrawable ? " is-approved" : " is-pending"}`}>
+                        {withdrawable ? "Payable" : "Building"}
+                      </span>
+                    </div>
+                    <p className="admin-card-meta">{mentor.email}</p>
+                    <p className="admin-card-meta">{mentor.contact || "No contact number"}</p>
+                    <p className="admin-card-meta">
+                      <strong>Keys sold:</strong> {sold}
+                    </p>
+                    <p className="admin-card-meta">
+                      <strong>Commission:</strong> ${usd.toFixed(2)} (R{zar})
+                    </p>
+                    <p className="admin-card-meta">
+                      <strong>Withdrawal:</strong>{" "}
+                      {withdrawable
+                        ? "Ready (5+ keys sold)"
+                        : `${Math.max(0, WITHDRAW_MIN_KEYS - sold)} more needed`}
+                    </p>
+                    <div className="admin-commission-bank" style={{ marginTop: 10 }}>
+                      <strong>Banking</strong>
+                      {hasBanking ? (
+                        <>
+                          <p className="admin-card-meta">
+                            <strong>Name:</strong> {banking.accountName}
+                          </p>
+                          <p className="admin-card-meta">
+                            <strong>Bank:</strong> {banking.bankName}
+                          </p>
+                          <p className="admin-card-meta">
+                            <strong>Account:</strong> {banking.accountNumber}
+                          </p>
+                          {banking.branchCode ? (
+                            <p className="admin-card-meta">
+                              <strong>Branch:</strong> {banking.branchCode}
+                            </p>
+                          ) : null}
+                          {banking.accountType ? (
+                            <p className="admin-card-meta">
+                              <strong>Type:</strong> {banking.accountType}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="admin-empty">Mentor has not added banking details yet</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </section>
+        )}
+
         {isSuperAdmin && adminPage === "mentors" && (
           <section className="admin-page is-active">
             <div className="admin-title-row">
@@ -1437,6 +1737,14 @@ export default function AdminPortal() {
                       <p className="admin-card-meta">
                         {mentor.role === "superadmin" ? "Super admin" : mentor.contact || "—"}
                       </p>
+                      {mentor.role !== "superadmin" ? (
+                        <p className="admin-card-meta">
+                          Keys sold: {countSoldKeysForMentor(mentor)} ·{" "}
+                          {mentor.banking?.accountNumber
+                            ? `${mentor.banking.bankName || "Bank"} · ${mentor.banking.accountNumber}`
+                            : "No banking details"}
+                        </p>
+                      ) : null}
                     </div>
                     <span className="admin-badge is-approved">{mentor.status}</span>
                   </div>

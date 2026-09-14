@@ -5,6 +5,7 @@ import {
   registerMentor,
   sendJson,
   setMentorStatus,
+  updateMentorBanking,
 } from "./_lib.js";
 
 export const config = { maxDuration: 30 };
@@ -47,12 +48,26 @@ export default async function handler(req, res) {
         return;
       }
 
+      if (action === "banking") {
+        const mentor = await updateMentorBanking(body.email, body.banking || body);
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
       sendJson(res, 400, { error: "Unknown action" });
       return;
     }
 
     if (req.method === "PATCH") {
       const body = await readJsonBody(req);
+      const action = String(body.action || body.type || "status").toLowerCase();
+
+      if (action === "banking") {
+        const mentor = await updateMentorBanking(body.email, body.banking || body);
+        sendJson(res, 200, { mentor });
+        return;
+      }
+
       const mentor = await setMentorStatus(body.email, body.status);
       sendJson(res, 200, { mentor });
       return;
