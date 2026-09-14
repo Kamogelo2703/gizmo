@@ -138,7 +138,7 @@ export default function V2Interface() {
               </button>
             </div>
 
-            <p className="v2-powered-by">
+            <p className="v2-powered-by" aria-label="Powered by apexEA">
               Powered by <span>apexEA</span>
             </p>
 
