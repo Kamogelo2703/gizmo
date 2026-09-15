@@ -7690,9 +7690,18 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  top: 8px;
-  left: 0;
+  /* Mid-left on the Interface 2 hero (beside the face), not top corner */
+  top: 42%;
+  left: 8px;
+  right: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+  max-width: 92px;
   background: color-mix(in srgb, #000 70%, var(--accent, #ff2d7a) 18%);
+}
+
+.econ-cal-btn-v2:active {
+  transform: translateY(-50%) scale(0.97);
 }
 
 .econ-cal-btn:active {
