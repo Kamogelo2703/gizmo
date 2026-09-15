@@ -170,7 +170,7 @@ const BROKER_LOCAL_LOGOS = {
   tmgm: "/broker-logos/tmgm.webp",
   topstep: "/broker-logos/topstep.png",
   trading212: "/broker-logos/trading212.png",
-  valormarkets: "/broker-logos/valormarkets.svg",
+  valormarkets: "/broker-logos/valormarkets.png",
   vantagemarkets: "/broker-logos/vantagemarkets.png",
   vantage: "/broker-logos/vantagemarkets.png",
   vtmarkets: "/broker-logos/vtmarkets.png",
@@ -214,7 +214,7 @@ const DOMAIN_LOCAL_LOGOS = {
   "fusionmarkets.com": "/broker-logos/fusionmarkets.svg",
   "roboforex.com": "/broker-logos/roboforex.svg",
   "robomarkets.com": "/broker-logos/robomarkets.png",
-  "valormarkets.com": "/broker-logos/valormarkets.svg",
+  "valormarkets.com": "/broker-logos/valormarkets.png",
   "gbebrokers.com": "/broker-logos/gbebrokers.png",
   "fbs.com": "/broker-logos/fbs.png",
   "instaforex.com": "/broker-logos/instaforex.png",
@@ -323,9 +323,32 @@ export function resolveBrokerDomain(broker = {}) {
     .trim();
   if (BROKER_DOMAINS[stripped]) return BROKER_DOMAINS[stripped];
 
+  // Word-boundary / token match only (avoid "Zora Capital" → capital.com).
+  const tokens = stripped.split(/\s+/).filter(Boolean);
+  const compact = tokens.join("");
+  let best = "";
+  let bestLen = 0;
   for (const [name, domain] of Object.entries(BROKER_DOMAINS)) {
-    if (key.includes(name) || name.includes(stripped)) return domain;
+    const nameTokens = name.split(/\s+/).filter(Boolean);
+    const nameCompact = nameTokens.join("");
+    let hit = false;
+    if (nameTokens.length > 1) {
+      hit = nameTokens.every((t) => tokens.includes(t));
+    } else {
+      // Single-word brands: must be the primary brand token, not a later word
+      // like "Capital" in "Zora Capital Limited".
+      hit =
+        stripped === name ||
+        stripped.startsWith(`${name} `) ||
+        compact === nameCompact ||
+        (tokens[0] === name && tokens.length <= 2);
+    }
+    if (hit && name.length > bestLen) {
+      best = domain;
+      bestLen = name.length;
+    }
   }
+  if (best) return best;
 
   const slug = slugifyCompany(company);
   if (slug.length >= 3) return `${slug}.com`;
@@ -338,22 +361,28 @@ function resolveLocalLogo(broker = {}) {
 
   const company = String(broker.company || broker.name || "").trim();
   const key = normalizeCompanyKey(company);
+  const spaced = key.replace(/\s+/g, "");
   const fullSlug = logoSlug(company);
   if (BROKER_LOCAL_LOGOS[fullSlug]) return BROKER_LOCAL_LOGOS[fullSlug];
-
-  // Partial / alias matches
-  if (BROKER_LOCAL_LOGOS[key.replace(/\s+/g, "")]) {
-    return BROKER_LOCAL_LOGOS[key.replace(/\s+/g, "")];
-  }
-
-  for (const [slug, path] of Object.entries(BROKER_LOCAL_LOGOS)) {
-    if (fullSlug.includes(slug) || slug.includes(fullSlug) || key.includes(slug)) {
-      return path;
-    }
-  }
+  if (BROKER_LOCAL_LOGOS[spaced]) return BROKER_LOCAL_LOGOS[spaced];
+  if (BROKER_LOCAL_LOGOS[key]) return BROKER_LOCAL_LOGOS[key];
 
   const compact = slugifyCompany(company);
   if (BROKER_LOCAL_LOGOS[compact]) return BROKER_LOCAL_LOGOS[compact];
+
+  // Conservative partial match: only longer brand slugs, prefix/contains on company slug.
+  for (const [slug, path] of Object.entries(BROKER_LOCAL_LOGOS)) {
+    if (slug.length < 4) continue;
+    if (
+      fullSlug === slug ||
+      spaced === slug ||
+      (fullSlug.length >= slug.length && fullSlug.startsWith(slug)) ||
+      (spaced.length >= slug.length && spaced.startsWith(slug)) ||
+      (fullSlug.length >= 6 && slug.startsWith(fullSlug))
+    ) {
+      return path;
+    }
+  }
   return "";
 }
 
