@@ -630,35 +630,61 @@ export default function ChartScanner({ variant = "default" }) {
               <img className="cs-chart" src={preview} alt="Chart to scan" />
             ) : (
               <div className="cs-empty">
-                <span className="cs-particle-field" aria-hidden="true">
-                  <span className="stop-energy cs-particle-field-energy">
-                    {Array.from({ length: 18 }, (_, i) => (
-                      <span key={`in-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
-                    ))}
-                  </span>
-                  <span className="stop-energy cs-particle-field-energy is-outer">
-                    {Array.from({ length: 18 }, (_, i) => (
-                      <span key={`out-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
-                    ))}
-                  </span>
-                </span>
-                <div className="cs-robot-frame">
-                  <span className="cs-robot-glow" aria-hidden="true" />
-                  <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
-                    <img
-                      className="cs-robot-photo"
-                      src={mediaUrl(activeBot?.photo || "/logo.png")}
-                      alt=""
-                      width="160"
-                      height="160"
-                    />
-                    <span className="stop-energy cs-robot-orb-energy">
-                      {Array.from({ length: 18 }, (_, i) => (
-                        <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
-                      ))}
+                {variant === "v2" ? (
+                  <div className="cs-v2-portal" aria-hidden="true">
+                    <span className="cs-v2-portal-radar" />
+                    <span className="cs-v2-portal-ring cs-v2-portal-ring--a" />
+                    <span className="cs-v2-portal-ring cs-v2-portal-ring--b" />
+                    <span className="cs-v2-portal-hex">
+                      <img
+                        className="cs-v2-portal-photo"
+                        src={mediaUrl(activeBot?.photo || "/logo.png")}
+                        alt=""
+                        width="160"
+                        height="160"
+                      />
+                      <span className="cs-v2-portal-grid" />
+                      <span className="cs-v2-portal-crosshair" />
                     </span>
-                  </span>
-                </div>
+                    <span className="cs-v2-portal-tick cs-v2-portal-tick--n" />
+                    <span className="cs-v2-portal-tick cs-v2-portal-tick--e" />
+                    <span className="cs-v2-portal-tick cs-v2-portal-tick--s" />
+                    <span className="cs-v2-portal-tick cs-v2-portal-tick--w" />
+                    <span className="cs-v2-portal-label">SCAN LOCK</span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="cs-particle-field" aria-hidden="true">
+                      <span className="stop-energy cs-particle-field-energy">
+                        {Array.from({ length: 18 }, (_, i) => (
+                          <span key={`in-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
+                        ))}
+                      </span>
+                      <span className="stop-energy cs-particle-field-energy is-outer">
+                        {Array.from({ length: 18 }, (_, i) => (
+                          <span key={`out-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
+                        ))}
+                      </span>
+                    </span>
+                    <div className="cs-robot-frame">
+                      <span className="cs-robot-glow" aria-hidden="true" />
+                      <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
+                        <img
+                          className="cs-robot-photo"
+                          src={mediaUrl(activeBot?.photo || "/logo.png")}
+                          alt=""
+                          width="160"
+                          height="160"
+                        />
+                        <span className="stop-energy cs-robot-orb-energy">
+                          {Array.from({ length: 18 }, (_, i) => (
+                            <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
+                          ))}
+                        </span>
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <div
