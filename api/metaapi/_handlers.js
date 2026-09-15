@@ -1,6 +1,7 @@
 import { listLicenses } from "../licenses/_lib.js";
 import { listMentors } from "../mentors/_lib.js";
 import { listMt5Accounts, normalizeMt5Account } from "../mt5-accounts/_lib.js";
+import { enqueueTradeEvent } from "../trade-events/_lib.js";
 import { endOptions } from "../_cors.js";
 import {
   clearAccountClientEmail,
@@ -274,6 +275,24 @@ export async function handleMentorTrade(req, res) {
       throw err;
     }
 
+    // Prefer newest used license per client for bot name on the app script.
+    const botMetaByClient = new Map();
+    for (const row of licenses) {
+      if (normalizeEmail(row.mentorEmail) !== mentor.email) continue;
+      const clientEmail = normalizeEmail(row.clientEmail);
+      if (!clientEmail) continue;
+      const prev = botMetaByClient.get(clientEmail);
+      const stamp = Number(row.usedAt || row.updatedAt || row.createdAt || 0);
+      if (prev && prev.stamp >= stamp) continue;
+      botMetaByClient.set(clientEmail, {
+        stamp,
+        botName:
+          String(row.botName || row.bot?.name || row.clientName || "").trim() ||
+          "Bot",
+        mentorName: String(row.mentorName || mentor.username || "").trim(),
+      });
+    }
+
     // Always fan out to every connected robot client for this mentor.
     // Prefer the shared MT5 registry, then MetaAPI accounts tagged with client email.
     const registry = (await listMt5Accounts())
@@ -350,6 +369,26 @@ export async function handleMentorTrade(req, res) {
           side: fill.side,
           result: fill.result || null,
         });
+        // Notify the client app script orb (best-effort — trade already placed).
+        try {
+          const meta = botMetaByClient.get(normalizeEmail(target.email)) || {};
+          await enqueueTradeEvent({
+            clientEmail: target.email,
+            mentorEmail: mentor.email,
+            mentorName: meta.mentorName || mentor.username || "",
+            botName: meta.botName || "Bot",
+            symbol: fill.symbol || symbol,
+            side: fill.side || side,
+            volume: fill.volume || lot,
+            stopLoss,
+            takeProfit,
+            comment,
+            source: "self-hosting",
+            at: Date.now(),
+          });
+        } catch {
+          // ignore enqueue failures
+        }
       } catch (error) {
         results.push({
           ok: false,

@@ -45,6 +45,11 @@ import {
   SUPER_ADMIN_EMAIL,
   SUPER_ADMIN_USERNAME,
 } from "./mentorsApi.js";
+import { recordTrade } from "./dailyTradeHistory.js";
+import {
+  ackPendingTradeEvents,
+  fetchPendingTradeEvents,
+} from "./tradeEventsApi.js";
 import {
   DEFAULT_APP_COLOR,
   applyAppTheme,
@@ -2156,6 +2161,114 @@ export function AppProvider({ children }) {
   const clearOrbTrade = useCallback(() => {
     setOrbTradeLive(null);
   }, []);
+
+  // Mentor Self Hosting → client script orb. Poll pending fills for this email.
+  const mentorTradePollBusy = useRef(false);
+  const seenMentorTradeIds = useRef(new Set());
+  useEffect(() => {
+    if (adminOpen || !hasActiveBot) return undefined;
+    const email = normalizeEmail(coverEmail);
+    if (!email || !email.includes("@")) return undefined;
+
+    const pull = async () => {
+      if (mentorTradePollBusy.current) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      mentorTradePollBusy.current = true;
+      try {
+        const events = await fetchPendingTradeEvents(email);
+        if (!events.length) return;
+        const fresh = events.filter((row) => {
+          const id = String(row?.id || "").trim();
+          if (!id || seenMentorTradeIds.current.has(id)) return false;
+          return true;
+        });
+        if (!fresh.length) {
+          // Already shown locally — still ack so the queue drains.
+          await ackPendingTradeEvents(
+            email,
+            events.map((row) => row.id).filter(Boolean)
+          );
+          return;
+        }
+
+        setZetaView("home");
+        setV2View("home");
+
+        for (const event of fresh) {
+          const id = String(event.id || "").trim();
+          if (id) seenMentorTradeIds.current.add(id);
+          const side = String(event.side || event.action || "BUY").toUpperCase();
+          const symbol = String(event.symbol || "")
+            .trim()
+            .toUpperCase()
+            .replace(/[-–—]+$/g, "");
+          const lotSize =
+            Number(event.volume || event.lotSize) > 0
+              ? Number(event.volume || event.lotSize)
+              : 0.01;
+          const botName =
+            String(activeBot?.name || event.botName || "Bot").trim() || "Bot";
+          const comment =
+            String(event.comment || "mentor~APEXEA").trim().slice(0, 31) ||
+            "mentor~APEXEA";
+          recordTrade({
+            botName,
+            symbol,
+            lotSize,
+            action: side,
+            side,
+            comment,
+            stopLoss: event.stopLoss,
+            takeProfit: event.takeProfit,
+            at: Number(event.at) || Date.now(),
+            id: id || undefined,
+          });
+          publishOrbTrade({
+            botName,
+            comment,
+            symbol,
+            lotSize,
+            action: side,
+            side,
+            stopLoss: event.stopLoss,
+            takeProfit: event.takeProfit,
+          });
+        }
+
+        await ackPendingTradeEvents(
+          email,
+          fresh.map((row) => row.id).filter(Boolean)
+        );
+        const last = fresh[fresh.length - 1];
+        const lastSide = String(last?.side || "BUY").toUpperCase();
+        const lastSym = String(last?.symbol || "").trim().toUpperCase();
+        if (lastSym) {
+          showToast(
+            `Mentor opened ${lastSide} ${lastSym}${
+              fresh.length > 1 ? ` (+${fresh.length - 1})` : ""
+            }`
+          );
+        }
+        window.setTimeout(() => clearOrbTrade(), 12000);
+      } catch {
+        // best-effort — next poll retries
+      } finally {
+        mentorTradePollBusy.current = false;
+      }
+    };
+
+    pull();
+    const timer = setInterval(pull, 4000);
+    return () => clearInterval(timer);
+  }, [
+    adminOpen,
+    hasActiveBot,
+    coverEmail,
+    activeBot?.name,
+    publishOrbTrade,
+    clearOrbTrade,
+    showToast,
+  ]);
 
   const value = {
     activeInterface,

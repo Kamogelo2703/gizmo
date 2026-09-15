@@ -204,7 +204,7 @@ export default function ZetaInterface() {
       </nav>
 
       <TradeScriptOrb
-        visible={running && zetaView === "home"}
+        visible={(running || Boolean(orbTradeLive)) && zetaView === "home"}
         photoSrc={floatSrc}
         botName={activeBot?.name || "Bot"}
         script={openTradeScript}
