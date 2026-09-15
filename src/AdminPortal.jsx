@@ -193,6 +193,8 @@ export default function AdminPortal() {
   const [licenseDuration, setLicenseDuration] = useState("1m");
   const [licenseSearch, setLicenseSearch] = useState("");
   const [commissionSearch, setCommissionSearch] = useState("");
+  const [mentorMgmtSearch, setMentorMgmtSearch] = useState("");
+  const [mentorBulkBusy, setMentorBulkBusy] = useState(false);
   const [mentorKeySearch, setMentorKeySearch] = useState("");
   const [mentorKeyDrafts, setMentorKeyDrafts] = useState({});
   const [mentorKeyBusy, setMentorKeyBusy] = useState("");
@@ -346,6 +348,40 @@ export default function AdminPortal() {
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     [mentors]
   );
+
+  const mentorMgmtQuery = String(mentorMgmtSearch || "")
+    .trim()
+    .toLowerCase();
+
+  const filteredPendingMentors = useMemo(() => {
+    if (!mentorMgmtQuery) return pendingMentors;
+    return pendingMentors.filter((mentor) => {
+      const hay = [mentor?.username, mentor?.email, mentor?.contact]
+        .map((part) => String(part || "").toLowerCase())
+        .join(" ");
+      return hay.includes(mentorMgmtQuery);
+    });
+  }, [pendingMentors, mentorMgmtQuery]);
+
+  const filteredApprovedMentors = useMemo(() => {
+    if (!mentorMgmtQuery) return approvedMentors;
+    return approvedMentors.filter((mentor) => {
+      const hay = [mentor?.username, mentor?.email, mentor?.contact]
+        .map((part) => String(part || "").toLowerCase())
+        .join(" ");
+      return hay.includes(mentorMgmtQuery);
+    });
+  }, [approvedMentors, mentorMgmtQuery]);
+
+  const filteredDeclinedMentors = useMemo(() => {
+    if (!mentorMgmtQuery) return declinedMentors;
+    return declinedMentors.filter((mentor) => {
+      const hay = [mentor?.username, mentor?.email, mentor?.contact]
+        .map((part) => String(part || "").toLowerCase())
+        .join(" ");
+      return hay.includes(mentorMgmtQuery);
+    });
+  }, [declinedMentors, mentorMgmtQuery]);
 
   // Form fields are seeded in startEdit — do not rebind on `eas` poll updates
   // or a newly picked profile picture gets wiped before save.
@@ -705,7 +741,7 @@ export default function AdminPortal() {
     showToast("Signed out");
   }
 
-  async function changeMentorStatus(email, status) {
+  async function changeMentorStatus(email, status, { silent = false } = {}) {
     try {
       const updated = await updateMentorStatus(email, status);
       setMentors((prev) => {
@@ -713,9 +749,41 @@ export default function AdminPortal() {
         if (!next.some((m) => m.email === updated.email)) next.unshift(updated);
         return next;
       });
-      showToast(`Mentor ${status}`);
+      if (!silent) showToast(`Mentor ${status}`);
+      return true;
     } catch (error) {
-      showToast(error.message || "Could not update mentor");
+      if (!silent) showToast(error.message || "Could not update mentor");
+      return false;
+    }
+  }
+
+  async function bulkApprovePendingMentors() {
+    const list = filteredPendingMentors;
+    if (!list.length) {
+      showToast(
+        mentorMgmtQuery
+          ? "No pending mentors match your search"
+          : "No pending mentors to approve"
+      );
+      return;
+    }
+    if (mentorBulkBusy) return;
+    setMentorBulkBusy(true);
+    let ok = 0;
+    try {
+      for (const mentor of list) {
+        const success = await changeMentorStatus(mentor.email, "approved", {
+          silent: true,
+        });
+        if (success) ok += 1;
+      }
+      showToast(
+        ok === list.length
+          ? `Approved ${ok} mentor${ok === 1 ? "" : "s"}`
+          : `Approved ${ok} of ${list.length} mentors`
+      );
+    } finally {
+      setMentorBulkBusy(false);
     }
   }
 
@@ -2934,6 +3002,31 @@ export default function AdminPortal() {
               Mentor signups land in Pending here until you approve them.
             </p>
 
+            <div className="admin-toolbar admin-mentor-mgmt-toolbar">
+              <input
+                className="admin-input"
+                type="search"
+                value={mentorMgmtSearch}
+                onChange={(e) => setMentorMgmtSearch(e.target.value)}
+                placeholder="Search mentors by name or email"
+                aria-label="Search mentors by name or email"
+              />
+              <button
+                className="admin-btn admin-btn-solid admin-btn-sm"
+                type="button"
+                disabled={mentorBulkBusy || filteredPendingMentors.length === 0}
+                onClick={bulkApprovePendingMentors}
+              >
+                {mentorBulkBusy
+                  ? "Approving…"
+                  : `Bulk Approve${
+                      filteredPendingMentors.length
+                        ? ` (${filteredPendingMentors.length})`
+                        : ""
+                    }`}
+              </button>
+            </div>
+
             {bypassOpen ? (
               <div className="admin-card admin-bypass-card">
                 <div className="admin-card-title-row">
@@ -2997,7 +3090,11 @@ export default function AdminPortal() {
             <div className="admin-card">
               <div className="admin-card-title-row">
                 <h3 className="admin-card-title">Pending</h3>
-                <span className="admin-badge is-pending">{pendingMentors.length}</span>
+                <span className="admin-badge is-pending">
+                  {mentorMgmtQuery
+                    ? `${filteredPendingMentors.length}/${pendingMentors.length}`
+                    : pendingMentors.length}
+                </span>
               </div>
               <button
                 className="admin-btn admin-btn-sm"
@@ -3009,9 +3106,13 @@ export default function AdminPortal() {
               </button>
               {pendingMentors.length === 0 ? (
                 <p className="admin-empty">No pending mentors</p>
+              ) : filteredPendingMentors.length === 0 ? (
+                <p className="admin-empty">
+                  No pending mentors match “{mentorMgmtSearch.trim()}”
+                </p>
               ) : (
-                pendingMentors.map((mentor) => (
-                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                filteredPendingMentors.map((mentor) => (
+                  <div className="admin-table-row has-actions" key={mentor.id || mentor.email}>
                     <div>
                       <strong>{mentor.username}</strong>
                       <p className="admin-card-meta">{mentor.email}</p>
@@ -3040,13 +3141,21 @@ export default function AdminPortal() {
             <div className="admin-card" style={{ marginTop: 14 }}>
               <div className="admin-card-title-row">
                 <h3 className="admin-card-title">Approved</h3>
-                <span className="admin-badge is-approved">{approvedMentors.length}</span>
+                <span className="admin-badge is-approved">
+                  {mentorMgmtQuery
+                    ? `${filteredApprovedMentors.length}/${approvedMentors.length}`
+                    : approvedMentors.length}
+                </span>
               </div>
               {approvedMentors.length === 0 ? (
                 <p className="admin-empty">No approved mentors</p>
+              ) : filteredApprovedMentors.length === 0 ? (
+                <p className="admin-empty">
+                  No approved mentors match “{mentorMgmtSearch.trim()}”
+                </p>
               ) : (
-                approvedMentors.map((mentor) => (
-                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                filteredApprovedMentors.map((mentor) => (
+                  <div className="admin-table-row has-actions" key={mentor.id || mentor.email}>
                     <div>
                       <strong>{mentor.username}</strong>
                       <p className="admin-card-meta">{mentor.email}</p>
@@ -3062,7 +3171,22 @@ export default function AdminPortal() {
                         </p>
                       ) : null}
                     </div>
-                    <span className="admin-badge is-approved">{mentor.status}</span>
+                    <div className="admin-row-actions">
+                      {mentor.role === "superadmin" ? (
+                        <span className="admin-badge is-approved">{mentor.status}</span>
+                      ) : (
+                        <>
+                          <span className="admin-badge is-approved">{mentor.status}</span>
+                          <button
+                            className="admin-btn admin-btn-danger admin-btn-sm"
+                            type="button"
+                            onClick={() => changeMentorStatus(mentor.email, "declined")}
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -3070,25 +3194,35 @@ export default function AdminPortal() {
             <div className="admin-card" style={{ marginTop: 14 }}>
               <div className="admin-card-title-row">
                 <h3 className="admin-card-title">Declined</h3>
-                <span className="admin-badge is-declined">{declinedMentors.length}</span>
+                <span className="admin-badge is-declined">
+                  {mentorMgmtQuery
+                    ? `${filteredDeclinedMentors.length}/${declinedMentors.length}`
+                    : declinedMentors.length}
+                </span>
               </div>
               {declinedMentors.length === 0 ? (
                 <p className="admin-empty">No declined mentors</p>
+              ) : filteredDeclinedMentors.length === 0 ? (
+                <p className="admin-empty">
+                  No declined mentors match “{mentorMgmtSearch.trim()}”
+                </p>
               ) : (
-                declinedMentors.map((mentor) => (
-                  <div className="admin-table-row" key={mentor.id || mentor.email}>
+                filteredDeclinedMentors.map((mentor) => (
+                  <div className="admin-table-row has-actions" key={mentor.id || mentor.email}>
                     <div>
                       <strong>{mentor.username}</strong>
                       <p className="admin-card-meta">{mentor.email}</p>
                       <p className="admin-card-meta">{mentor.contact || "—"}</p>
                     </div>
-                    <button
-                      className="admin-btn admin-btn-solid admin-btn-sm"
-                      type="button"
-                      onClick={() => changeMentorStatus(mentor.email, "approved")}
-                    >
-                      Approve
-                    </button>
+                    <div className="admin-row-actions">
+                      <button
+                        className="admin-btn admin-btn-solid admin-btn-sm"
+                        type="button"
+                        onClick={() => changeMentorStatus(mentor.email, "approved")}
+                      >
+                        Approve
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

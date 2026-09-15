@@ -2351,6 +2351,33 @@ html:has(.phone[data-interface="v2"]) body {
   margin-bottom: 14px;
 }
 
+.admin-mentor-mgmt-toolbar {
+  margin-top: 10px;
+  margin-bottom: 14px;
+  align-items: stretch;
+}
+
+.admin-mentor-mgmt-toolbar .admin-input {
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 160px;
+}
+
+.admin-mentor-mgmt-toolbar .admin-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.admin-page .admin-table-row.has-actions {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.admin-page .admin-table-row.has-actions .admin-row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .admin-btn-row {
   margin-bottom: 14px;
 }
