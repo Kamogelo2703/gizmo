@@ -515,12 +515,12 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .action-deck {
-  margin: 44px auto 0;
-  width: min(100%, 400px);
+  margin: 36px auto 0;
+  width: min(100%, 360px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   animation: rise 0.75s ease 0.08s both;
 }
 
@@ -529,19 +529,19 @@ html:has(.phone[data-interface="v2"]) body {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .glass-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 54px;
-  padding: 0 20px;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
   border-radius: 999px;
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   isolation: isolate;
