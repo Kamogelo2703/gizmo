@@ -934,16 +934,19 @@ export function AppProvider({ children }) {
         return [...prev, { email: key, status: "pending", createdAt: Date.now() }];
       });
 
-      try {
-        const remote = await submitSignup(key);
-        if (remote) {
-          setSignups((prev) => mergeSignups(prev, [remote]));
-        } else {
-          await refreshSignups();
+      // Sync in the background so returning users are not blocked by GitHub signup writes.
+      void (async () => {
+        try {
+          const remote = await submitSignup(key);
+          if (remote) {
+            setSignups((prev) => mergeSignups(prev, [remote]));
+          } else {
+            await refreshSignups();
+          }
+        } catch (error) {
+          showToast(error.message || "Could not sync signup to server");
         }
-      } catch (error) {
-        showToast(error.message || "Could not sync signup to server");
-      }
+      })();
       return key;
     },
     [refreshSignups, showToast]
