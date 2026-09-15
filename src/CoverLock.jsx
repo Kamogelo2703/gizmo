@@ -210,21 +210,8 @@ export default function CoverLock() {
       paid: true,
       bypassed: true,
     });
-    // Same phone that already activated a license → restore bots automatically.
-    try {
-      const restored = await restoreLicensesByEmail?.(key);
-      if (restored) {
-        setLockStep("cover");
-        showToast("Welcome back — unlocked on this phone");
-        void updateSignupAccessPaid(key)
-          .then(() => refreshSignups?.())
-          .catch(() => {});
-        return true;
-      }
-    } catch {
-      // fall through to manual license entry
-    }
-    // No license bound to this phone yet — ask for the key (first time / new phone).
+    // Returning clients skip payment, but must type their license key again.
+    // Same phone: key works. Different phone: key stays locked.
     setLockStep("license");
     showToast("Enter your license key to unlock");
     // Persist paid flag in the background — never block the unlock UI on it.
