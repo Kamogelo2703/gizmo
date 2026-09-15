@@ -48,7 +48,6 @@ export default function CoverLock() {
     requestSignup,
     getSignup,
     activateLicense,
-    restoreLicensesByEmail,
     showToast,
     openAdmin,
     refreshSignups,
@@ -185,18 +184,9 @@ export default function CoverLock() {
       paid: true,
       bypassed: true,
     });
-    const restored = await restoreLicensesByEmail?.(key);
-    if (restored) {
-      setLockStep("cover");
-      showToast("Access restored");
-      return true;
-    }
+    // Returning clients skip payment, but must type their license key again.
     setLockStep("license");
-    showToast(
-      current?.accessPaid || hasDeviceAccess(key)
-        ? "Access restored — enter your license key"
-        : "Approved — enter your license key"
-    );
+    showToast("Enter your license key to unlock");
     return true;
   }
 
@@ -369,8 +359,8 @@ export default function CoverLock() {
               I have paid
             </button>
             <p className="ea-hint" style={{ marginTop: 10, textAlign: "center" }}>
-              Paid or bypassed on this phone before? Tap <strong>I have paid</strong>{" "}
-              to get access back.
+              Already paid before? Tap <strong>I have paid</strong>, then enter your
+              license key again.
             </p>
             <button
               className="cover-back"
@@ -417,8 +407,8 @@ export default function CoverLock() {
               I have paid
             </button>
             <p className="ea-hint" style={{ marginTop: 12, textAlign: "center" }}>
-              Already paid or previously bypassed on this phone? Tap{" "}
-              <strong>I have paid</strong> to restore access with this email.
+              Already paid or had access before? Tap <strong>I have paid</strong>, then
+              enter your license key again.
             </p>
             <button
               className="cover-back"
@@ -440,7 +430,7 @@ export default function CoverLock() {
               {addingBot
                 ? "Enter a new license key to add another robot. Your current bots stay on the home screen."
                 : coverEmail
-                  ? `Approved · ${coverEmail}. Enter the license key for this email — it works again after reinstall.`
+                  ? `Approved · ${coverEmail}. Enter your license key to unlock — type it again after reinstall.`
                   : "Enter your license key to unlock the app."}
             </p>
             <form className="app-lock-form" onSubmit={submitLicense}>
