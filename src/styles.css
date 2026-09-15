@@ -6735,11 +6735,11 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .view-scanner.cs-v2 .cs-empty {
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 18px 8px;
+  padding: 22px 8px 34px;
   position: relative;
   z-index: 1;
   overflow: visible;
@@ -6750,109 +6750,175 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .view-scanner.cs-v2 .cs-particle-field {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  overflow: visible;
+  display: none;
 }
 
-.view-scanner.cs-v2 .cs-particle-field-energy {
-  inset: -6%;
-  border-radius: 0;
-  overflow: visible;
-  clip-path: none;
-  transform: scale(2.35);
-  transform-origin: center center;
-  opacity: 0.95;
-}
-
-.view-scanner.cs-v2 .cs-particle-field-energy.is-outer {
-  inset: -18%;
-  transform: scale(3.35);
-  opacity: 0.72;
-}
-
-.view-scanner.cs-v2 .cs-particle-field-energy.is-outer .stop-particle {
-  filter: blur(0.4px);
-}
-
-.view-scanner.cs-v2 .cs-robot-frame {
+/* Unique Interface 2 empty-state: hexagonal scan lock (not the circular bobble). */
+.view-scanner.cs-v2 .cs-v2-portal {
+  --cs-v2-portal: #ff1a4d;
   position: relative;
-  width: clamp(132px, 38vw, 176px);
-  height: clamp(132px, 38vw, 176px);
-  flex-shrink: 0;
+  width: clamp(168px, 48vw, 210px);
+  height: clamp(168px, 48vw, 210px);
   display: grid;
   place-items: center;
-  z-index: 2;
+  isolation: isolate;
 }
 
-.view-scanner.cs-v2 .cs-robot-glow {
+.view-scanner.cs-v2 .cs-v2-portal-radar {
   position: absolute;
-  inset: -18%;
+  inset: 6%;
   border-radius: 50%;
-  background:
-    radial-gradient(circle, rgba(255, 0, 60, 0.45) 0%, transparent 62%),
-    radial-gradient(circle, rgba(255, 45, 122, 0.28) 0%, transparent 70%);
-  filter: blur(6px);
-  animation: cs-breathe 3.6s ease-in-out infinite;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 26, 77, 0.0) 40deg,
+    rgba(255, 26, 77, 0.35) 78deg,
+    transparent 110deg,
+    transparent 360deg
+  );
+  mask-image: radial-gradient(circle, transparent 42%, #000 46%, #000 68%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle, transparent 42%, #000 46%, #000 68%, transparent 72%);
+  animation: cs-v2-radar 4.2s linear infinite;
   pointer-events: none;
+  z-index: 1;
+  opacity: 0.9;
 }
 
-.view-scanner.cs-v2 .cs-empty-orb,
-.view-scanner.cs-v2 .cs-robot-orb {
-  display: block;
-  width: 100%;
-  height: 100%;
-  order: 0;
-  /* Photo is clipped by its own border-radius; keep rings/glow unclipped. */
-  overflow: visible;
-  background: #0a0a0e;
-  box-shadow:
-    0 0 0 3px rgba(255, 0, 60, 0.95),
-    0 0 0 6px rgba(8, 6, 12, 0.95),
-    0 0 28px rgba(255, 0, 60, 0.85),
-    0 0 64px rgba(255, 45, 122, 0.45),
-    inset 0 0 24px rgba(255, 0, 60, 0.25);
-  animation: cs-breathe 3.6s ease-in-out infinite;
-}
-
-.view-scanner.cs-v2 .cs-robot-photo {
+.view-scanner.cs-v2 .cs-v2-portal-ring {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center center;
   border-radius: 50%;
-  z-index: 0;
+  border: 1px dashed rgba(255, 26, 77, 0.55);
+  box-shadow: 0 0 18px rgba(255, 26, 77, 0.25);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.view-scanner.cs-v2 .cs-robot-orb .stop-energy,
-.view-scanner.cs-v2 .cs-robot-orb-energy {
+.view-scanner.cs-v2 .cs-v2-portal-ring--a {
+  animation: cs-v2-spin 14s linear infinite;
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-ring--b {
+  inset: 8%;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 26, 77, 0.85);
+  border-right-color: rgba(255, 26, 77, 0.35);
+  animation: cs-v2-spin 9s linear infinite reverse;
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-hex {
+  position: relative;
   z-index: 2;
-  transform: scale(1.08);
-  opacity: 0.85;
-  pointer-events: none;
+  width: 62%;
+  height: 62%;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  background:
+    linear-gradient(145deg, rgba(255, 26, 77, 0.35), rgba(8, 4, 10, 0.95) 45%, #050308);
+  box-shadow:
+    0 0 0 1px rgba(255, 26, 77, 0.75),
+    0 0 28px rgba(255, 26, 77, 0.45),
+    inset 0 0 22px rgba(255, 26, 77, 0.2);
+  overflow: hidden;
 }
 
-.view-scanner.cs-v2 .cs-robot-orb::before,
-.view-scanner.cs-v2 .cs-robot-orb::after {
-  content: "";
+.view-scanner.cs-v2 .cs-v2-portal-photo {
+  width: 118%;
+  height: 118%;
+  object-fit: cover;
+  object-position: center 28%;
+  filter: saturate(1.15) contrast(1.08);
+  opacity: 0.92;
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-grid {
   position: absolute;
-  inset: -10px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 45, 122, 0.55);
-  box-shadow: 0 0 18px rgba(255, 0, 60, 0.4);
-  animation: cs-ring 3.6s ease-in-out infinite;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 26, 77, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 26, 77, 0.18) 1px, transparent 1px);
+  background-size: 14px 14px;
+  mix-blend-mode: screen;
+  opacity: 0.45;
   pointer-events: none;
 }
 
-.view-scanner.cs-v2 .cs-robot-orb::after {
-  inset: -20px;
-  border-color: rgba(255, 0, 60, 0.28);
-  animation-delay: -1.2s;
-  opacity: 0.75;
+.view-scanner.cs-v2 .cs-v2-portal-crosshair {
+  position: absolute;
+  inset: 18%;
+  pointer-events: none;
+  background:
+    linear-gradient(#ff1a4d, #ff1a4d) center / 100% 1px no-repeat,
+    linear-gradient(#ff1a4d, #ff1a4d) center / 1px 100% no-repeat;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 6px rgba(255, 26, 77, 0.8));
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-tick {
+  position: absolute;
+  z-index: 3;
+  background: #ff1a4d;
+  box-shadow: 0 0 8px rgba(255, 26, 77, 0.9);
+  pointer-events: none;
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-tick--n,
+.view-scanner.cs-v2 .cs-v2-portal-tick--s {
+  width: 2px;
+  height: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-tick--e,
+.view-scanner.cs-v2 .cs-v2-portal-tick--w {
+  width: 12px;
+  height: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.view-scanner.cs-v2 .cs-v2-portal-tick--n { top: 1%; }
+.view-scanner.cs-v2 .cs-v2-portal-tick--s { bottom: 1%; }
+.view-scanner.cs-v2 .cs-v2-portal-tick--e { right: 1%; }
+.view-scanner.cs-v2 .cs-v2-portal-tick--w { left: 1%; }
+
+.view-scanner.cs-v2 .cs-v2-portal-label {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translate(-50%, 100%);
+  margin-top: 10px;
+  font-family: var(--font-v2);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 0 12px rgba(255, 26, 77, 0.55);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@keyframes cs-v2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cs-v2-radar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Legacy circular bobble rules kept inert on V2 — Interface 1 still owns them. */
+.view-scanner.cs-v2 .cs-robot-frame,
+.view-scanner.cs-v2 .cs-robot-glow,
+.view-scanner.cs-v2 .cs-empty-orb,
+.view-scanner.cs-v2 .cs-robot-orb {
+  display: none;
 }
 
 .view-scanner.cs-v2 .cs-sniper {
@@ -7326,9 +7392,9 @@ html:has(.phone[data-interface="v2"]) body {
     min-height: 150px;
   }
 
-  .view-scanner.cs-v2 .cs-robot-frame {
-    width: clamp(120px, 36vw, 156px);
-    height: clamp(120px, 36vw, 156px);
+  .view-scanner.cs-v2 .cs-v2-portal {
+    width: clamp(150px, 44vw, 188px);
+    height: clamp(150px, 44vw, 188px);
   }
 
   .view-scanner.cs-v2 .cs-capture-btn {
