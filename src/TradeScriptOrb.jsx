@@ -420,8 +420,9 @@ export default function TradeScriptOrb({
                         <span className="trade-history-dot" aria-hidden="true" />
                         <div className="trade-history-main">
                           <p className="trade-history-title">
-                            {/* Broker symbol as stored — no decorative hyphen (was showing XAUUSD-). */}
-                            <span className="trade-history-symbol">{row.symbol}</span>
+                            <span className="trade-history-symbol">
+                              {String(row.symbol || "").replace(/[-–—]+$/g, "")}
+                            </span>
                             <span className="trade-history-side">{side}</span>
                           </p>
                           {(row.entry != null || row.takeProfit != null || row.stopLoss != null) && (
