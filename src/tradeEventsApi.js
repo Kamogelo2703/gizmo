@@ -1,6 +1,4 @@
-function apiUrl(path) {
-  return path;
-}
+import { apiUrl } from "./apiOrigin.js";
 
 function normalizeEmail(email) {
   return String(email || "")
