@@ -465,8 +465,17 @@ export default function ChartScanner({ variant = "default", active = true }) {
             // Always chart-scanner for API gate; premium is carried in the comment.
             source: "chart-scanner",
           });
+          const filledSymbol = String(fill?.symbol || tradeSymbol)
+            .trim()
+            .toUpperCase()
+            .replace(/[-–—]+$/g, "");
+          if (filledSymbol && filledSymbol !== tradeSymbol) {
+            setSymbol(filledSymbol);
+            persistTradeSettings(tradeCount, lot, filledSymbol);
+          }
           nextFills.push({
             ...fill,
+            symbol: filledSymbol || fill?.symbol || tradeSymbol,
             target,
             tradeNo,
             takeProfit,
@@ -474,7 +483,8 @@ export default function ChartScanner({ variant = "default", active = true }) {
           });
           recordTrade({
             botName: activeBot?.name || "Bot",
-            symbol: tradeSymbol,
+            // Same symbol the scanner shows after fill (broker-resolved when available).
+            symbol: filledSymbol || tradeSymbol,
             lotSize: lot,
             action: side,
             side,
@@ -485,7 +495,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
             target,
           });
           pushEngineLog(
-            `Trade ${tradeNo} · ${target}${isPremiumScanner ? " · premium" : ""} · comment ${tradeCommentTag}`
+            `Trade ${tradeNo} · ${target}${isPremiumScanner ? " · premium" : ""} · ${filledSymbol || tradeSymbol} · comment ${tradeCommentTag}`
           );
         } catch (error) {
           lastError = error.message || "Trade failed";

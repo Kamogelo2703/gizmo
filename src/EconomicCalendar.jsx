@@ -231,16 +231,20 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
         comment: `${comment}|NEWS`.slice(0, 31),
         source: "chart-scanner",
       });
+      const filledSymbol = String(fill?.symbol || parsed.symbol)
+        .trim()
+        .toUpperCase()
+        .replace(/[-–—]+$/g, "");
       recordTrade({
         botName: activeBot?.name || "Bot",
-        symbol: parsed.symbol,
+        symbol: filledSymbol || parsed.symbol,
         lotSize: lot,
         action: parsed.side,
         side: parsed.side,
         comment: `${comment}|NEWS`.slice(0, 31),
       });
       showToast(
-        `Executed ${fill?.side || parsed.side} ${fill?.symbol || parsed.symbol} ${fill?.volume || lot}`
+        `Executed ${fill?.side || parsed.side} ${filledSymbol || parsed.symbol} ${fill?.volume || lot}`
       );
       window.setTimeout(() => clearOrbTrade?.(), 8000);
     } catch (error) {

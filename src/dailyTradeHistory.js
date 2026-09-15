@@ -20,7 +20,11 @@ function normalizeTrade(row = {}) {
     id: String(row?.id || `${at}-${row?.symbol || ""}`),
     at,
     botName: String(row?.botName || "Bot").trim() || "Bot",
-    symbol: String(row?.symbol || "").trim().toUpperCase() || "—",
+    symbol: String(row?.symbol || "")
+      .trim()
+      .toUpperCase()
+      // Strip decorative trailing dashes from older UI mistakes / bad saves.
+      .replace(/[-–—]+$/g, "") || "—",
     lotSize: Number(row?.lotSize) > 0 ? Number(row.lotSize) : 0.01,
     action: normalizeSide(row?.action || row?.side),
     comment: String(row?.comment || "").trim(),
