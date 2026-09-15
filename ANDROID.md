@@ -17,11 +17,11 @@ is baked into the APK.
 
 ## Download
 
-- **Latest APK (v1.93 — use this):** https://www.apex-ea.com/apex-ea-v1.93.apk
+- **Latest APK (v1.94 — use this):** https://www.apex-ea.com/apex-ea-v1.94.apk
 - Short link: https://www.apex-ea.com/download
 - Always-current alias: https://www.apex-ea.com/apex-ea.apk
 - Legacy URL (same package): https://www.apex-ea.com/ZETA-SCALPER-AI.apk
-- Sideload files: `public/apex-ea-v1.93.apk`, `public/apex-ea.apk`
+- Sideload files: `public/apex-ea-v1.94.apk`, `public/apex-ea.apk`
 
 ## Rebuild
 
@@ -31,7 +31,7 @@ cp android/keystore/signing.properties.example android/keystore/signing.properti
 export ANDROID_HOME=/home/ubuntu/android-sdk
 npm run android:apk
 cp android/app/build/outputs/apk/release/app-release.apk public/apex-ea.apk
-cp public/apex-ea.apk public/apex-ea-v1.93.apk
+cp public/apex-ea.apk public/apex-ea-v1.94.apk
 cp public/apex-ea.apk public/ZETA-SCALPER-AI.apk
 ```
 

@@ -1,13 +1,19 @@
 import { useApp } from "./store.jsx";
+import { SUPER_ADMIN_USERNAME } from "./mentorsApi.js";
 
-/** Header that lives inside the scrollable stage so Kama + toggle scroll away. */
+/** Header that lives inside the scrollable stage so title + toggle scroll away. */
 export default function TopBar() {
-  const { mainTextDisplay, toggleInterface } = useApp();
+  const { activeInterface, mainTextDisplay, toggleInterface } = useApp();
+  // Interface 2 reference shows the APEX EA brand stamp; Interface 1 keeps mentor name.
+  const title =
+    activeInterface === "v2"
+      ? String(SUPER_ADMIN_USERNAME || "APEX EA").trim() || "APEX EA"
+      : mainTextDisplay || "";
 
   return (
     <header className="top">
       <p className="username" id="username">
-        {mainTextDisplay || ""}
+        {title}
       </p>
       <button
         className="iface-toggle"
