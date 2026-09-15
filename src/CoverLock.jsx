@@ -55,7 +55,6 @@ export default function CoverLock() {
     requestSignup,
     getSignup,
     activateLicense,
-    restoreLicensesByEmail,
     showToast,
     openAdmin,
     refreshSignups,
