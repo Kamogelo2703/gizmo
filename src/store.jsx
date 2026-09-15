@@ -1210,8 +1210,8 @@ export function AppProvider({ children }) {
       setLockStep("cover");
       return;
     }
-    // Payment is per phone + email. Another phone (or new email) must pay again.
-    if (hasDeviceAccess(coverEmail)) {
+    // Device memory OR server paid/bypass → license entry (no PayPal again).
+    if (hasDeviceAccess(coverEmail) || isSignupEntitled(signup, coverEmail)) {
       setLockStep("license");
       return;
     }

@@ -64,8 +64,22 @@ export function isLicenseBoundToThisDevice(license) {
 }
 
 /**
- * Payment / unlock for CoverLock: only this phone counts.
- * Same email on another phone, or a different email, must pay again.
+ * True when this account already paid or was admin-bypassed (server/local signup).
+ * Used by "I have paid" so returning clients restore access on any phone.
+ */
+export function isAccountPaidOrBypassed(signup) {
+  if (!signup || typeof signup !== "object") return false;
+  if (signup.accessPaid) return true;
+  if (signup.appAccessUnlockedAt) return true;
+  const status = String(signup.status || "").toLowerCase();
+  return status === "approved";
+}
+
+/**
+ * Payment unlock for CoverLock:
+ * - This phone already paid/bypassed for the email, OR
+ * - Server shows paid / approved / bypassed for the email.
+ * Brand-new emails still must pay.
  */
 export function hasPaidOnThisDevice(email) {
   return hasDeviceAccess(email);
@@ -75,10 +89,5 @@ export function isSignupEntitled(signup, email = "") {
   const key = email || signup?.email;
   // Device unlock wins even when local signup is still "pending" after a stale sync.
   if (hasDeviceAccess(key)) return true;
-  if (!signup) return false;
-  const status = String(signup.status || "").toLowerCase();
-  if (status === "approved") return true;
-  if (signup.accessPaid) return true;
-  if (signup.appAccessUnlockedAt) return true;
-  return false;
+  return isAccountPaidOrBypassed(signup);
 }
