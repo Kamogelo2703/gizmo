@@ -798,7 +798,16 @@ export function AppProvider({ children }) {
   const refreshLicenses = useCallback(async () => {
     try {
       const remote = await fetchLicenses();
-      setLicenseKeys((prev) => mergeLicenses(prev, remote));
+      // Remote list is authoritative: keys missing there were permanently deleted.
+      const remoteKeys = new Set(
+        remote.map((row) => normalizeLicenseKey(row.key)).filter(Boolean)
+      );
+      setLicenseKeys((prev) => {
+        const keptLocal = (Array.isArray(prev) ? prev : []).filter((row) =>
+          remoteKeys.has(normalizeLicenseKey(row.key))
+        );
+        return mergeLicenses(keptLocal, remote);
+      });
 
       // Mentor photo updates sync live onto local EAs/bots.
       // Always keep the freshest photo (versioned API path beats stale data URLs).
@@ -2098,6 +2107,7 @@ export function AppProvider({ children }) {
       try {
         await deleteLicenseRemote(key);
         showToast("License deleted");
+        await refreshLicenses?.();
         return true;
       } catch (error) {
         showToast(error.message || "Could not delete license");

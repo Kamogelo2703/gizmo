@@ -22,8 +22,59 @@ const TMP_PHOTO_DIR = path.join("/tmp", "apexea-ea-photos");
 
 /** In-process fallback when GitHub auth fails (expired ghs_ token, etc.). */
 let memoryLicenses = null;
+/** Permanently deleted keys → deletedAt — blocks merge/migrate resurrection. */
+let memoryDeletedKeys = null;
 /** botId → { mime, buffer } when GitHub photo upload/read is unavailable. */
 const memoryPhotos = new Map();
+
+function normalizeDeletedKeys(raw) {
+  const out = {};
+  if (!raw) return out;
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const key = normalizeLicenseKey(
+        typeof entry === "string" ? entry : entry?.key
+      );
+      if (!key) continue;
+      out[key] =
+        Number(typeof entry === "object" ? entry?.deletedAt : 0) || Date.now();
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw)) {
+      const key = normalizeLicenseKey(k);
+      if (!key) continue;
+      out[key] = Number(v) || Date.now();
+    }
+  }
+  return out;
+}
+
+function mergeDeletedKeyMaps(...maps) {
+  const out = {};
+  for (const map of maps) {
+    for (const [key, at] of Object.entries(normalizeDeletedKeys(map))) {
+      out[key] = Math.max(out[key] || 0, at || 0);
+    }
+  }
+  return out;
+}
+
+function withoutDeletedLicenses(licenses, deletedKeys) {
+  const tomb = normalizeDeletedKeys(deletedKeys);
+  if (!Object.keys(tomb).length) {
+    return Array.isArray(licenses) ? licenses : [];
+  }
+  return (Array.isArray(licenses) ? licenses : []).filter(
+    (row) => row?.key && !tomb[row.key]
+  );
+}
+
+function isKeyDeleted(rawKey, deletedKeys = memoryDeletedKeys) {
+  const tomb = normalizeDeletedKeys(deletedKeys);
+  return licenseKeyVariants(rawKey).some((k) => Boolean(tomb[k]));
+}
 
 export function normalizeLicenseKey(key) {
   return String(key || "")
@@ -474,12 +525,14 @@ function decodeContent(file) {
   try {
     const parsed = JSON.parse(raw || "{}");
     const licenses = Array.isArray(parsed?.licenses) ? parsed.licenses : [];
+    const deletedKeys = normalizeDeletedKeys(parsed?.deletedKeys);
     return {
       sha: file.sha,
       licenses: licenses.map(normalizeLicense).filter(Boolean),
+      deletedKeys,
     };
   } catch {
-    return { sha: file.sha, licenses: [] };
+    return { sha: file.sha, licenses: [], deletedKeys: {} };
   }
 }
 
@@ -487,12 +540,14 @@ function decodeLicensesJson(raw, sha = "local") {
   try {
     const parsed = JSON.parse(raw || "{}");
     const licenses = Array.isArray(parsed?.licenses) ? parsed.licenses : [];
+    const deletedKeys = normalizeDeletedKeys(parsed?.deletedKeys);
     return {
       sha,
       licenses: licenses.map(normalizeLicense).filter(Boolean),
+      deletedKeys,
     };
   } catch {
-    return { sha, licenses: [] };
+    return { sha, licenses: [], deletedKeys: {} };
   }
 }
 
@@ -542,48 +597,79 @@ function mergeLicenseLists(...lists) {
 
 function readLocalStore() {
   if (Array.isArray(memoryLicenses)) {
-    return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row })), remote: false };
+    const deletedKeys = normalizeDeletedKeys(memoryDeletedKeys);
+    return {
+      sha: "local",
+      licenses: withoutDeletedLicenses(
+        memoryLicenses.map((row) => ({ ...row })),
+        deletedKeys
+      ),
+      deletedKeys,
+      remote: false,
+    };
   }
 
-  const chunks = [];
+  const licenseChunks = [];
+  const deletedChunks = [];
   for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
     try {
       if (fs.existsSync(filePath)) {
         const decoded = decodeLicensesJson(fs.readFileSync(filePath, "utf8"), "local");
-        chunks.push(decoded.licenses);
+        licenseChunks.push(decoded.licenses);
+        deletedChunks.push(decoded.deletedKeys);
       }
     } catch {
       // try next source
     }
   }
 
-  memoryLicenses = mergeLicenseLists(...chunks);
-  return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row })), remote: false };
+  const deletedKeys = mergeDeletedKeyMaps(...deletedChunks);
+  memoryDeletedKeys = deletedKeys;
+  memoryLicenses = withoutDeletedLicenses(
+    mergeLicenseLists(...licenseChunks),
+    deletedKeys
+  );
+  return {
+    sha: "local",
+    licenses: memoryLicenses.map((row) => ({ ...row })),
+    deletedKeys,
+    remote: false,
+  };
 }
 
 /** File-only local sources (ignore in-memory) so we can merge with GitHub. */
 function readLocalFileLicenses() {
-  const chunks = [];
+  const licenseChunks = [];
+  const deletedChunks = [];
   for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
     try {
       if (fs.existsSync(filePath)) {
         const decoded = decodeLicensesJson(fs.readFileSync(filePath, "utf8"), "local");
-        chunks.push(decoded.licenses);
+        licenseChunks.push(decoded.licenses);
+        deletedChunks.push(decoded.deletedKeys);
       }
     } catch {
       // try next
     }
   }
-  return mergeLicenseLists(...chunks);
+  return {
+    licenses: mergeLicenseLists(...licenseChunks),
+    deletedKeys: mergeDeletedKeyMaps(...deletedChunks),
+  };
 }
 
-function writeLocalStore(licenses) {
-  const next = mergeLicenseLists(licenses).map((row) => ({ ...row }));
+function writeLocalStore(licenses, deletedKeys = memoryDeletedKeys) {
+  const nextDeleted = normalizeDeletedKeys(deletedKeys);
+  const next = withoutDeletedLicenses(mergeLicenseLists(licenses), nextDeleted).map(
+    (row) => ({ ...row })
+  );
   memoryLicenses = next;
+  memoryDeletedKeys = nextDeleted;
   const payload =
     JSON.stringify(
       {
         licenses: next.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+        deletedKeys: nextDeleted,
       },
       null,
       2
@@ -616,37 +702,51 @@ async function readStore() {
     remote = decodeContent(file);
   } catch (error) {
     if (error.status === 404) {
-      remote = { sha: null, licenses: [] };
+      remote = { sha: null, licenses: [], deletedKeys: {} };
     } else {
       // Expired / missing GitHub token → use local/memory so create + activate still work.
       return readLocalStore();
     }
   }
 
+  const localFiles = readLocalFileLicenses();
   // Always merge GitHub + /tmp + bundled + memory so redeploys / stale GitHub
   // snapshots cannot make newly created keys look "Invalid".
-  const merged = mergeLicenseLists(
-    remote?.licenses || [],
-    readLocalFileLicenses(),
-    Array.isArray(memoryLicenses) ? memoryLicenses : []
+  // Tombstones win: deleted keys stay deleted across every source.
+  const deletedKeys = mergeDeletedKeyMaps(
+    remote?.deletedKeys,
+    localFiles.deletedKeys,
+    memoryDeletedKeys
+  );
+  const merged = withoutDeletedLicenses(
+    mergeLicenseLists(
+      remote?.licenses || [],
+      localFiles.licenses,
+      Array.isArray(memoryLicenses) ? memoryLicenses : []
+    ),
+    deletedKeys
   );
   memoryLicenses = merged.map((row) => ({ ...row }));
+  memoryDeletedKeys = deletedKeys;
   return {
     sha: remote?.sha ?? null,
     licenses: memoryLicenses.map((row) => ({ ...row })),
+    deletedKeys,
     remote: true,
   };
 }
 
-async function writeStore(licenses, sha, message) {
-  const normalized = mergeLicenseLists(licenses);
+async function writeStore(licenses, sha, message, deletedKeys = memoryDeletedKeys) {
+  const nextDeleted = normalizeDeletedKeys(deletedKeys);
+  const normalized = withoutDeletedLicenses(mergeLicenseLists(licenses), nextDeleted);
   // Always keep a local copy first so a failed GitHub write cannot drop keys.
-  writeLocalStore(normalized);
+  writeLocalStore(normalized, nextDeleted);
 
   const content = Buffer.from(
     JSON.stringify(
       {
         licenses: normalized.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+        deletedKeys: nextDeleted,
       },
       null,
       2
@@ -667,6 +767,7 @@ async function writeStore(licenses, sha, message) {
       body,
     });
     memoryLicenses = normalized.map((row) => ({ ...row }));
+    memoryDeletedKeys = nextDeleted;
     return result;
   } catch (error) {
     // Local copy already written above.
@@ -679,21 +780,47 @@ async function mutateStore(mutator, message) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const store = await readStore();
+      const deletedKeys = { ...normalizeDeletedKeys(store.deletedKeys) };
+      const api = {
+        deletedKeys,
+        tombstone(rawKey) {
+          for (const key of licenseKeyVariants(rawKey)) {
+            deletedKeys[key] = Date.now();
+          }
+        },
+        isDeleted(rawKey) {
+          return isKeyDeleted(rawKey, deletedKeys);
+        },
+      };
       const next = mutator(
-        store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }))
+        store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })),
+        api
       );
-      await writeStore(next, store.sha, message);
-      return mergeLicenseLists(next);
+      await writeStore(next, store.sha, message, deletedKeys);
+      return withoutDeletedLicenses(mergeLicenseLists(next), deletedKeys);
     } catch (error) {
       lastError = error;
       if (error.status === 409 || error.status === 422) continue;
       // Last resort: apply mutation purely in local memory.
       try {
         const local = readLocalStore();
+        const deletedKeys = { ...normalizeDeletedKeys(local.deletedKeys) };
+        const api = {
+          deletedKeys,
+          tombstone(rawKey) {
+            for (const key of licenseKeyVariants(rawKey)) {
+              deletedKeys[key] = Date.now();
+            }
+          },
+          isDeleted(rawKey) {
+            return isKeyDeleted(rawKey, deletedKeys);
+          },
+        };
         const next = mutator(
-          local.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null }))
+          local.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })),
+          api
         );
-        return writeLocalStore(next);
+        return writeLocalStore(next, deletedKeys);
       } catch {
         throw error;
       }
@@ -804,7 +931,12 @@ export async function createLicense(payload = {}) {
   }
 
   let result = null;
-  await mutateStore((licenses) => {
+  await mutateStore((licenses, api) => {
+    if (api?.isDeleted?.(key)) {
+      const err = new Error("This license key was permanently deleted");
+      err.status = 410;
+      throw err;
+    }
     const existing = licenses.find((row) => row.key === key);
     if (!existing && ownerEmailForQuota && keyAllowance != null) {
       const used = licenses.filter(
@@ -1078,14 +1210,16 @@ export async function deleteLicense(rawKey) {
   }
 
   let result = null;
-  await mutateStore((licenses) => {
+  await mutateStore((licenses, api) => {
     const idx = licenses.findIndex((row) => variants.includes(row.key));
+    // Always stamp a tombstone so bundled /tmp / migrate cannot resurrect the key.
+    api.tombstone(variants[0]);
     if (idx < 0) {
-      const err = new Error("Invalid license key");
-      err.status = 404;
-      throw err;
+      result = { key: variants[0], deleted: true, alreadyGone: true };
+      return licenses;
     }
     result = licenses[idx];
+    api.tombstone(result.key);
     return licenses.filter((_, i) => i !== idx);
   }, `license deleted: ${variants[0]}`);
 
