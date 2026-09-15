@@ -263,7 +263,13 @@ export default function AdminPortal() {
   }
 
   async function onDeactivateLicense(key) {
-    const result = await deactivateLicense?.(key);
+    if (!isSuperAdmin) {
+      showToast("Only super admin can activate used license keys");
+      return;
+    }
+    const result = await deactivateLicense?.(key, {
+      adminEmail: adminSession?.email || "",
+    });
     if (result) {
       await refreshLicenses?.();
       if (latestKey === key) setLicenseSheetOpen(true);
@@ -1888,13 +1894,15 @@ export default function AdminPortal() {
                       >
                         Copy
                       </button>
-                      <button
-                        className="admin-btn admin-btn-ghost admin-btn-sm"
-                        type="button"
-                        onClick={() => void onDeactivateLicense(entry.key)}
-                      >
-                        {entry.used ? "Deactivate" : "Reset"}
-                      </button>
+                      {isSuperAdmin ? (
+                        <button
+                          className="admin-btn admin-btn-ghost admin-btn-sm"
+                          type="button"
+                          onClick={() => void onDeactivateLicense(entry.key)}
+                        >
+                          {entry.used ? "Deactivate" : "Reset"}
+                        </button>
+                      ) : null}
                       <button
                         className="admin-btn admin-btn-outline admin-btn-sm"
                         type="button"
@@ -3199,13 +3207,15 @@ export default function AdminPortal() {
             >
               Copy license key
             </button>
-            <button
-              className="admin-btn admin-btn-outline admin-btn-block"
-              type="button"
-              onClick={() => void onDeactivateLicense(latestKey)}
-            >
-              {latestLicenseMeta?.status === "Used" ? "Deactivate key" : "Reset key"}
-            </button>
+            {isSuperAdmin ? (
+              <button
+                className="admin-btn admin-btn-outline admin-btn-block"
+                type="button"
+                onClick={() => void onDeactivateLicense(latestKey)}
+              >
+                {latestLicenseMeta?.status === "Used" ? "Deactivate key" : "Reset key"}
+              </button>
+            ) : null}
             <button
               className="admin-btn admin-btn-ghost admin-btn-block"
               type="button"

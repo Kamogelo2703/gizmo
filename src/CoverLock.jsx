@@ -6,8 +6,8 @@ import {
   loadPaypalSdk,
 } from "./paypalApi.js";
 import {
-  hasDeviceAccess,
-  isSignupEntitled,
+  hasPaidOnThisDevice,
+  isLicenseBoundToThisDevice,
   rememberDeviceAccess,
 } from "./deviceAccess.js";
 import {
@@ -75,7 +75,7 @@ export default function CoverLock() {
     setEmail(coverEmail || "");
   }, [coverEmail]);
 
-  // Warm license lookup while the paywall is visible so "I have paid" stays under 1s.
+  // Warm license lookup — only treat as paid if the key is already bound to THIS phone.
   useEffect(() => {
     const key = normalizeEmail(coverEmail || email);
     if (!key.includes("@")) return undefined;
@@ -85,6 +85,8 @@ export default function CoverLock() {
     let cancelled = false;
     void emailOwnsLicense(key).then((owned) => {
       if (cancelled || !owned?.length) return;
+      const onThisPhone = owned.filter((row) => isLicenseBoundToThisDevice(row));
+      if (!onThisPhone.length) return;
       rememberDeviceAccess(key, { paid: true, bypassed: true });
     });
     return () => {
@@ -211,6 +213,7 @@ export default function CoverLock() {
       bypassed: true,
     });
     // Returning clients skip payment, but must type their license key again.
+    // Same phone: key works. Different phone: key stays locked.
     setLockStep("license");
     showToast("Enter your license key to unlock");
     // Persist paid flag in the background — never block the unlock UI on it.
@@ -265,70 +268,42 @@ export default function CoverLock() {
     return withDeadline(fetchRemote(), ms, null);
   }
 
-  /** Returning clients: paid, bypassed, approved, or already issued a license. Max ~1s. */
+  /** Returning on THIS phone only — new email or another phone must pay again. */
   async function resolveReturningAccess(key) {
     const started = Date.now();
     const BUDGET_MS = 900;
-
-    // Instant path: local cache / this device / locally stored license — no network wait.
     let current = getSignup(key);
-    const localOwned = localLicensesForEmail(key);
-    if (
-      isSignupEntitled(current, key) ||
-      hasDeviceAccess(key) ||
-      localOwned.length
-    ) {
+
+    // Instant: this phone already paid / bypassed for this email.
+    if (hasPaidOnThisDevice(key)) {
+      void refreshSignups?.().catch(() => {});
+      return {
+        entitled: true,
+        current: current || persistPaidLocally(key, null),
+        owned: localLicensesForEmail(key).filter((row) => isLicenseBoundToThisDevice(row)),
+      };
+    }
+
+    const localBound = localLicensesForEmail(key).filter((row) =>
+      isLicenseBoundToThisDevice(row)
+    );
+    if (localBound.length) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
       void refreshSignups?.().catch(() => {});
       return {
         entitled: true,
         current: current || persistPaidLocally(key, null),
-        owned: localOwned,
+        owned: localBound,
       };
     }
 
-    // License ownership is the fastest proof for reinstalls — race it against signup sync.
+    // Remote: only licenses already bound to THIS device skip payment.
     const ownedPromise = emailOwnsLicense(key);
     const signupsPromise = loadSignupsFast(BUDGET_MS);
-
-    const first = await Promise.race([
-      ownedPromise.then((owned) => ({ kind: "license", owned })),
-      signupsPromise.then((merged) => ({ kind: "signups", merged })),
-    ]);
-
-    if (first.kind === "license" && first.owned?.length) {
-      rememberDeviceAccess(key, { paid: true, bypassed: true });
-      void signupsPromise;
-      return {
-        entitled: true,
-        current: persistPaidLocally(key, getSignup(key)),
-        owned: first.owned,
-      };
-    }
-
-    if (first.kind === "signups") {
-      current =
-        (Array.isArray(first.merged)
-          ? first.merged.find((s) => normalizeEmail(s.email) === key)
-          : null) ||
-        getSignup(key) ||
-        current;
-      if (isSignupEntitled(current, key)) {
-        rememberDeviceAccess(key, { paid: true, bypassed: true });
-        void ownedPromise;
-        return { entitled: true, current };
-      }
-    }
-
-    // Wait for whichever check is still pending, within the 1s budget.
     const remaining = Math.max(0, BUDGET_MS - (Date.now() - started));
     const [merged, owned] = await Promise.all([
-      first.kind === "signups"
-        ? Promise.resolve(first.merged)
-        : withDeadline(signupsPromise, remaining, null),
-      first.kind === "license"
-        ? Promise.resolve(first.owned)
-        : withDeadline(ownedPromise, remaining, []),
+      withDeadline(signupsPromise, remaining, null),
+      withDeadline(ownedPromise, remaining, []),
     ]);
 
     current =
@@ -338,17 +313,19 @@ export default function CoverLock() {
       getSignup(key) ||
       current;
 
-    if (isSignupEntitled(current, key)) {
+    const remoteBound = (Array.isArray(owned) ? owned : []).filter((row) =>
+      isLicenseBoundToThisDevice(row)
+    );
+    if (remoteBound.length) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
-      return { entitled: true, current };
+      return {
+        entitled: true,
+        current: current || persistPaidLocally(key, null),
+        owned: remoteBound,
+      };
     }
 
-    if (Array.isArray(owned) && owned.length) {
-      rememberDeviceAccess(key, { paid: true, bypassed: true });
-      current = persistPaidLocally(key, current);
-      return { entitled: true, current, owned };
-    }
-
+    // Do not skip pay for signup.accessPaid / licenses on another phone.
     return { entitled: false, current };
   }
 
@@ -483,8 +460,8 @@ export default function CoverLock() {
               {checkingPaid ? "Checking…" : "I have paid"}
             </button>
             <p className="ea-hint" style={{ marginTop: 10, textAlign: "center" }}>
-              Already paid before? Tap <strong>I have paid</strong>, then enter your
-              license key again.
+              Already paid on this phone? Tap <strong>I have paid</strong>, then enter
+              your license key again. A new phone or different email needs a new payment.
             </p>
             <button
               className="cover-back"
@@ -532,8 +509,8 @@ export default function CoverLock() {
               {checkingPaid ? "Checking…" : "I have paid"}
             </button>
             <p className="ea-hint" style={{ marginTop: 12, textAlign: "center" }}>
-              Already paid or had access before? Tap <strong>I have paid</strong>, then
-              enter your license key again.
+              Already paid on this phone? Tap <strong>I have paid</strong>, then enter
+              your license key again. A new phone or different email needs a new payment.
             </p>
             <button
               className="cover-back"

@@ -56,6 +56,21 @@ export function hasDeviceAccess(email) {
   return Boolean(row.paid || row.bypassed || row.unlockedAt);
 }
 
+/** License was already activated on this exact phone. */
+export function isLicenseBoundToThisDevice(license) {
+  const bound = String(license?.deviceId || "").trim();
+  if (!bound) return false;
+  return bound === getOrCreateDeviceId();
+}
+
+/**
+ * Payment / unlock for CoverLock: only this phone counts.
+ * Same email on another phone, or a different email, must pay again.
+ */
+export function hasPaidOnThisDevice(email) {
+  return hasDeviceAccess(email);
+}
+
 export function isSignupEntitled(signup, email = "") {
   const key = email || signup?.email;
   // Device unlock wins even when local signup is still "pending" after a stale sync.

@@ -325,10 +325,16 @@ export async function markLicenseUsedRemote(key, { deviceId = "", email = "" } =
   return normalizeLicense(data?.license);
 }
 
-export async function deactivateLicenseRemote(key) {
+export async function deactivateLicenseRemote(key, { adminEmail = "" } = {}) {
   const data = await apiFetch("", {
     method: "PATCH",
-    body: { key: normalizeLicenseKey(key), action: "deactivate" },
+    body: {
+      key: normalizeLicenseKey(key),
+      action: "deactivate",
+      adminEmail: String(adminEmail || "")
+        .trim()
+        .toLowerCase(),
+    },
   });
   return normalizeLicense(data?.license);
 }
