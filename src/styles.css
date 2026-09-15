@@ -4559,7 +4559,7 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 1 !important;
 }
 
-/* Interface 2 hero — rectangular frame, kept compact so controls stay on-screen */
+/* Interface 2 hero — full-bleed picture ends at Powered by / robot list seam */
 .v2-home-header {
   display: flex;
   flex-direction: column;
@@ -4574,15 +4574,16 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 0;
-  height: auto;
-  max-height: none;
+  /* Full-bleed picture ends at Powered-by / ROBOT LIST seam (user red line) */
+  min-height: min(78vw, 318px);
+  height: min(78vw, 318px);
+  max-height: 318px;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
-  padding: 8px 14px 0;
+  justify-content: flex-end;
+  padding: 0;
   overflow: hidden;
   background: #000;
   animation: none !important;
@@ -4590,20 +4591,21 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-home-hero-media {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 0;
   width: 100%;
-  max-width: min(100%, 340px);
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   min-height: 0;
-  height: min(38vw, 188px);
-  max-height: 188px;
+  height: 100%;
+  max-height: none;
   padding: 0;
   pointer-events: none;
   background: #0a0a0a;
   line-height: 0;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 .v2-home-hero-img {
@@ -4614,7 +4616,7 @@ html:has(.phone[data-interface="v2"]) body {
   max-height: 100%;
   display: block;
   object-fit: cover;
-  object-position: center top;
+  object-position: center center;
   transform: none;
   filter: none;
   animation: none !important;
@@ -4634,8 +4636,8 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 10px 16px 8px;
-  background: #000;
+  padding: 12px 16px 40px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.2) 70%, transparent 100%);
   opacity: 1 !important;
   animation: none !important;
   visibility: visible !important;
@@ -4670,12 +4672,12 @@ html:has(.phone[data-interface="v2"]) body {
   visibility: visible !important;
 }
 
-/* Solid white GOAT-style control card — overlap hero/list seam */
+/* Solid white GOAT-style control card — sits on the picture bottom edge */
 .v2-pill-bar {
   position: relative;
   z-index: 3;
   flex: 0 0 auto;
-  margin: -34px auto 0;
+  margin: -28px auto 0;
   width: min(86%, 290px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4777,7 +4779,7 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-powered-by {
-  margin: 18px 18px 2px;
+  margin: 6px 18px 0;
   padding: 0;
   text-align: center;
   font-family: var(--font-body);
@@ -4808,8 +4810,8 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-robots {
-  margin-top: 6px;
-  padding: 8px 18px 20px;
+  margin-top: 4px;
+  padding: 6px 18px 20px;
   background: #fff;
   width: 100%;
   box-sizing: border-box;
@@ -8257,9 +8259,9 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  /* Mid-left on compact Interface 2 hero frame */
-  top: 42%;
-  left: 22px;
+  /* Mid-left on full-bleed Interface 2 hero */
+  top: 38%;
+  left: 14px;
   right: auto;
   bottom: auto;
   transform: translateY(-50%);
