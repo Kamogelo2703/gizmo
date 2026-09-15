@@ -4559,7 +4559,7 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 1 !important;
 }
 
-/* Full-bleed Interface 2 hero — photo fills the whole frame (not a circle) */
+/* Interface 2 hero — rectangular frame, kept compact so controls stay on-screen */
 .v2-home-header {
   display: flex;
   flex-direction: column;
@@ -4574,7 +4574,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: min(48vw, 260px);
+  min-height: 0;
   height: auto;
   max-height: none;
   flex: 0 0 auto;
@@ -4582,7 +4582,7 @@ html:has(.phone[data-interface="v2"]) body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  padding: 0;
+  padding: 8px 14px 0;
   overflow: hidden;
   background: #000;
   animation: none !important;
@@ -4593,24 +4593,27 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 0;
   width: 100%;
+  max-width: min(100%, 340px);
+  margin: 0 auto;
   min-height: 0;
-  height: auto;
-  margin: 0;
+  height: min(38vw, 188px);
+  max-height: 188px;
   padding: 0;
   pointer-events: none;
-  background: #000;
+  background: #0a0a0a;
   line-height: 0;
   overflow: hidden;
+  border-radius: 14px;
 }
 
 .v2-home-hero-img {
   width: 100%;
-  height: auto;
+  height: 100%;
   min-height: 0;
   max-width: 100%;
-  max-height: none;
+  max-height: 100%;
   display: block;
-  object-fit: unset;
+  object-fit: cover;
   object-position: center top;
   transform: none;
   filter: none;
@@ -4631,7 +4634,7 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 14px 16px 10px;
+  padding: 10px 16px 8px;
   background: #000;
   opacity: 1 !important;
   animation: none !important;
@@ -8254,9 +8257,9 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  /* Mid-left on full-bleed Interface 2 hero */
-  top: 38%;
-  left: 8px;
+  /* Mid-left on compact Interface 2 hero frame */
+  top: 42%;
+  left: 22px;
   right: auto;
   bottom: auto;
   transform: translateY(-50%);
