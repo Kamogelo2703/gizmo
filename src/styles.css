@@ -40,6 +40,23 @@ body,
   touch-action: pan-y;
 }
 
+/* Form fields must keep normal touch so mentors can type/edit (e.g. signal directions). */
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  touch-action: manipulation;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+textarea.admin-input,
+textarea.v2-input {
+  touch-action: auto;
+  resize: vertical;
+  min-height: 7.5rem;
+}
+
 .phone,
 .stage,
 .v2-stage,
@@ -7690,18 +7707,18 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  /* Top-left on Interface 2 home (matches product placement) */
-  top: 8px;
-  left: 0;
+  /* Mid-left on Interface 2 hero (beside the face) */
+  top: 42%;
+  left: 8px;
   right: auto;
   bottom: auto;
-  transform: none;
-  max-width: 96px;
+  transform: translateY(-50%);
+  max-width: 92px;
   background: color-mix(in srgb, #000 70%, var(--accent, #ff2d7a) 18%);
 }
 
 .econ-cal-btn-v2:active {
-  transform: scale(0.97);
+  transform: translateY(-50%) scale(0.97);
 }
 
 .econ-cal-btn:active {

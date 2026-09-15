@@ -982,7 +982,7 @@ export default function AdminPortal() {
     }
     if (!isSignalDirectionEditable(official)) {
       showToast(
-        `Editing locked — signal directions close 1 hour before ${official.title} (${official.timeSa || official.timeEt} SAST)`
+        `Editing locked — ${official.title} already started (${official.timeSa || official.timeEt} SAST)`
       );
       return;
     }
@@ -2334,7 +2334,10 @@ export default function AdminPortal() {
                           value={calendarDirections}
                           onChange={(e) => setCalendarDirections(e.target.value)}
                           placeholder="Enter the signal direction for clients…"
-                          disabled={selected ? !isSignalDirectionEditable(selected) : true}
+                          readOnly={selected ? !isSignalDirectionEditable(selected) : true}
+                          aria-readonly={selected ? !isSignalDirectionEditable(selected) : true}
+                          inputMode="text"
+                          autoComplete="off"
                         />
                       </label>
                       <p className="ea-hint">
@@ -2424,8 +2427,8 @@ export default function AdminPortal() {
             <h2 className="admin-h1">Add Signal Direction</h2>
             <p className="admin-sub">
               Post a signal direction for the next NFP, PPI, CPI, or FOMC. It appears on the
-              client Economic calendar. You can edit until 1 hour before the event — then it
-              locks. The direction removes itself the day after.
+              client Economic calendar. You can edit until the event starts — then it locks.
+              The direction removes itself the day after.
             </p>
             {(() => {
               const upcomingOfficial = listUpcomingOfficialEvents(new Date(), 10);
@@ -2494,7 +2497,11 @@ export default function AdminPortal() {
                           value={calendarDirections}
                           onChange={(e) => setCalendarDirections(e.target.value)}
                           placeholder="e.g. Stay flat until the release, then watch XAUUSD…"
-                          disabled={locked}
+                          readOnly={locked}
+                          aria-readonly={locked}
+                          inputMode="text"
+                          enterKeyHint="done"
+                          autoComplete="off"
                           required
                         />
                       </label>
@@ -2510,8 +2517,10 @@ export default function AdminPortal() {
                         {calendarBusy
                           ? "Saving…"
                           : locked
-                            ? "Editing locked (1 hour before event)"
-                            : "Add signal direction"}
+                            ? "Editing locked (event started)"
+                            : calendarDirections.trim()
+                              ? "Save signal direction"
+                              : "Add signal direction"}
                       </button>
                     </form>
                   </div>
