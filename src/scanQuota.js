@@ -89,7 +89,8 @@ export function saveScansLeft(variant, value) {
 }
 
 /** Consume one scan after a successful analysis. Returns the new remaining count. */
-export function consumeScan(variant, current) {
-  const next = Math.max(0, Math.floor(Number(current) || 0) - 1);
-  return saveScansLeft(variant, next);
+export function consumeScan(variant) {
+  // Always re-read so a new calendar day refreshes quota before decrementing.
+  const live = loadScansLeft(variant);
+  return saveScansLeft(variant, Math.max(0, live - 1));
 }
