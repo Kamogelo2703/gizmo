@@ -593,8 +593,8 @@ html:has(.phone[data-interface="v2"]) body {
 
 .stop-btn {
   position: relative;
-  width: 118px;
-  height: 118px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   /* Keep overflow visible so the theme edge glow is not clipped;
      particles are clipped by .stop-energy instead. */
@@ -610,7 +610,7 @@ html:has(.phone[data-interface="v2"]) body {
     radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.16), transparent 48%),
     radial-gradient(circle at 50% 42%, rgba(var(--pink-rgb), 0.34), transparent 58%),
     radial-gradient(circle at 50% 50%, rgba(26, 18, 24, 0.55) 0%, rgba(12, 12, 14, 0.72) 72%);
-  border: 3px solid rgba(255, 255, 255, 0.38);
+  border: 2.5px solid rgba(255, 255, 255, 0.38);
   box-shadow:
     0 0 0 1px rgba(var(--pink-rgb), 0.35),
     0 0 28px rgba(var(--pink-hot-rgb), 0.5),
@@ -977,7 +977,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 2;
   color: #fff;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1;
