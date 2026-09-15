@@ -3,6 +3,7 @@ import {
   persistBotPhoto,
   readBotPhoto,
   readJsonBody,
+  resolveRawBotPhotoUrl,
   sendJson,
   syncBotPhotoToLicenses,
 } from "./_lib.js";
@@ -32,22 +33,32 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const q = getQuery(req);
+      const versioned = Boolean(String(q.v || "").trim());
+      const cacheControl = versioned
+        ? "public, max-age=86400, stale-while-revalidate=604800"
+        : "public, max-age=120, must-revalidate";
+
+      // Serve local/memory bytes first (instant on warm instances).
       const photo = await readBotPhoto(q.botId);
-      if (!photo) {
-        sendJson(res, 404, { error: "Photo not found." });
+      if (photo?.buffer?.length) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", photo.mime || "image/jpeg");
+        res.setHeader("Cache-Control", cacheControl);
+        res.end(photo.buffer);
         return;
       }
-      res.statusCode = 200;
-      res.setHeader("Content-Type", photo.mime || "image/jpeg");
-      // Versioned URLs (?v=...) are safe to cache longer — Android WebView reuses them.
-      const versioned = Boolean(String(q.v || "").trim());
-      res.setHeader(
-        "Cache-Control",
-        versioned
-          ? "public, max-age=86400, stale-while-revalidate=604800"
-          : "public, max-age=120, must-revalidate"
-      );
-      res.end(photo.buffer);
+
+      // Last resort: point the browser at GitHub's raw CDN directly.
+      const rawUrl = await resolveRawBotPhotoUrl(q.botId);
+      if (rawUrl) {
+        res.statusCode = 302;
+        res.setHeader("Location", rawUrl);
+        res.setHeader("Cache-Control", cacheControl);
+        res.end();
+        return;
+      }
+
+      sendJson(res, 404, { error: "Photo not found." });
       return;
     }
 

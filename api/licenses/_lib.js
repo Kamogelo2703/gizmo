@@ -359,12 +359,89 @@ export async function persistBotPhoto(botId, photo) {
   }
 }
 
+function rawBotPhotoUrl(id, ext) {
+  return `https://raw.githubusercontent.com/${REPO}/${BRANCH}/data/ea-photos/${id}.${ext}`;
+}
+
+/**
+ * Prefer GitHub raw CDN (binary) over Contents API (base64 JSON) — much faster
+ * for large EA photos. Races common extensions.
+ */
+export async function resolveRawBotPhotoUrl(botId) {
+  const id = safePhotoId(botId);
+  if (!id) return null;
+  const tryExt = async (ext) => {
+    const url = rawBotPhotoUrl(id, ext);
+    const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (!res.ok) {
+      const err = new Error("raw photo miss");
+      err.status = res.status;
+      throw err;
+    }
+    return url;
+  };
+  try {
+    return await Promise.any(
+      ["jpg", "jpeg", "png", "webp"].map((ext) => tryExt(ext))
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRawBotPhoto(id) {
+  const tryExt = async (ext) => {
+    const url = rawBotPhotoUrl(id, ext);
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (!res.ok) {
+      const err = new Error("raw photo miss");
+      err.status = res.status;
+      throw err;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (!buffer.length) {
+      const err = new Error("empty photo");
+      err.status = 404;
+      throw err;
+    }
+    const headerMime = String(res.headers.get("content-type") || "").split(";")[0];
+    const mime =
+      headerMime.startsWith("image/")
+        ? headerMime
+        : ext === "png"
+          ? "image/png"
+          : ext === "webp"
+            ? "image/webp"
+            : "image/jpeg";
+    return { mime, buffer };
+  };
+  return Promise.any(["jpg", "jpeg", "png", "webp"].map((ext) => tryExt(ext)));
+}
+
 export async function readBotPhoto(botId) {
   const id = safePhotoId(botId);
   const local = readLocalBotPhoto(id);
   if (local) return local;
 
-  // Race common extensions instead of serial GitHub round-trips (was very slow).
+  // 1) Raw CDN binary (fast). 2) Contents API base64 (fallback).
+  try {
+    const photo = await fetchRawBotPhoto(id);
+    memoryPhotos.set(id, photo);
+    try {
+      const ext = photo.mime?.includes("png")
+        ? "png"
+        : photo.mime?.includes("webp")
+          ? "webp"
+          : "jpg";
+      writeLocalBotPhoto(id, ext, photo.buffer, photo.mime || "image/jpeg");
+    } catch {
+      // optional
+    }
+    return photo;
+  } catch {
+    // fall through to Contents API
+  }
+
   const tryExt = async (ext) => {
     const filePath = `data/ea-photos/${id}.${ext}`;
     const file = await ghFetch(
@@ -387,7 +464,6 @@ export async function readBotPhoto(botId) {
       ["jpg", "jpeg", "png", "webp"].map((ext) => tryExt(ext))
     );
     memoryPhotos.set(id, photo);
-    // Persist to /tmp so the next cold invoke on this instance is instant.
     try {
       const ext = photo.mime?.includes("png")
         ? "png"

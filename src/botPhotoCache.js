@@ -2,10 +2,22 @@ import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
 
 const DB_NAME = "apexea-bot-photos-v1";
 const STORE = "photos";
+const GITHUB_RAW_BASE =
+  "https://raw.githubusercontent.com/Kamogelo2703/gizmo/main/data/ea-photos";
 const memoryUrls = new Map(); // botId -> object URL or data URL
 const inflight = new Map();
 let dbPromise = null;
 let warmed = false;
+let warmPromise = null;
+
+function rawPhotoCandidates(botId) {
+  const id = String(botId || "").trim();
+  if (!id) return [];
+  const enc = encodeURIComponent(id);
+  return ["jpg", "jpeg", "png", "webp"].map(
+    (ext) => `${GITHUB_RAW_BASE}/${enc}.${ext}`
+  );
+}
 
 function openDb() {
   if (typeof indexedDB === "undefined") return null;
@@ -112,8 +124,6 @@ async function cacheDataUrl(id, dataUrl) {
   }
 }
 
-let warmPromise = null;
-
 /** Hydrate memory map from IndexedDB so robot rows paint instantly next frame. */
 export async function warmBotPhotoCache() {
   if (warmPromise) return warmPromise;
@@ -176,22 +186,39 @@ export async function resolveCachedBotPhoto(bot, fallback = "/logo.png") {
     return photo;
   }
 
-  if (!remote || remote === fallback) return fallback || "/logo.png";
-
   if (id && inflight.has(id)) return inflight.get(id);
 
   const task = (async () => {
-    try {
-      const response = await fetch(mediaUrl(remote), {
+    // Race GitHub raw CDN + durable API path — first successful blob wins.
+    const candidates = [
+      ...rawPhotoCandidates(id),
+      remote && remote !== fallback ? mediaUrl(remote) : "",
+    ].filter(Boolean);
+
+    const tryUrl = async (url) => {
+      const response = await fetch(url, {
         method: "GET",
         cache: "force-cache",
         credentials: "omit",
       });
-      if (!response.ok) return fallback || "/logo.png";
+      if (!response.ok) {
+        const err = new Error("photo miss");
+        err.status = response.status;
+        throw err;
+      }
       const blob = await response.blob();
-      if (!blob || !blob.size) return fallback || "/logo.png";
+      if (!blob || !blob.size) {
+        const err = new Error("empty photo");
+        err.status = 404;
+        throw err;
+      }
       if (id) return (await cacheBlob(id, blob, blob.type)) || fallback;
       return blobToObjectUrl(blob) || fallback;
+    };
+
+    try {
+      if (!candidates.length) return fallback || "/logo.png";
+      return await Promise.any(candidates.map((url) => tryUrl(url)));
     } catch {
       return fallback || "/logo.png";
     } finally {
