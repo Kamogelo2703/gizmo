@@ -44,10 +44,10 @@ export default function ZetaInterface() {
   useEffect(() => {
     let cancelled = false;
     const fallback = "/logo.png";
-    setFloatSrc(
+    const instant =
       getCachedBotPhotoSync(activeBot?.id) ||
-        resolveBotPhotoSrc(activeBot, fallback)
-    );
+      resolveBotPhotoSrc(activeBot, fallback);
+    setFloatSrc(instant);
     resolveCachedBotPhoto(activeBot, fallback)
       .then((url) => {
         if (!cancelled && url) setFloatSrc(url);
