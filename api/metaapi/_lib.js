@@ -335,6 +335,10 @@ function sessionPayload(account, {
   subscription,
   subscriptionError,
   pending,
+  balance,
+  equity,
+  profit,
+  currency,
 }) {
   const connection = accountConnectionStatus(account);
   return {
@@ -350,7 +354,25 @@ function sessionPayload(account, {
     subscribed: Boolean(strategyId) && Boolean(subscription) && !subscriptionError,
     subscriptionError: subscriptionError || null,
     pending: Boolean(pending),
+    balance: Number.isFinite(Number(balance)) ? Number(balance) : null,
+    equity: Number.isFinite(Number(equity)) ? Number(equity) : null,
+    // MetaAPI "profit" is unrealized / floating P/L on open positions.
+    profit: Number.isFinite(Number(profit)) ? Number(profit) : null,
+    currency: String(currency || "").trim().toUpperCase() || null,
   };
+}
+
+export async function getAccountInformation(accountId, { region, token } = {}) {
+  const id = String(accountId || "").trim();
+  if (!id) {
+    const err = new Error("accountId is required");
+    err.status = 400;
+    throw err;
+  }
+  const resolvedRegion = await resolveAccountRegion(id, region);
+  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(id)}/account-information`;
+  const { data } = await metaFetch(url, { token });
+  return { region: resolvedRegion, info: data || null };
 }
 
 export async function connectTradingAccount({
@@ -495,6 +517,24 @@ export async function getConnectionStatus(accountId, {
     }
   }
 
+  let balance = null;
+  let equity = null;
+  let profit = null;
+  let currency = null;
+  if (!pending) {
+    try {
+      const { info } = await getAccountInformation(id, {
+        region: accountRegion(account),
+      });
+      balance = info?.balance;
+      equity = info?.equity;
+      profit = info?.profit;
+      currency = info?.currency;
+    } catch {
+      // Metrics are best-effort — connection status still returns.
+    }
+  }
+
   return sessionPayload(account, {
     login: account?.login || "",
     server: account?.server || "",
@@ -504,6 +544,10 @@ export async function getConnectionStatus(accountId, {
     subscription,
     subscriptionError,
     pending,
+    balance,
+    equity,
+    profit,
+    currency,
   });
 }
 

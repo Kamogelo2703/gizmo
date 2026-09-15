@@ -13,6 +13,30 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
+function formatMoney(value, currency = "USD") {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "—";
+  const code = String(currency || "USD").trim().toUpperCase() || "USD";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    const sign = amount < 0 ? "-" : "";
+    return `${sign}${code} ${Math.abs(amount).toFixed(2)}`;
+  }
+}
+
+function profitTone(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount === 0) return "";
+  return amount > 0 ? " is-profit" : " is-loss";
+}
+
 export default function MetaTraderPanel({ variant = "zeta" }) {
   const {
     showToast,
@@ -36,6 +60,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
   const [step, setStep] = useState("browse");
   const [creds, setCreds] = useState(emptyLogin);
   const [connecting, setConnecting] = useState(false);
+  const [accountMetrics, setAccountMetrics] = useState(null);
   const searchRef = useRef(0);
 
   const hasQuery = query.trim().length > 0;
@@ -67,10 +92,14 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when session or cover email changes
   }, [session?.accountId, coverEmail]);
 
-  // If MetaAPI says this session is gone, clear the stale "engine armed" card.
+  // Keep connected session fresh and pull live balance / floating profit.
   useEffect(() => {
-    if (!session?.accountId) return undefined;
+    if (!session?.accountId) {
+      setAccountMetrics(null);
+      return undefined;
+    }
     let cancelled = false;
+
     async function reconcile() {
       try {
         const status = await getAccountStatus(session.accountId, {
@@ -81,6 +110,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
         const connection = String(status?.connectionStatus || "").toUpperCase();
         if (state === "UNDEPLOYED" || connection.includes("DISCONNECTED")) {
           setMt5Session(null);
+          setAccountMetrics(null);
           const accountEmail = normalizeEmail(coverEmail);
           if (accountEmail) {
             try {
@@ -90,14 +120,31 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
             }
           }
           showToast("MetaTrader session ended");
+          return;
+        }
+        if (
+          status &&
+          (status.balance != null || status.profit != null || status.equity != null)
+        ) {
+          setAccountMetrics({
+            balance: status.balance,
+            equity: status.equity,
+            profit: status.profit,
+            currency: status.currency || "USD",
+          });
         }
       } catch {
         // keep local session if status check fails transiently
       }
     }
+
     void reconcile();
+    const timer = setInterval(() => {
+      void reconcile();
+    }, 12000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when account changes
   }, [session?.accountId]);
@@ -254,6 +301,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
     const accountId = session?.accountId;
     const accountEmail = normalizeEmail(coverEmail);
     setMt5Session(null);
+    setAccountMetrics(null);
     if (accountId) {
       try {
         await disconnectAccount(accountId, { email: accountEmail });
@@ -363,16 +411,34 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
 
       {session?.accountId ? (
         <div className="mt-session">
-          <div>
-            <strong>{session.company || session.server}</strong>
-            <span>
-              {session.server} · login {session.login}
-              {session.subscribed ? " · copying" : ""} · engine armed
-            </span>
+          <div className="mt-session-body">
+            <div className="mt-session-row">
+              <div className="mt-session-copy">
+                <strong>{session.company || session.server}</strong>
+                <span>
+                  {session.server} · login {session.login}
+                  {session.subscribed ? " · copying" : ""} · engine armed
+                </span>
+              </div>
+              <button type="button" className="mt-session-btn" onClick={clearSession}>
+                Disconnect
+              </button>
+            </div>
+            <div className="mt-session-metrics" aria-label="Account balance and floating profit">
+              <div className="mt-metric">
+                <span className="mt-metric-label">Balance</span>
+                <strong className="mt-metric-value">
+                  {formatMoney(accountMetrics?.balance, accountMetrics?.currency)}
+                </strong>
+              </div>
+              <div className="mt-metric">
+                <span className="mt-metric-label">Floating profit</span>
+                <strong className={`mt-metric-value${profitTone(accountMetrics?.profit)}`}>
+                  {formatMoney(accountMetrics?.profit, accountMetrics?.currency)}
+                </strong>
+              </div>
+            </div>
           </div>
-          <button type="button" className="mt-session-btn" onClick={clearSession}>
-            Disconnect
-          </button>
         </div>
       ) : null}
 
