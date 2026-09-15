@@ -391,6 +391,26 @@ html:has(.phone[data-interface="v2"]) body {
   box-shadow: none;
 }
 
+/* Old Interface 2 home: hero runs to the top; only the switch stays */
+.phone[data-interface="v2"] .top.is-v2-home {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 0;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 0;
+  background: transparent !important;
+  pointer-events: none;
+}
+
+.phone[data-interface="v2"] .top.is-v2-home .username {
+  display: none;
+}
+
+.phone[data-interface="v2"] .top.is-v2-home .iface-toggle {
+  pointer-events: auto;
+}
+
 .stage {
   flex: 1;
   display: flex;
@@ -4496,7 +4516,7 @@ html:has(.phone[data-interface="v2"]) body {
   opacity: 1 !important;
 }
 
-/* Full-bleed hero — photo at natural aspect, edge-to-edge, no crop */
+/* Full-bleed industrial hero — photo shown as-is (no crop, no dark veil) */
 .v2-home-header {
   display: flex;
   flex-direction: column;
@@ -4511,9 +4531,7 @@ html:has(.phone[data-interface="v2"]) body {
   position: relative;
   z-index: 1;
   width: 100%;
-  /* Keep a real photo plane when switching into Interface 2 — without this,
-     a late/failed img load collapses the hero to a flat black bar. */
-  min-height: min(52vw, 280px);
+  min-height: min(48vw, 260px);
   height: auto;
   max-height: none;
   flex: 0 0 auto;
@@ -4549,8 +4567,7 @@ html:has(.phone[data-interface="v2"]) body {
   max-width: 100%;
   max-height: none;
   display: block;
-  /* Show the full mentor EA photo (rectangular), no zoom crop */
-  object-fit: contain;
+  object-fit: unset;
   object-position: center top;
   transform: none;
   filter: none;
@@ -4569,7 +4586,6 @@ html:has(.phone[data-interface="v2"]) body {
   box-shadow: none !important;
 }
 
-/* Below the photo on solid black — matches Interface 2 reference */
 .v2-home-hero-copy {
   position: relative;
   left: auto;
@@ -4581,7 +4597,7 @@ html:has(.phone[data-interface="v2"]) body {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 14px 16px 8px;
+  padding: 14px 16px 10px;
   background: #000;
   opacity: 1 !important;
   animation: none !important;
@@ -4594,23 +4610,23 @@ html:has(.phone[data-interface="v2"]) body {
   font-size: 0.78rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.92);
-  text-shadow: none;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
   opacity: 1 !important;
   animation: none !important;
   visibility: visible !important;
 }
 
 .v2-home-hero-name {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-family: var(--font-v2);
-  font-size: clamp(1.05rem, 4.6vw, 1.35rem);
+  font-size: clamp(1.05rem, 4.4vw, 1.38rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fff;
-  line-height: 1.1;
+  line-height: 1.15;
   text-shadow:
-    0 0 18px rgba(var(--pink-rgb), 0.35),
+    0 0 18px rgba(255, 40, 40, 0.35),
     0 3px 18px rgba(0, 0, 0, 0.7);
   opacity: 1 !important;
   animation: none !important;
@@ -4657,12 +4673,12 @@ html:has(.phone[data-interface="v2"]) body {
   }
 }
 
-/* Solid white GOAT-style control card — sits below bot name */
+/* Solid white GOAT-style control card — keep look, overlap hero/list seam */
 .v2-pill-bar {
   position: relative;
   z-index: 3;
   flex: 0 0 auto;
-  margin: 10px auto 12px;
+  margin: -34px auto 0;
   width: min(86%, 290px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4764,7 +4780,7 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .v2-powered-by {
-  margin: 8px 18px 2px;
+  margin: 18px 18px 2px;
   padding: 0;
   text-align: center;
   font-family: var(--font-body);
@@ -8267,19 +8283,19 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  /* Top-left on Interface 2 hero (reference layout) */
-  top: 12px;
-  left: 10px;
+  /* Mid-left on Interface 2 hero (reference layout) */
+  top: 38%;
+  left: 8px;
   right: auto;
   bottom: auto;
-  transform: none;
-  max-width: 104px;
+  transform: translateY(-50%);
+  max-width: 96px;
   background: color-mix(in srgb, #000 72%, var(--accent, #ff2d7a) 14%);
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 80, 140, 0.85);
 }
 
 .econ-cal-btn-v2:active {
-  transform: scale(0.97);
+  transform: translateY(-50%) scale(0.97);
 }
 
 .econ-cal-btn:active {

@@ -232,7 +232,7 @@ export default function V2Interface() {
                   </span>
                   <span className="v2-robot-add-copy">
                     <strong>Add a new Robot</strong>
-                    <small>Need a new license key</small>
+                    <small>Be having a new license Keys</small>
                   </span>
                 </button>
               </div>

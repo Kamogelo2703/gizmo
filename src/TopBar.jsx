@@ -1,17 +1,14 @@
 import { useApp } from "./store.jsx";
-import { SUPER_ADMIN_USERNAME } from "./mentorsApi.js";
 
 /** Header that lives inside the scrollable stage so title + toggle scroll away. */
 export default function TopBar() {
-  const { activeInterface, mainTextDisplay, toggleInterface } = useApp();
-  // Interface 2 reference shows the APEX EA brand stamp; Interface 1 keeps mentor name.
-  const title =
-    activeInterface === "v2"
-      ? String(SUPER_ADMIN_USERNAME || "APEX EA").trim() || "APEX EA"
-      : mainTextDisplay || "";
+  const { activeInterface, mainTextDisplay, toggleInterface, v2View } = useApp();
+  // Interface 2 home matches the old full-bleed hero — no brand stamp above the photo.
+  const hideTitle = activeInterface === "v2" && v2View === "home";
+  const title = hideTitle ? "" : mainTextDisplay || "";
 
   return (
-    <header className="top">
+    <header className={`top${hideTitle ? " is-v2-home" : ""}`}>
       <p className="username" id="username">
         {title}
       </p>
