@@ -5,6 +5,7 @@ import {
   deleteLicense,
   findLicense,
   findLicensesByEmail,
+  listDeletedKeys,
   listLicenses,
   markLicenseUsed,
   readJsonBody,
@@ -39,8 +40,11 @@ export default async function handler(req, res) {
         sendJson(res, 200, { licenses });
         return;
       }
-      const licenses = await listLicenses();
-      sendJson(res, 200, { licenses });
+      const [licenses, deletedKeys] = await Promise.all([
+        listLicenses(),
+        listDeletedKeys(),
+      ]);
+      sendJson(res, 200, { licenses, deletedKeys });
       return;
     }
 
@@ -56,7 +60,11 @@ export default async function handler(req, res) {
       const action = String(body.action || "").toLowerCase();
       if (action === "delete" || body.delete === true) {
         const license = await deleteLicense(body.key);
-        sendJson(res, 200, { license, deleted: true });
+        sendJson(res, 200, {
+          license,
+          deleted: true,
+          durable: license?.durable !== false,
+        });
         return;
       }
       const shouldDeactivate =
@@ -79,7 +87,11 @@ export default async function handler(req, res) {
       const key = url.searchParams.get("key") || "";
       const body = key ? { key } : await readJsonBody(req);
       const license = await deleteLicense(body.key);
-      sendJson(res, 200, { license, deleted: true });
+      sendJson(res, 200, {
+        license,
+        deleted: true,
+        durable: license?.durable !== false,
+      });
       return;
     }
 
