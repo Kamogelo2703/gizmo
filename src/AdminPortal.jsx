@@ -44,7 +44,26 @@ import { STRATEGY_LABELS, useApp } from "./store.jsx";
 import { APP_COLOR_PRESETS, DEFAULT_APP_COLOR } from "./theme.js";
 
 const ADMIN_SESSION_KEY = "apexea-admin-session";
+const PORTAL_THEME_KEY = "apexea-portal-theme";
 const SELF_HOST_RECENT_KEY = "apexea-self-host-recent-v1";
+
+function readPortalTheme() {
+  try {
+    const theme = localStorage.getItem(PORTAL_THEME_KEY);
+    if (theme === "light" || theme === "dark") return theme;
+  } catch {
+    // ignore
+  }
+  return "dark";
+}
+
+function writePortalTheme(theme) {
+  try {
+    localStorage.setItem(PORTAL_THEME_KEY, theme);
+  } catch {
+    // ignore
+  }
+}
 
 function loadSelfHostRecent(mentorEmail) {
   try {
@@ -159,6 +178,7 @@ export default function AdminPortal() {
   } = useApp();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [portalTheme, setPortalTheme] = useState(() => readPortalTheme());
   const [adminSession, setAdminSession] = useState(() => readAdminSession());
   const [mentors, setMentors] = useState([]);
   const [photo, setPhoto] = useState("/logo.png");
@@ -622,6 +642,45 @@ export default function AdminPortal() {
 
   if (!adminOpen) return null;
 
+  function togglePortalTheme() {
+    setPortalTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      writePortalTheme(next);
+      return next;
+    });
+  }
+
+  const themeToggle = (
+    <button
+      className="admin-icon-btn admin-theme-toggle"
+      type="button"
+      aria-label={portalTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      title={portalTheme === "dark" ? "Light mode" : "Dark mode"}
+      onClick={togglePortalTheme}
+    >
+      {portalTheme === "dark" ? (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+          <path
+            d="M12 2.5v2.2M12 19.3v2.2M4.7 4.7l1.6 1.6M17.7 17.7l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.7 19.3l1.6-1.6M17.7 6.3l1.6-1.6"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M19.5 13.2A7.5 7.5 0 1 1 10.8 4.5 6.2 6.2 0 0 0 19.5 13.2Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </button>
+  );
+
   function onAuthenticated(mentor) {
     writeAdminSession(mentor);
     setAdminSession(mentor);
@@ -656,9 +715,11 @@ export default function AdminPortal() {
 
   if (!adminSession) {
     return (
-      <div className="admin-portal admin-portal-auth">
+      <div className="admin-portal admin-portal-auth" data-theme={portalTheme}>
         <header className="admin-topbar admin-topbar-auth">
+          <span className="admin-topbar-spacer" aria-hidden="true" />
           <span className="admin-topbar-title">Mentor Access</span>
+          {themeToggle}
         </header>
         <AdminAuth onAuthenticated={onAuthenticated} showToast={showToast} />
       </div>
@@ -1184,7 +1245,7 @@ export default function AdminPortal() {
       ];
 
   return (
-    <div className="admin-portal">
+    <div className="admin-portal" data-theme={portalTheme}>
       <header className="admin-topbar">
         <button
           className="admin-icon-btn"
@@ -1195,7 +1256,7 @@ export default function AdminPortal() {
           ☰
         </button>
         <h1 className="admin-topbar-title">{isSuperAdmin ? "Admin Portal" : "Mentor Portal"}</h1>
-        <span className="admin-topbar-spacer" aria-hidden="true" />
+        {themeToggle}
       </header>
 
       {!drawerOpen ? null : (
