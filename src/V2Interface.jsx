@@ -227,10 +227,7 @@ export default function V2Interface() {
                   <span className="v2-robot-add-icon" aria-hidden="true">
                     +
                   </span>
-                  <span className="v2-robot-add-copy">
-                    <strong>Add a new Robot</strong>
-                    <small>NEED A NEW LICENSE KEY</small>
-                  </span>
+                  <span>Add New Trading Bot</span>
                 </button>
               </div>
             </section>
