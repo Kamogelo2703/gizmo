@@ -125,6 +125,26 @@ export default function ChartScanner({ variant = "default", active = true }) {
     if (active) setScansLeft(loadScansLeft(variant));
   }, [variant, active]);
 
+  // Refresh quota when the app returns to the foreground (new calendar day).
+  useEffect(() => {
+    if (!active) return undefined;
+    function refreshQuota() {
+      setScansLeft(loadScansLeft(variant));
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshQuota();
+    };
+    window.addEventListener("focus", refreshQuota);
+    document.addEventListener("visibilitychange", onVisible);
+    // Cheap midnight check while the scanner tab stays open overnight.
+    const timer = window.setInterval(refreshQuota, 60_000);
+    return () => {
+      window.removeEventListener("focus", refreshQuota);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(timer);
+    };
+  }, [active, variant]);
+
   useEffect(() => {
     if (!symbol) return;
     const meta = getSymbolMeta(symbol);
@@ -257,7 +277,10 @@ export default function ChartScanner({ variant = "default", active = true }) {
       showToast("Capture or upload a chart first");
       return;
     }
-    if (scansLeft <= 0) {
+    // Re-read storage so a new day refreshes quota even if React state is still 0.
+    const remaining = loadScansLeft(variant);
+    if (remaining !== scansLeft) setScansLeft(remaining);
+    if (remaining <= 0) {
       showToast(
         variant === "v2"
           ? "No scans left today (20 / day)"
@@ -324,7 +347,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
       persistTradeSettings(trades, lotSize, tradeSymbol);
 
       setSignal(result);
-      const nextScans = consumeScan(variant, loadScansLeft(variant));
+      const nextScans = consumeScan(variant);
       setScansLeft(nextScans);
       setEngineStep(TRADE_ENGINE_STEPS.length - 1);
       setEngineProgress(100);

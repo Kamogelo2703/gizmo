@@ -306,12 +306,12 @@ function clearAppStoragePressure() {
   clearEaBackup();
   try {
     // Drop known heavy keys that are not required for EA save.
+    // Do NOT clear apexea-daily-scans-v1 — quotas must persist through the day.
     localStorage.removeItem("apexea-app-v1-backup");
     localStorage.removeItem("apexea-float-pos");
     localStorage.removeItem("apexea-float-pos-zeta");
     localStorage.removeItem("apexea-float-pos-v2");
     localStorage.removeItem("apexea-self-host-recent-v1");
-    localStorage.removeItem("apexea-daily-scans-v1");
     localStorage.removeItem("apexea-trade-management");
   } catch {
     // ignore
