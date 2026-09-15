@@ -1480,7 +1480,7 @@ export default function AdminPortal() {
                     className="admin-input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. ZETA SCALPER AI"
+                    placeholder="e.g. My Trading Bot"
                     required
                   />
                 </label>
