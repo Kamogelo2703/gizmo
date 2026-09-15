@@ -158,13 +158,14 @@ export async function warmBotPhotoCache() {
 /**
  * Resolve a displayable photo URL ASAP:
  * 1) memory / IndexedDB cache
- * 2) local data URL on the bot
- * 3) network fetch (then cache)
+ * 2) local data URL / packaged asset on the bot
+ * 3) network fetch (then cache) — only for real remote photos
  */
 export async function resolveCachedBotPhoto(bot, fallback = "/logo.png") {
   const id = String(bot?.id || "").trim();
   const photo = String(bot?.photo || "").trim();
   const remote = resolveBotPhotoSrc(bot, fallback);
+  const fb = fallback || "/logo.png";
 
   if (id) {
     const mem = memoryUrls.get(id);
@@ -186,13 +187,22 @@ export async function resolveCachedBotPhoto(bot, fallback = "/logo.png") {
     return photo;
   }
 
+  // Packaged logo / static asset — no network.
+  if (
+    !photo ||
+    photo === "/logo.png" ||
+    (remote === fb && !photo.startsWith("/api/") && !/^https?:\/\//i.test(photo))
+  ) {
+    return remote && remote !== fb ? remote : fb;
+  }
+
   if (id && inflight.has(id)) return inflight.get(id);
 
   const task = (async () => {
-    // Race GitHub raw CDN + durable API path — first successful blob wins.
+    // Race GitHub raw CDN + durable API path — first successful image blob wins.
     const candidates = [
       ...rawPhotoCandidates(id),
-      remote && remote !== fallback ? mediaUrl(remote) : "",
+      remote && remote !== fb ? mediaUrl(remote) : "",
     ].filter(Boolean);
 
     const tryUrl = async (url) => {
@@ -206,21 +216,28 @@ export async function resolveCachedBotPhoto(bot, fallback = "/logo.png") {
         err.status = response.status;
         throw err;
       }
+      const contentType = String(response.headers.get("content-type") || "");
+      if (contentType && !contentType.startsWith("image/")) {
+        const err = new Error("not an image");
+        err.status = 404;
+        throw err;
+      }
       const blob = await response.blob();
-      if (!blob || !blob.size) {
+      // Ignore empty / 1×1 placeholder / JSON-error bodies.
+      if (!blob || blob.size < 256) {
         const err = new Error("empty photo");
         err.status = 404;
         throw err;
       }
-      if (id) return (await cacheBlob(id, blob, blob.type)) || fallback;
-      return blobToObjectUrl(blob) || fallback;
+      if (id) return (await cacheBlob(id, blob, blob.type)) || fb;
+      return blobToObjectUrl(blob) || fb;
     };
 
     try {
-      if (!candidates.length) return fallback || "/logo.png";
+      if (!candidates.length) return fb;
       return await Promise.any(candidates.map((url) => tryUrl(url)));
     } catch {
-      return fallback || "/logo.png";
+      return fb;
     } finally {
       if (id) inflight.delete(id);
     }
@@ -237,6 +254,9 @@ export function prefetchBotPhotos(bots = []) {
     const id = String(bot?.id || "").trim();
     if (!id) continue;
     if (memoryUrls.has(id) || inflight.has(id)) continue;
+    const photo = String(bot?.photo || "").trim();
+    // Skip network for logo-only bots — Home must stay instant.
+    if (!photo || photo === "/logo.png") continue;
     resolveCachedBotPhoto(bot, "/logo.png").catch(() => {});
   }
 }

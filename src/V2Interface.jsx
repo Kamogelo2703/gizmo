@@ -56,15 +56,25 @@ export default function V2Interface() {
   useEffect(() => {
     let cancelled = false;
     const fallback = "/logo.png";
-    setFloatSrc(
+    const instant =
       getCachedBotPhotoSync(activeBot?.id) ||
-        resolveBotPhotoSrc(activeBot, fallback)
-    );
-    resolveCachedBotPhoto(activeBot, fallback)
-      .then((url) => {
-        if (!cancelled && url) setFloatSrc(url);
-      })
-      .catch(() => {});
+      resolveBotPhotoSrc(activeBot, fallback);
+    const photo = String(activeBot?.photo || "").trim();
+    const start =
+      instant.startsWith("/api/") || /^https?:\/\//i.test(instant)
+        ? getCachedBotPhotoSync(activeBot?.id) || fallback
+        : instant;
+    setFloatSrc(start);
+    if (
+      photo.startsWith("/api/licenses/photo") ||
+      /^https?:\/\//i.test(photo)
+    ) {
+      resolveCachedBotPhoto(activeBot, fallback)
+        .then((url) => {
+          if (!cancelled && url) setFloatSrc(url);
+        })
+        .catch(() => {});
+    }
     return () => {
       cancelled = true;
     };
