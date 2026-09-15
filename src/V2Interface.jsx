@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
+import { resolveBotPhotoSrc } from "./apiOrigin.js";
+import BotAvatar from "./BotAvatar.jsx";
+import {
+  getCachedBotPhotoSync,
+  resolveCachedBotPhoto,
+} from "./botPhotoCache.js";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
@@ -8,11 +13,6 @@ import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
 import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
 import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
-
-function resolveHeroPhoto(bot) {
-  // Full-bleed rectangular hero — prefer the bot photo / Zeta artwork, not the circular logo.
-  return resolveBotPhotoSrc(bot, "/zeta-scalper-hero.jpg");
-}
 
 export default function V2Interface() {
   const {
@@ -47,27 +47,32 @@ export default function V2Interface() {
   const [platform, setPlatform] = useState("MT5");
   const [trades, setTrades] = useState(1);
   const [floatCycle, setFloatCycle] = useState(false);
-  const [heroBroken, setHeroBroken] = useState("");
+  const [floatSrc, setFloatSrc] = useState(
+    () =>
+      getCachedBotPhotoSync(activeBot?.id) ||
+      resolveBotPhotoSrc(activeBot, "/logo.png")
+  );
 
-  // Fresh hero attempt every time this interface mounts or the active bot changes.
   useEffect(() => {
-    setHeroBroken("");
+    let cancelled = false;
+    const fallback = "/logo.png";
+    setFloatSrc(
+      getCachedBotPhotoSync(activeBot?.id) ||
+        resolveBotPhotoSrc(activeBot, fallback)
+    );
+    resolveCachedBotPhoto(activeBot, fallback)
+      .then((url) => {
+        if (!cancelled && url) setFloatSrc(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [activeBot?.id, activeBot?.photo]);
 
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
-  const preferredHero = resolveHeroPhoto(activeBot);
-  const storedPhoto = mediaUrl(activeBot?.photo || "/zeta-scalper-hero.jpg");
-  const heroSrc =
-    heroBroken === preferredHero
-      ? storedPhoto &&
-        storedPhoto !== preferredHero &&
-        !String(storedPhoto).includes("/api/licenses/photo")
-        ? storedPhoto
-        : "/zeta-scalper-hero.jpg"
-      : preferredHero;
-  const floatSrc = resolveBotPhotoSrc(activeBot, "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     editingSymbol ||
@@ -113,18 +118,12 @@ export default function V2Interface() {
               <div className="v2-home-hero">
                 <EconomicCalendarButton variant="v2" />
                 <div className="v2-home-hero-media" aria-hidden="true">
-                  <img
+                  <BotAvatar
                     className="v2-home-hero-img"
-                    key={activeBot?.id || "bot"}
-                    src={heroSrc}
-                    alt=""
-                    decoding="async"
+                    bot={activeBot}
+                    fallback="/zeta-scalper-hero.jpg"
                     fetchPriority="high"
-                    onError={() => {
-                      if (preferredHero && heroBroken !== preferredHero) {
-                        setHeroBroken(preferredHero);
-                      }
-                    }}
+                    decoding="async"
                   />
                 </div>
                 <div className="v2-home-hero-copy">
@@ -209,15 +208,11 @@ export default function V2Interface() {
                         setFloatCycle(true);
                       }}
                     >
-                      <img
-                        src={resolveBotPhotoSrc(bot, "/logo.png")}
-                        alt=""
+                      <BotAvatar
+                        bot={bot}
                         width="40"
                         height="40"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = "/logo.png";
-                        }}
+                        fallback="/logo.png"
                       />
                       <span>{bot.name}</span>
                     </button>

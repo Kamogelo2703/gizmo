@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
+import BotAvatar from "./BotAvatar.jsx";
 import {
   CHART_DETECTION_STATUS,
   EXECUTE_ENGINE_STEPS,
@@ -648,10 +648,10 @@ export default function ChartScanner({ variant = "default", active = true }) {
                     <span className="cs-v2-portal-ring cs-v2-portal-ring--a" />
                     <span className="cs-v2-portal-ring cs-v2-portal-ring--b" />
                     <span className="cs-v2-portal-hex">
-                      <img
+                      <BotAvatar
                         className="cs-v2-portal-photo"
-                        src={resolveBotPhotoSrc(activeBot, "/logo.png")}
-                        alt=""
+                        bot={activeBot}
+                        fallback="/logo.png"
                         width="160"
                         height="160"
                       />
@@ -683,10 +683,10 @@ export default function ChartScanner({ variant = "default", active = true }) {
                     <div className="cs-robot-frame">
                       <span className="cs-robot-glow" aria-hidden="true" />
                       <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
-                        <img
+                        <BotAvatar
                           className="cs-robot-photo"
-                          src={resolveBotPhotoSrc(activeBot, "/logo.png")}
-                          alt=""
+                          bot={activeBot}
+                          fallback="/logo.png"
                           width="160"
                           height="160"
                         />

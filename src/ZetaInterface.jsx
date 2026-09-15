@@ -1,4 +1,9 @@
-import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
+import { resolveBotPhotoSrc } from "./apiOrigin.js";
+import BotAvatar from "./BotAvatar.jsx";
+import {
+  getCachedBotPhotoSync,
+  resolveCachedBotPhoto,
+} from "./botPhotoCache.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
@@ -31,21 +36,29 @@ export default function ZetaInterface() {
     clearOrbTrade,
   } = useApp();
 
-  const [heroBroken, setHeroBroken] = useState("");
-  const [heroFallback, setHeroFallback] = useState("/logo.png");
+  const [floatSrc, setFloatSrc] = useState(
+    () =>
+      getCachedBotPhotoSync(activeBot?.id) ||
+      resolveBotPhotoSrc(activeBot, "/logo.png")
+  );
   useEffect(() => {
-    setHeroBroken("");
-    setHeroFallback("/logo.png");
+    let cancelled = false;
+    const fallback = "/logo.png";
+    setFloatSrc(
+      getCachedBotPhotoSync(activeBot?.id) ||
+        resolveBotPhotoSrc(activeBot, fallback)
+    );
+    resolveCachedBotPhoto(activeBot, fallback)
+      .then((url) => {
+        if (!cancelled && url) setFloatSrc(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [activeBot?.id, activeBot?.photo]);
 
   const running = v2Running;
-  const preferredHero = resolveBotPhotoSrc(activeBot, "/logo.png");
-  const storedPhoto = mediaUrl(activeBot?.photo || "/logo.png");
-  const heroSrc =
-    heroBroken === preferredHero
-      ? heroFallback || storedPhoto || "/logo.png"
-      : preferredHero;
-  const floatSrc = heroSrc;
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     (activeBot?.symbols && activeBot.symbols[0]) || catalog?.[0] || "XAUUSD";
@@ -85,26 +98,12 @@ export default function ZetaInterface() {
             <div className="hero">
               <EconomicCalendarButton variant="zeta" />
               <div className="avatar-wrap">
-                <img
+                <BotAvatar
                   className="avatar"
-                  key={activeBot?.id || "bot"}
-                  src={heroSrc}
-                  alt=""
-                  decoding="async"
+                  bot={activeBot}
+                  fallback="/logo.png"
                   fetchPriority="high"
-                  onError={() => {
-                    if (preferredHero && heroBroken !== preferredHero) {
-                      // Prefer a working local/logo asset over a 404 API path.
-                      const next =
-                        storedPhoto &&
-                        storedPhoto !== preferredHero &&
-                        !String(storedPhoto).includes("/api/licenses/photo")
-                          ? storedPhoto
-                          : "/logo.png";
-                      setHeroFallback(next);
-                      setHeroBroken(preferredHero);
-                    }
-                  }}
+                  decoding="async"
                 />
               </div>
               <p className="kicker">You are trading with</p>
@@ -152,15 +151,11 @@ export default function ZetaInterface() {
                     type="button"
                     onClick={() => selectBot(bot.id)}
                   >
-                    <img
-                      src={resolveBotPhotoSrc(bot, "/logo.png")}
-                      alt=""
+                    <BotAvatar
+                      bot={bot}
                       width="36"
                       height="36"
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = "/logo.png";
-                      }}
+                      fallback="/logo.png"
                     />
                     <span>{bot.name}</span>
                   </button>

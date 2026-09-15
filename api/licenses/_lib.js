@@ -246,18 +246,20 @@ function shrinkDataUrl(dataUrl, maxChars = 900_000) {
 
 async function githubPhotoExists(botId) {
   const id = safePhotoId(botId);
-  for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+  const tryExt = async (ext) => {
     const filePath = `data/ea-photos/${id}.${ext}`;
-    try {
-      await ghFetch(`${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`, {
-        cache: "no-store",
-      });
-      return true;
-    } catch (error) {
-      if (error.status !== 404) return false;
-    }
+    await ghFetch(`${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`, {
+      cache: "no-store",
+    });
+    return true;
+  };
+  try {
+    return await Promise.any(
+      ["jpg", "jpeg", "png", "webp"].map((ext) => tryExt(ext))
+    );
+  } catch {
+    return false;
   }
-  return false;
 }
 
 /**
@@ -362,28 +364,44 @@ export async function readBotPhoto(botId) {
   const local = readLocalBotPhoto(id);
   if (local) return local;
 
-  for (const ext of ["jpg", "jpeg", "png", "webp"]) {
+  // Race common extensions instead of serial GitHub round-trips (was very slow).
+  const tryExt = async (ext) => {
     const filePath = `data/ea-photos/${id}.${ext}`;
-    try {
-      const file = await ghFetch(
-        `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
-        { cache: "no-store" }
-      );
-      const base64 = String(file.content || "").replace(/\n/g, "");
-      if (!base64) continue;
-      const mime =
-        ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-      const photo = { mime, buffer: Buffer.from(base64, "base64") };
-      memoryPhotos.set(id, photo);
-      return photo;
-    } catch (error) {
-      if (error.status !== 404) {
-        console.warn("ea photo read failed", error.message);
-        break;
-      }
+    const file = await ghFetch(
+      `${API}/contents/${filePath}?ref=${encodeURIComponent(BRANCH)}`,
+      { cache: "no-store" }
+    );
+    const base64 = String(file.content || "").replace(/\n/g, "");
+    if (!base64) {
+      const err = new Error("empty photo");
+      err.status = 404;
+      throw err;
     }
+    const mime =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return { mime, buffer: Buffer.from(base64, "base64") };
+  };
+
+  try {
+    const photo = await Promise.any(
+      ["jpg", "jpeg", "png", "webp"].map((ext) => tryExt(ext))
+    );
+    memoryPhotos.set(id, photo);
+    // Persist to /tmp so the next cold invoke on this instance is instant.
+    try {
+      const ext = photo.mime?.includes("png")
+        ? "png"
+        : photo.mime?.includes("webp")
+          ? "webp"
+          : "jpg";
+      writeLocalBotPhoto(id, ext, photo.buffer, photo.mime || "image/jpeg");
+    } catch {
+      // optional
+    }
+    return photo;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /** Rewrite mentorName on every license owned by this mentor email. */

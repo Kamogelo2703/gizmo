@@ -1,8 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import { warmBotPhotoCache } from "./botPhotoCache.js";
 import { AppProvider, isNativeApp } from "./store.jsx";
 import "./styles.css";
+
+// Warm IndexedDB photo cache ASAP so robot list avatars paint instantly.
+warmBotPhotoCache().catch(() => {});
 
 // Tag the document early so CSS can demote expensive WebView effects on Android.
 try {
