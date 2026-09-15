@@ -7690,18 +7690,18 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .econ-cal-btn-v2 {
-  /* Mid-left on the Interface 2 hero (beside the face), not top corner */
-  top: 42%;
-  left: 8px;
+  /* Top-left on Interface 2 home (matches product placement) */
+  top: 8px;
+  left: 0;
   right: auto;
   bottom: auto;
-  transform: translateY(-50%);
-  max-width: 92px;
+  transform: none;
+  max-width: 96px;
   background: color-mix(in srgb, #000 70%, var(--accent, #ff2d7a) 18%);
 }
 
 .econ-cal-btn-v2:active {
-  transform: translateY(-50%) scale(0.97);
+  transform: scale(0.97);
 }
 
 .econ-cal-btn:active {
@@ -7979,24 +7979,55 @@ html.is-native .stop-particle {
 
 html.is-native .cs-robot-glow {
   filter: none;
-  animation: none;
-  opacity: 0.55;
+  /* Keep a light breathe so the scanner feels alive like the web */
+  animation: cs-breathe-native 3.2s ease-in-out infinite;
+  opacity: 0.72;
+}
+
+@keyframes cs-breathe-native {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+html.is-native .view-scanner:not(.cs-v2) .cs-robot-orb {
+  animation: cs-breathe-native 3.2s ease-in-out infinite;
 }
 
 html.is-native .view-scanner:not(.cs-v2) .cs-particle-field-energy.is-outer {
-  display: none;
+  display: block;
+  opacity: 0.55;
+  transform: scale(2.6);
 }
 
 html.is-native .econ-cal-btn-ring,
 html.is-native .econ-cal-btn-ring--outer {
-  animation: none;
-  opacity: 0.55;
+  animation: trade-float-spin 1.6s linear infinite;
+  opacity: 0.85;
+}
+
+html.is-native .econ-cal-btn-ring--outer {
+  animation-duration: 2.4s;
+  animation-direction: reverse;
 }
 
 html.is-native .phone:has(#view-scanner:not([hidden])) > .glow,
 html.is-native .phone:has(#view-scanner:not([hidden])) > .glow-soft {
-  opacity: 0.2;
-  animation: none;
+  opacity: 0.35;
+  animation: breathe-glow-native 7s ease-in-out infinite;
+}
+
+/* Keep V2 scanner portal spinning on Android like the web */
+html.is-native .view-scanner.cs-v2 .cs-v2-portal-radar,
+html.is-native .view-scanner.cs-v2 .cs-v2-portal-ring--a,
+html.is-native .view-scanner.cs-v2 .cs-v2-portal-ring--b {
+  animation-play-state: running;
 }
 
 /* Pause continuous motion when the app is backgrounded (class from MainActivity). */
@@ -8005,7 +8036,13 @@ html.is-native.is-paused .glow-soft,
 html.is-native.is-paused .stop-btn,
 html.is-native.is-paused .stop-particle,
 html.is-native.is-paused .cs-robot-glow,
+html.is-native.is-paused .cs-robot-orb,
 html.is-native.is-paused .econ-cal-btn-ring,
-html.is-native.is-paused .econ-cal-btn-ring--outer {
+html.is-native.is-paused .econ-cal-btn-ring--outer,
+html.is-native.is-paused .cs-v2-portal-radar,
+html.is-native.is-paused .cs-v2-portal-ring--a,
+html.is-native.is-paused .cs-v2-portal-ring--b,
+html.is-native.is-paused .cs-scan-beam.is-on,
+html.is-native.is-paused .cs-scan-grid.is-on {
   animation-play-state: paused !important;
 }

@@ -1,5 +1,6 @@
 package com.apexea.zetascalper;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebResourceRequest;
@@ -23,12 +24,20 @@ public class MainActivity extends BridgeActivity {
     WebView webView = bridge.getWebView();
     if (webView == null) return;
 
-    // Prefer GPU compositing; pause timers when backgrounded (see onPause/onResume).
+    // GPU compositing for smoother scrolls/animations (closer to mobile Chrome).
     webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+    webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
     WebSettings settings = webView.getSettings();
     if (settings != null) {
       settings.setCacheMode(WebSettings.LOAD_DEFAULT);
       settings.setDomStorageEnabled(true);
+      settings.setLoadWithOverviewMode(true);
+      settings.setUseWideViewPort(true);
+      // Avoid layout thrash from font size adjustments.
+      settings.setTextZoom(100);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        settings.setOffscreenPreRaster(true);
+      }
     }
 
     webView.setWebViewClient(
@@ -74,8 +83,9 @@ public class MainActivity extends BridgeActivity {
     Bridge bridge = this.getBridge();
     WebView webView = bridge != null ? bridge.getWebView() : null;
     if (webView != null) {
+      // Do NOT call pauseTimers() — it freezes CSS animations / JS timers and
+      // makes the app feel dead compared to mobile web after resume.
       webView.onPause();
-      webView.pauseTimers();
       webView.evaluateJavascript(
         "document.documentElement.classList.add('is-paused');",
         null
@@ -90,7 +100,6 @@ public class MainActivity extends BridgeActivity {
     Bridge bridge = this.getBridge();
     WebView webView = bridge != null ? bridge.getWebView() : null;
     if (webView != null) {
-      webView.resumeTimers();
       webView.onResume();
       webView.evaluateJavascript(
         "document.documentElement.classList.remove('is-paused');",

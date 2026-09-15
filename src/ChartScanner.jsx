@@ -22,9 +22,13 @@ import {
   saveTradeManagement,
 } from "./tradeManagement.js";
 
-/** Android WebView: fewer shadowed particles (desktop web keeps the full storm). */
-const SCANNER_PARTICLE_COUNT = isNativeApp() ? 6 : 18;
-const SCANNER_OUTER_PARTICLES = isNativeApp() ? 0 : 18;
+/** Android WebView: keep motion close to web, with a lighter particle count. */
+const SCANNER_PARTICLE_COUNT = isNativeApp() ? 12 : 18;
+const SCANNER_OUTER_PARTICLES = isNativeApp() ? 8 : 18;
+const SCAN_STEP_MS = isNativeApp() ? 220 : 420;
+const SCAN_STEP_GAP_MS = isNativeApp() ? 36 : 70;
+const SCAN_SETTLE_MS = isNativeApp() ? 220 : 500;
+const TRADE_SETTLE_MS = isNativeApp() ? 320 : 700;
 
 /** Trade index → TP target: trade 1 → TP1, trade 2 → TP2, rest → TP3. */
 function targetForTradeIndex(index) {
@@ -282,7 +286,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
         setEngineStep(i);
         setEngineProgress(10 + Math.round((i / TRADE_ENGINE_STEPS.length) * 80));
         pushEngineLog(TRADE_ENGINE_STEPS[i].label);
-        await sleep(420 + i * 70);
+        await sleep(SCAN_STEP_MS + i * SCAN_STEP_GAP_MS);
       }
 
       pushEngineLog("Building complete trade setup");
@@ -328,7 +332,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
         `Setup ready · ${result.side} ${tradeSymbol} · Entry ${result.entry} · TP1 ${result.takeProfit1} · TP2 ${result.takeProfit2} · TP3 ${result.takeProfit3}`
       );
       showToast(`${result.side} ${tradeSymbol} setup ready · ${nextScans} scans left`);
-      await sleep(500);
+      await sleep(SCAN_SETTLE_MS);
       setEngineMode("idle");
     } catch (error) {
       setEngineMode("idle");
@@ -534,7 +538,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
       } else {
         showToast(lastError || nextFills[0]?.error || "No trades filled");
       }
-      await sleep(700);
+      await sleep(TRADE_SETTLE_MS);
       setEngineMode("idle");
       // Keep the opening-trades script visible briefly, then return to welcome.
       window.setTimeout(() => clearOrbTrade?.(), 12000);
