@@ -393,7 +393,9 @@ export function AppProvider({ children }) {
   const [signups, setSignups] = useState(saved?.signups || []);
   const [eas, setEas] = useState(saved?.eas || []);
   const [bots, setBots] = useState(saved?.bots || []);
-  const [licenseKeys, setLicenseKeys] = useState(saved?.licenseKeys || []);
+  const [licenseKeys, setLicenseKeys] = useState(() =>
+    filterOutDeletedLicenses(saved?.licenseKeys || [])
+  );
   const [catalog, setCatalog] = useState(
     saved?.catalog?.length ? saved.catalog : [...DEFAULT_SYMBOLS]
   );
