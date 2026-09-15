@@ -558,6 +558,22 @@ function readLocalStore() {
   return { sha: "local", licenses: memoryLicenses.map((row) => ({ ...row })), remote: false };
 }
 
+/** File-only local sources (ignore in-memory) so we can merge with GitHub. */
+function readLocalFileLicenses() {
+  const chunks = [];
+  for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const decoded = decodeLicensesJson(fs.readFileSync(filePath, "utf8"), "local");
+        chunks.push(decoded.licenses);
+      }
+    } catch {
+      // try next
+    }
+  }
+  return mergeLicenseLists(...chunks);
+}
+
 function writeLocalStore(licenses) {
   const next = mergeLicenseLists(licenses).map((row) => ({ ...row }));
   memoryLicenses = next;
@@ -569,39 +585,61 @@ function writeLocalStore(licenses) {
       null,
       2
     ) + "\n";
+  // Prefer /tmp on Vercel (repo tree is read-only); still try bundled for local/dev.
+  let wrote = false;
   for (const filePath of [TMP_FILE, BUNDLED_FILE]) {
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, payload, "utf8");
+      wrote = true;
       break;
     } catch {
-      // /tmp usually works on Vercel when the repo tree is read-only
+      // try next path
     }
+  }
+  if (!wrote) {
+    // Memory-only fallback — still return so callers can activate in this instance.
   }
   return next;
 }
 
 async function readStore() {
+  let remote = null;
   try {
     const file = await ghFetch(
       `${API}/contents/${FILE_PATH}?ref=${encodeURIComponent(BRANCH)}`,
       { cache: "no-store" }
     );
-    const remote = decodeContent(file);
-    // Keep memory warm with the latest remote snapshot.
-    memoryLicenses = remote.licenses.map((row) => ({ ...row }));
-    return { ...remote, remote: true };
+    remote = decodeContent(file);
   } catch (error) {
     if (error.status === 404) {
-      return { sha: null, licenses: [], remote: true };
+      remote = { sha: null, licenses: [] };
+    } else {
+      // Expired / missing GitHub token → use local/memory so create + activate still work.
+      return readLocalStore();
     }
-    // Expired / missing GitHub token → use local/memory so create + activate still work.
-    return readLocalStore();
   }
+
+  // Always merge GitHub + /tmp + bundled + memory so redeploys / stale GitHub
+  // snapshots cannot make newly created keys look "Invalid".
+  const merged = mergeLicenseLists(
+    remote?.licenses || [],
+    readLocalFileLicenses(),
+    Array.isArray(memoryLicenses) ? memoryLicenses : []
+  );
+  memoryLicenses = merged.map((row) => ({ ...row }));
+  return {
+    sha: remote?.sha ?? null,
+    licenses: memoryLicenses.map((row) => ({ ...row })),
+    remote: true,
+  };
 }
 
 async function writeStore(licenses, sha, message) {
   const normalized = mergeLicenseLists(licenses);
+  // Always keep a local copy first so a failed GitHub write cannot drop keys.
+  writeLocalStore(normalized);
+
   const content = Buffer.from(
     JSON.stringify(
       {
@@ -628,9 +666,8 @@ async function writeStore(licenses, sha, message) {
     memoryLicenses = normalized.map((row) => ({ ...row }));
     return result;
   } catch (error) {
-    // Always persist locally so mentors can still generate keys when GitHub auth fails.
-    writeLocalStore(normalized);
-    return { local: true };
+    // Local copy already written above.
+    return { local: true, error: error.message || "github write failed" };
   }
 }
 
