@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { mediaUrl } from "./apiOrigin.js";
+import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
 import {
   CHART_DETECTION_STATUS,
   EXECUTE_ENGINE_STEPS,
@@ -650,7 +650,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
                     <span className="cs-v2-portal-hex">
                       <img
                         className="cs-v2-portal-photo"
-                        src={mediaUrl(activeBot?.photo || "/logo.png")}
+                        src={resolveBotPhotoSrc(activeBot, "/logo.png")}
                         alt=""
                         width="160"
                         height="160"
@@ -685,7 +685,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
                       <span className="cs-empty-orb cs-robot-orb" aria-hidden="true">
                         <img
                           className="cs-robot-photo"
-                          src={mediaUrl(activeBot?.photo || "/logo.png")}
+                          src={resolveBotPhotoSrc(activeBot, "/logo.png")}
                           alt=""
                           width="160"
                           height="160"
