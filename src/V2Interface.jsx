@@ -368,15 +368,13 @@ export default function V2Interface() {
           </section>
         )}
 
-        {v2View === "scanner" && (
+        {v2ScannerPremium ? (
+          <ChartScanner variant="v2" active={v2View === "scanner"} />
+        ) : v2View === "scanner" ? (
           <section className="v2-view is-active">
-            {v2ScannerPremium ? (
-              <ChartScanner variant="v2" />
-            ) : (
-              <V2ScannerPaywall onClose={() => setV2View("home")} />
-            )}
+            <V2ScannerPaywall onClose={() => setV2View("home")} />
           </section>
-        )}
+        ) : null}
 
         {v2View === "metatrader" && (
           <section className="v2-view is-active v2-view-metatrader">
