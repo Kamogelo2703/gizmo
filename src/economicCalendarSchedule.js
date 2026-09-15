@@ -4,7 +4,7 @@
  * All news times are shown and locked in South African time (SAST, Africa/Johannesburg).
  *
  * Signal directions:
- * - Editable until 1 hour before the event start (SAST)
+ * - Editable until the event start (SAST)
  * - Visible to clients only on the event day (SA calendar day)
  * - Removed automatically the day after
  */
@@ -252,7 +252,9 @@ export function formatSignalExecuteHint(event, now = new Date()) {
 export function getSignalEditLockMs(event) {
   const start = getOfficialEventStartMs(event);
   if (start == null) return null;
-  return start - 60 * 60 * 1000;
+  // Keep directions editable until the event starts (not 1 hour earlier).
+  // Mentors still need to tweak wording like "XAUUSD …" on the day of the release.
+  return start;
 }
 
 export function isSignalDirectionEditable(event, now = new Date()) {
@@ -286,11 +288,11 @@ export function formatSignalLockLabel(event, now = new Date()) {
     if (lockAt == null) return "Editable";
     const mins = Math.max(0, Math.round((lockAt - now.getTime()) / 60000));
     if (event.date > todayDateKey(now, SA_TIMEZONE)) {
-      return `Editable until 1 hour before ${event.title} (${timeSa} SAST)`;
+      return `Editable until ${event.title} starts (${timeSa} SAST)`;
     }
-    return `Editable for ${mins} more minute${mins === 1 ? "" : "s"} (locks 1 hour before ${timeSa} SAST)`;
+    return `Editable for ${mins} more minute${mins === 1 ? "" : "s"} (locks when ${event.title} starts at ${timeSa} SAST)`;
   }
-  return `Locked — editing closed 1 hour before ${event.title} (${timeSa} SAST)`;
+  return `Locked — editing closed when ${event.title} started (${timeSa} SAST)`;
 }
 
 export function getNextOfficialEvent(now = new Date()) {

@@ -230,13 +230,14 @@ function getEditLockState({ date, title, timeSa, timeEt }, now = new Date()) {
   }
   const start = getEventStartMs(day, title, timeSa, timeEt);
   if (start == null) return { editable: true, message: "" };
-  const lockAt = start - 60 * 60 * 1000;
+  // Match client: editable until the event starts (SAST).
+  const lockAt = start;
   if (now.getTime() >= lockAt) {
     const macro = normalizeMacroTitle(title) || "event";
     const clock = resolveTimeSa({ date: day, title, timeSa, timeEt });
     return {
       editable: false,
-      message: `Editing locked — closes 1 hour before ${macro} (${clock} SAST)`,
+      message: `Editing locked — ${macro} already started (${clock} SAST)`,
     };
   }
   return { editable: true, message: "" };

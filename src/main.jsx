@@ -35,6 +35,14 @@ try {
     "touchmove",
     (event) => {
       if (event.touches.length !== 1) return;
+      const target = event.target;
+      if (
+        target &&
+        (target.closest?.("input, textarea, select, [contenteditable='true']") ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       const dx = event.touches[0].clientX - startX;
       const dy = event.touches[0].clientY - startY;
       if (!locking) {
