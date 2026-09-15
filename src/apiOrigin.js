@@ -48,28 +48,20 @@ export function mediaUrl(src) {
 
 /**
  * Home / hero / orb display source for a bot.
- * Prefer instant local bytes (data URL / packaged asset) so Android cold start
- * is not blank while /api/licenses/photo loads from apex-ea.com.
- * Durable API paths are used when that is all we have.
+ * Prefer instant local bytes (data URL / packaged asset) so first paint is never
+ * blocked on /api/licenses/photo. Only use the API path when the bot record
+ * already points there (real uploaded photo).
  */
 export function resolveBotPhotoSrc(bot, fallback = "/logo.png") {
-  const id = String(bot?.id || "").trim();
   const photo = String(bot?.photo || "").trim();
+  const fb = fallback || "/logo.png";
 
   // Instant local / absolute sources — never block first paint on a network hop.
   if (photo.startsWith("data:image/") || photo.startsWith("blob:")) return photo;
   if (/^https?:\/\//i.test(photo)) return photo;
-  if (photo && photo !== "/logo.png" && !photo.startsWith("/api/")) {
-    return mediaUrl(photo);
-  }
-
-  // Durable remote photo when local bytes were slimmed away.
   if (photo.startsWith("/api/licenses/photo")) return mediaUrl(photo);
-  if (id && (!photo || photo === "/logo.png")) {
-    return mediaUrl(
-      `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`
-    );
-  }
-  if (photo) return mediaUrl(photo);
-  return fallback;
+
+  // Packaged / static assets (including /logo.png) — paint immediately.
+  if (photo && photo !== "/logo.png") return mediaUrl(photo);
+  return fb;
 }

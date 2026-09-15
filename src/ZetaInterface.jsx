@@ -47,12 +47,23 @@ export default function ZetaInterface() {
     const instant =
       getCachedBotPhotoSync(activeBot?.id) ||
       resolveBotPhotoSrc(activeBot, fallback);
-    setFloatSrc(instant);
-    resolveCachedBotPhoto(activeBot, fallback)
-      .then((url) => {
-        if (!cancelled && url) setFloatSrc(url);
-      })
-      .catch(() => {});
+    // Never put a remote API URL into the float orb until it decodes.
+    const photo = String(activeBot?.photo || "").trim();
+    const start =
+      instant.startsWith("/api/") || /^https?:\/\//i.test(instant)
+        ? getCachedBotPhotoSync(activeBot?.id) || fallback
+        : instant;
+    setFloatSrc(start);
+    if (
+      photo.startsWith("/api/licenses/photo") ||
+      /^https?:\/\//i.test(photo)
+    ) {
+      resolveCachedBotPhoto(activeBot, fallback)
+        .then((url) => {
+          if (!cancelled && url) setFloatSrc(url);
+        })
+        .catch(() => {});
+    }
     return () => {
       cancelled = true;
     };

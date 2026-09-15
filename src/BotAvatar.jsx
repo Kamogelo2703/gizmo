@@ -6,9 +6,18 @@ import {
   warmBotPhotoCache,
 } from "./botPhotoCache.js";
 
+function isLocalInstantSrc(src) {
+  const value = String(src || "").trim();
+  return (
+    value.startsWith("data:image/") ||
+    value.startsWith("blob:") ||
+    (value.startsWith("/") && !value.startsWith("/api/"))
+  );
+}
+
 /**
- * Robot / hero avatar that paints from local cache first, then upgrades
- * from network without leaving a blank disc.
+ * Robot / hero avatar that paints a local asset on first frame, then upgrades
+ * to a cached/remote photo only after it successfully decodes — never a broken ?.
  */
 export default function BotAvatar({
   bot,
@@ -22,40 +31,42 @@ export default function BotAvatar({
 }) {
   const id = String(bot?.id || "").trim();
   const remote = resolveBotPhotoSrc(bot, fallback);
+  const safeFallback = fallback || "/logo.png";
 
   const [src, setSrc] = useState(() => {
     const cached = getCachedBotPhotoSync(id);
     if (cached) return cached;
     const photo = String(bot?.photo || "").trim();
     if (photo.startsWith("data:image/") || photo.startsWith("blob:")) return photo;
-    // Prefer the real remote URL over the logo so the browser can start
-    // decoding immediately on first visit (cache still fills in the background).
-    if (remote && remote !== fallback) return remote;
-    return fallback || "/logo.png";
+    // Local packaged assets paint with the rest of the UI (same frame).
+    if (isLocalInstantSrc(remote)) return remote || safeFallback;
+    // Remote API / CDN: show fallback instantly, swap after decode.
+    return safeFallback;
   });
 
   useEffect(() => {
     let cancelled = false;
 
-    const applyInstant = () => {
+    const paintInstant = () => {
       const cached = getCachedBotPhotoSync(id);
       if (cached) {
         setSrc(cached);
-        return;
+        return cached;
       }
       const photo = String(bot?.photo || "").trim();
       if (photo.startsWith("data:image/") || photo.startsWith("blob:")) {
         setSrc(photo);
-        return;
+        return photo;
       }
-      if (remote && remote !== (fallback || "/logo.png")) {
-        setSrc(remote);
-        return;
+      if (isLocalInstantSrc(remote)) {
+        setSrc(remote || safeFallback);
+        return remote || safeFallback;
       }
-      setSrc(fallback || "/logo.png");
+      setSrc(safeFallback);
+      return safeFallback;
     };
 
-    applyInstant();
+    paintInstant();
 
     warmBotPhotoCache()
       .then(() => {
@@ -65,21 +76,48 @@ export default function BotAvatar({
       })
       .catch(() => {});
 
-    resolveCachedBotPhoto(bot, fallback)
+    // Only hit the network when we actually need a remote/custom photo.
+    const needsNetwork =
+      Boolean(id) &&
+      (String(bot?.photo || "").startsWith("/api/licenses/photo") ||
+        /^https?:\/\//i.test(String(bot?.photo || "")) ||
+        (remote && !isLocalInstantSrc(remote) && remote !== safeFallback));
+
+    if (!needsNetwork) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    resolveCachedBotPhoto(bot, safeFallback)
       .then((url) => {
-        if (!cancelled && url) setSrc(url);
+        if (cancelled || !url) return;
+        // Avoid swapping to a remote that will flash a broken icon.
+        if (isLocalInstantSrc(url) || String(url).startsWith("blob:")) {
+          setSrc(url);
+          return;
+        }
+        const probe = new Image();
+        probe.decoding = "async";
+        probe.onload = () => {
+          if (!cancelled) setSrc(url);
+        };
+        probe.onerror = () => {
+          if (!cancelled) setSrc(safeFallback);
+        };
+        probe.src = url;
       })
       .catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, [id, bot?.photo, remote, fallback]);
+  }, [id, bot?.photo, remote, safeFallback]);
 
   return (
     <img
       className={className}
-      src={src || fallback || "/logo.png"}
+      src={src || safeFallback}
       alt={alt}
       width={width}
       height={height}
@@ -91,7 +129,8 @@ export default function BotAvatar({
         if (!node) return;
         if (node.dataset.fallbackApplied === "1") return;
         node.dataset.fallbackApplied = "1";
-        node.src = fallback || "/logo.png";
+        setSrc(safeFallback);
+        node.src = safeFallback;
       }}
     />
   );
