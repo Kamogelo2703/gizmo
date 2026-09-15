@@ -606,8 +606,9 @@ export function AppProvider({ children }) {
       }
     };
 
-    // Debounce on native WebView so rapid setState from polls does not block the UI thread.
-    const delay = isNativeApp() ? 600 : 0;
+    // Light debounce on native so rapid poll setState does not thrash disk,
+    // but keep it short so the UI feels as snappy as mobile web.
+    const delay = isNativeApp() ? 120 : 0;
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     if (!delay) {
       flush();
@@ -726,7 +727,7 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const pollMs = isNativeApp() ? 30000 : 15000;
+    const pollMs = isNativeApp() ? 20000 : 15000;
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       refreshSignups();
@@ -898,8 +899,8 @@ export function AppProvider({ children }) {
   }, [licenseKeys, refreshLicenses]);
 
   useEffect(() => {
-    // Web can poll often; Android WebView freezes when HTTPS + localStorage hit every 5s.
-    const pollMs = isNativeApp() ? 45000 : 5000;
+    // Keep license refresh reasonably fresh on Android without 5s thrash.
+    const pollMs = isNativeApp() ? 20000 : 5000;
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       refreshLicenses();
