@@ -10,6 +10,7 @@ import {
   SA_TIMEZONE,
 } from "./economicCalendarSchedule.js";
 import { buildBotTradeComment, placeTrade } from "./metaApi.js";
+import { recordTrade } from "./dailyTradeHistory.js";
 import { useApp } from "./store.jsx";
 
 function todaySaDateKey(now = new Date()) {
@@ -228,7 +229,15 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
         side: parsed.side,
         region: mt5Session.region || "",
         comment: `${comment}|NEWS`.slice(0, 31),
-        source: "economic-calendar",
+        source: "chart-scanner",
+      });
+      recordTrade({
+        botName: activeBot?.name || "Bot",
+        symbol: parsed.symbol,
+        lotSize: lot,
+        action: parsed.side,
+        side: parsed.side,
+        comment: `${comment}|NEWS`.slice(0, 31),
       });
       showToast(
         `Executed ${fill?.side || parsed.side} ${fill?.symbol || parsed.symbol} ${fill?.volume || lot}`
