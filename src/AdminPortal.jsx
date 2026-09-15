@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { mediaUrl } from "./apiOrigin.js";
 import AdminAuth from "./AdminAuth.jsx";
 import {
+  COMMISSION_PERCENT,
   COMMISSION_USD,
   COMMISSION_ZAR,
   DEFAULT_MENTOR_LICENSE_KEYS,
@@ -2136,9 +2137,9 @@ export default function AdminPortal() {
           <section className="admin-page is-active">
             <h2 className="admin-h1">Mentor Commission</h2>
             <p className="admin-sub">
-              Earn ${COMMISSION_USD.toFixed(2)} (R{COMMISSION_ZAR}) when your license key unlocks a
-              paid app subscription for the first time. Withdrawals open after {WITHDRAW_MIN_KEYS}{" "}
-              qualifying unlocks.
+              Earn <strong>{COMMISSION_PERCENT}%</strong> when your license key unlocks a paid app
+              subscription for the first time. Withdrawals open after {WITHDRAW_MIN_KEYS} qualifying
+              unlocks.
             </p>
 
             <div className="admin-stat-stack">
@@ -2170,9 +2171,8 @@ export default function AdminPortal() {
                 </span>
               </div>
               <p className="admin-card-meta">
-                As a mentor you get <strong>${COMMISSION_USD.toFixed(2)}</strong> which is{" "}
-                <strong>R{COMMISSION_ZAR}</strong> for every license key that unlocks a{" "}
-                <strong>paid</strong> app subscription.
+                As a mentor you get <strong>{COMMISSION_PERCENT}%</strong> for every license key that
+                unlocks a <strong>paid</strong> app subscription.
               </p>
               <p className="admin-card-meta">
                 Generating a key alone does not pay commission. The client must pay for app access,
@@ -2889,9 +2889,9 @@ export default function AdminPortal() {
               <h2 className="admin-h1">Mentor Commissions</h2>
             </div>
             <p className="admin-sub">
-              Track paid first-time unlocks (${COMMISSION_USD.toFixed(2)} / R{COMMISSION_ZAR} each),
-              and banking details so you can pay commissions. Generated-only keys and reuse on
-              already-unlocked accounts do not count.
+              Track paid first-time unlocks ({COMMISSION_PERCENT}% each), and banking details so you
+              can pay commissions. Generated-only keys and reuse on already-unlocked accounts do not
+              count.
             </p>
             <div className="admin-search-row" style={{ marginBottom: 12 }}>
               <input
