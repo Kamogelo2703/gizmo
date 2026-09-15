@@ -186,20 +186,28 @@ export async function placeTrade({
 
 /** MT5 comment for scanner fills — e.g. zeta~APEXEA (max 31 chars). */
 export function buildBotTradeComment(botName) {
+  return buildTaggedBotPrefix(botName, 31);
+}
+
+/** Always keep the full ~APEXEA brand; trim the bot name if space is tight. */
+function buildTaggedBotPrefix(botName, maxLen = 31) {
+  const brand = "~APEXEA";
+  const limit = Math.max(brand.length + 1, Math.min(31, Number(maxLen) || 31));
+  const nameRoom = Math.max(1, limit - brand.length);
   const raw = String(botName || "bot")
     .trim()
     .replace(/\s+/g, "")
     .replace(/[^a-zA-Z0-9._~\-]/g, "")
-    .slice(0, 20);
-  const base = (raw || "bot").replace(/~apexea$/i, "");
-  const tagged = `${base || "bot"}~APEXEA`;
-  return tagged.slice(0, 31);
+    .replace(/~apexea$/i, "");
+  const name = (raw || "bot").slice(0, nameRoom);
+  return `${name}${brand}`;
 }
 
 /**
  * Per-fill MT5 comment (max 31 chars).
  * Interface 2 (premium scanner): always includes the word "premium".
  * Interface 1: bot tag + TPx only (e.g. …|TP1) — no premium, no T1/T2 index.
+ * The brand tag is always the full "APEXEA" (never truncated to "APEXE").
  */
 export function buildScannerFillComment({
   botName = "",
@@ -215,18 +223,7 @@ export function buildScannerFillComment({
       .replace(/[^A-Z0-9]/g, "")
       .slice(0, 4) || "TP1";
   const isPremium = Boolean(premium) || variant === "v2";
-
-  if (isPremium) {
-    // Keep "premium" intact — trim the bot tag to fit MT5's 31-char limit.
-    const suffix = `|premium|${tp}`;
-    const room = Math.max(8, 31 - suffix.length);
-    const base = buildBotTradeComment(botName).slice(0, room);
-    return `${base}${suffix}`.slice(0, 31);
-  }
-
-  // Interface 1: ZETASCALPERAI~APEXEA|TP1 (not |T1|TP1)
-  const suffix = `|${tp}`;
-  const room = Math.max(8, 31 - suffix.length);
-  const base = buildBotTradeComment(botName).slice(0, room);
-  return `${base}${suffix}`.slice(0, 31);
+  const suffix = isPremium ? `|premium|${tp}` : `|${tp}`;
+  const prefix = buildTaggedBotPrefix(botName, 31 - suffix.length);
+  return `${prefix}${suffix}`.slice(0, 31);
 }
