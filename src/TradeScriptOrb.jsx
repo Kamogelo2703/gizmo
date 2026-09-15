@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  clearTradeHistory,
+  formatHistoryPrice,
+  formatRelativeTradeTime,
   formatTradeHistoryLines,
-  loadTodayTrades,
-  recordTodayTrade,
+  loadTradeHistory,
 } from "./dailyTradeHistory.js";
 import { buildBotTradeComment } from "./metaApi.js";
 
@@ -10,7 +12,7 @@ const FLOAT_SIZE = 58;
 const DRAG_THRESHOLD = 8;
 const TYPE_MS = 22;
 const POPOVER_GAP = 10;
-const POPOVER_WIDTH = 280;
+const POPOVER_WIDTH = 300;
 const WELCOME_TEXT = "Welcome back\ntaken trades will show here";
 
 function loadFloatPos(storageKey) {
@@ -66,7 +68,7 @@ export default function TradeScriptOrb({
   const [typed, setTyped] = useState("");
   const [typingDone, setTypingDone] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [todayTrades, setTodayTrades] = useState(() => loadTodayTrades());
+  const [tradeHistory, setTradeHistory] = useState(() => loadTradeHistory());
   const [popoverPos, setPopoverPos] = useState({ left: 8, top: 80, arrowLeft: 28 });
   const floatRef = useRef(null);
   const panelRef = useRef(null);
@@ -88,7 +90,7 @@ export default function TradeScriptOrb({
   const tradeComment =
     String(live?.comment || comment || buildBotTradeComment(displayName)).trim() ||
     buildBotTradeComment(displayName);
-  const historyText = formatTradeHistoryLines(todayTrades);
+  const historyText = formatTradeHistoryLines(tradeHistory);
   const fullScript = historyOpen
     ? historyText
     : isOpening
@@ -103,29 +105,21 @@ export default function TradeScriptOrb({
         : script || ""
       : WELCOME_TEXT;
 
-  // Record taken trades for today's history (resets next calendar day).
+  // History is recorded by Chart Scanner / Economic Calendar fills (persistent).
+  // Refresh the list when a live trade pulse arrives so History stays current.
   useEffect(() => {
     if (!live?.at) return;
     if (live.at === lastRecordedAtRef.current) return;
     lastRecordedAtRef.current = live.at;
-    setTodayTrades(
-      recordTodayTrade({
-        at: live.at,
-        botName: live.botName || botName,
-        symbol: live.symbol,
-        lotSize: live.lotSize,
-        action: live.action || live.side,
-        comment: live.comment || comment,
-      })
-    );
-  }, [live, botName, comment]);
+    setTradeHistory(loadTradeHistory());
+  }, [live]);
 
   useEffect(() => {
     if (!scriptOpen) {
       setHistoryOpen(false);
       return;
     }
-    setTodayTrades(loadTodayTrades());
+    setTradeHistory(loadTradeHistory());
   }, [scriptOpen]);
 
   function measurePopover() {
@@ -162,12 +156,17 @@ export default function TradeScriptOrb({
     const onResize = () => measurePopover();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [scriptOpen, floatPos, typed, visible, isOpening, historyOpen, todayTrades]);
+  }, [scriptOpen, floatPos, typed, visible, isOpening, historyOpen, tradeHistory]);
 
   useEffect(() => {
     if (!scriptOpen) {
       setTyped("");
       setTypingDone(false);
+      return undefined;
+    }
+    if (historyOpen) {
+      setTyped("");
+      setTypingDone(true);
       return undefined;
     }
     setTyped("");
@@ -182,7 +181,7 @@ export default function TradeScriptOrb({
       }
     }, TYPE_MS);
     return () => window.clearInterval(id);
-  }, [scriptOpen, fullScript]);
+  }, [scriptOpen, fullScript, historyOpen]);
 
   // When the robot starts opening trades, open the panel and type the trade script.
   useEffect(() => {
@@ -267,10 +266,20 @@ export default function TradeScriptOrb({
   }
 
   async function copyScript() {
-    if ((!isOpening && !historyOpen) || !fullScript) return;
+    if (historyOpen) {
+      if (!historyText) return;
+      try {
+        await navigator.clipboard.writeText(historyText);
+        showToast?.("Trade history copied");
+      } catch {
+        showToast?.("Could not copy history");
+      }
+      return;
+    }
+    if (!isOpening || !fullScript) return;
     try {
       await navigator.clipboard.writeText(fullScript);
-      showToast?.(historyOpen ? "Today's trade history copied" : "Trade script copied");
+      showToast?.("Trade script copied");
     } catch {
       showToast?.("Could not copy script");
     }
@@ -279,9 +288,14 @@ export default function TradeScriptOrb({
   function toggleHistory() {
     setHistoryOpen((prev) => {
       const next = !prev;
-      if (next) setTodayTrades(loadTodayTrades());
+      if (next) setTradeHistory(loadTradeHistory());
       return next;
     });
+  }
+
+  function onClearHistory() {
+    setTradeHistory(clearTradeHistory());
+    showToast?.("Trade history cleared");
   }
 
   if (!visible && !scriptOpen) return null;
@@ -320,7 +334,7 @@ export default function TradeScriptOrb({
           role="dialog"
           aria-modal="true"
           aria-label={
-            historyOpen ? "Today's taken trades" : isOpening ? "Open trade script" : "Welcome back"
+            historyOpen ? "Taken trades history" : isOpening ? "Open trade script" : "Welcome back"
           }
         >
           <button
@@ -346,7 +360,7 @@ export default function TradeScriptOrb({
               <div>
                 {historyOpen ? (
                   <>
-                    <p className="trade-script-kicker">Today</p>
+                    <p className="trade-script-kicker">History</p>
                     <h2>Taken trades</h2>
                   </>
                 ) : isOpening ? (
@@ -367,11 +381,11 @@ export default function TradeScriptOrb({
                   type="button"
                   onClick={toggleHistory}
                   aria-pressed={historyOpen}
-                  title="Trades taken today · resets tomorrow"
+                  title="Saved trade history"
                 >
                   History
-                  {todayTrades.length > 0 ? (
-                    <span className="trade-script-history-count">{todayTrades.length}</span>
+                  {tradeHistory.length > 0 ? (
+                    <span className="trade-script-history-count">{tradeHistory.length}</span>
                   ) : null}
                 </button>
                 <button className="trade-script-close" type="button" onClick={() => setScriptOpen(false)}>
@@ -380,7 +394,7 @@ export default function TradeScriptOrb({
               </div>
             </header>
             {historyOpen ? (
-              <p className="trade-script-note">Today only · resets the following day.</p>
+              <p className="trade-script-note">Saved on this device · does not reset overnight.</p>
             ) : isOpening ? (
               <p className="trade-script-note">
                 Comment tag <strong>{tradeComment}</strong>
@@ -388,14 +402,68 @@ export default function TradeScriptOrb({
             ) : (
               <p className="trade-script-note">Your robot is standing by.</p>
             )}
-            <pre
-              className={`trade-script-code${typingDone ? " is-done" : " is-typing"}${
-                historyOpen ? " is-history" : isOpening ? "" : " is-welcome"
-              }`}
-            >
-              {typed}
-              <span className="trade-script-caret" aria-hidden="true" />
-            </pre>
+            {historyOpen ? (
+              <div className="trade-history-list" role="list">
+                {tradeHistory.length === 0 ? (
+                  <p className="trade-history-empty">No trades taken yet.</p>
+                ) : (
+                  tradeHistory.map((row) => {
+                    const side = String(row.action || "").toUpperCase();
+                    const isBuy = side === "BUY";
+                    const isSell = side === "SELL";
+                    return (
+                      <div
+                        key={row.id}
+                        className={`trade-history-row${isBuy ? " is-buy" : ""}${isSell ? " is-sell" : ""}`}
+                        role="listitem"
+                      >
+                        <span className="trade-history-dot" aria-hidden="true" />
+                        <div className="trade-history-main">
+                          <p className="trade-history-title">
+                            <span className="trade-history-symbol">{row.symbol}</span>
+                            <span className="trade-history-side">{side}</span>
+                          </p>
+                          {(row.entry != null || row.takeProfit != null || row.stopLoss != null) && (
+                            <p className="trade-history-levels">
+                              {row.entry != null ? (
+                                <span>E {formatHistoryPrice(row.entry)}</span>
+                              ) : null}
+                              {row.takeProfit != null ? (
+                                <span className="is-tp">TP {formatHistoryPrice(row.takeProfit)}</span>
+                              ) : null}
+                              {row.stopLoss != null ? (
+                                <span className="is-sl">SL {formatHistoryPrice(row.stopLoss)}</span>
+                              ) : null}
+                            </p>
+                          )}
+                        </div>
+                        <span className="trade-history-age">
+                          {formatRelativeTradeTime(row.at)}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+                {tradeHistory.length > 0 ? (
+                  <button
+                    className="trade-history-clear"
+                    type="button"
+                    onClick={onClearHistory}
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <pre
+                className={`trade-script-code${typingDone ? " is-done" : " is-typing"}${
+                  isOpening ? "" : " is-welcome"
+                }`}
+              >
+                {typed}
+                <span className="trade-script-caret" aria-hidden="true" />
+              </pre>
+            )}
             {isOpening || historyOpen ? (
               <div className="trade-script-actions">
                 <button className="trade-script-copy" type="button" onClick={copyScript}>

@@ -4677,6 +4677,132 @@ html:has(.phone[data-interface="v2"]) body {
   font-size: 0.76rem;
 }
 
+.trade-history-list {
+  margin: 0;
+  padding: 4px 2px 2px;
+  max-height: min(42vh, 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trade-history-empty {
+  margin: 8px 4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.86rem;
+}
+
+.trade-history-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 6px;
+  border-radius: 10px;
+}
+
+.trade-history-row:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.trade-history-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.trade-history-row.is-buy .trade-history-dot {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.55);
+}
+
+.trade-history-row.is-sell .trade-history-dot {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.55);
+}
+
+.trade-history-main {
+  min-width: 0;
+}
+
+.trade-history-title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.trade-history-symbol {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.trade-history-side {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.84rem;
+}
+
+.trade-history-row.is-buy .trade-history-side {
+  color: #4ade80;
+}
+
+.trade-history-row.is-sell .trade-history-side {
+  color: #f87171;
+}
+
+.trade-history-levels {
+  margin: 3px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-history-levels .is-tp {
+  color: #4ade80;
+}
+
+.trade-history-levels .is-sl {
+  color: #f87171;
+}
+
+.trade-history-age {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.trade-history-clear {
+  align-self: center;
+  margin: 10px 0 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.trade-history-clear:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .trade-script-panel.is-welcome .trade-script-kicker,
 .trade-script-panel.is-history .trade-script-kicker {
   color: rgba(255, 255, 255, 0.55);

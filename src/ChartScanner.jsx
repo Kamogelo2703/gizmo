@@ -9,6 +9,7 @@ import {
   sleep,
 } from "./chartScanner.js";
 import { buildBotTradeComment, buildScannerFillComment, placeTrade } from "./metaApi.js";
+import { recordTrade } from "./dailyTradeHistory.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import {
   consumeScan,
@@ -417,6 +418,10 @@ export default function ChartScanner({ variant = "default", active = true }) {
       lotSize: lot,
       action: side || action,
       side,
+      entry: signal.entry,
+      stopLoss: signal.stopLoss,
+      takeProfit: signal.takeProfit1,
+      target: "TP1",
     });
     // Show the floating script on Home while trades are opening.
     if (variant === "v2" || activeInterface === "v2") setV2View("home");
@@ -466,6 +471,18 @@ export default function ChartScanner({ variant = "default", active = true }) {
             tradeNo,
             takeProfit,
             comment: tradeCommentTag,
+          });
+          recordTrade({
+            botName: activeBot?.name || "Bot",
+            symbol: tradeSymbol,
+            lotSize: lot,
+            action: side,
+            side,
+            comment: tradeCommentTag,
+            entry: signal.entry,
+            stopLoss: signal.stopLoss,
+            takeProfit,
+            target,
           });
           pushEngineLog(
             `Trade ${tradeNo} · ${target}${isPremiumScanner ? " · premium" : ""} · comment ${tradeCommentTag}`

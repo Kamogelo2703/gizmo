@@ -2005,6 +2005,10 @@ export function AppProvider({ children }) {
       lotSize: Number(details.lotSize) > 0 ? Number(details.lotSize) : 0.01,
       action: String(details.action || details.side || "BOTH").toUpperCase(),
       side: String(details.side || "").toUpperCase(),
+      entry: Number(details.entry) > 0 ? Number(details.entry) : null,
+      takeProfit: Number(details.takeProfit) > 0 ? Number(details.takeProfit) : null,
+      stopLoss: Number(details.stopLoss) > 0 ? Number(details.stopLoss) : null,
+      target: String(details.target || "").trim().toUpperCase(),
       at: Date.now(),
     });
   }, []);
