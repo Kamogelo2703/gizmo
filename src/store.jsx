@@ -1608,15 +1608,6 @@ export function AppProvider({ children }) {
     async (rawKey) => {
       const accountEmail = normalizeEmail(coverEmail);
       const signup = getSignup(accountEmail);
-      if (!signup || signup.status !== "approved") {
-        setLockStep("pending");
-        showToast(
-          signup?.status === "declined"
-            ? "Access was declined by super admin"
-            : "Account must be approved by super admin first"
-        );
-        return false;
-      }
 
       const key = normalizeLicenseKey(rawKey);
       if (!key) {
@@ -1670,12 +1661,24 @@ export function AppProvider({ children }) {
         return false;
       }
 
-      const deviceId = getOrCreateDeviceId();
-      const boundDevice = String(entry.deviceId || "").trim();
       const licenseEmail = normalizeEmail(entry.clientEmail);
       const emailOwnsLicense = Boolean(
         accountEmail && licenseEmail && accountEmail === licenseEmail
       );
+      const approved = signup?.status === "approved";
+      // Owning the key is enough after signup-store resets; otherwise require approval.
+      if (!approved && !emailOwnsLicense) {
+        setLockStep("pending");
+        showToast(
+          signup?.status === "declined"
+            ? "Access was declined by super admin"
+            : "Account must be approved by super admin first"
+        );
+        return false;
+      }
+
+      const deviceId = getOrCreateDeviceId();
+      const boundDevice = String(entry.deviceId || "").trim();
       if (entry.used && boundDevice && boundDevice !== deviceId && !emailOwnsLicense) {
         showToast("This license is locked to another phone");
         return false;
