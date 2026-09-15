@@ -195,3 +195,28 @@ export function buildBotTradeComment(botName) {
   const tagged = `${base || "bot"}~APEXEA`;
   return tagged.slice(0, 31);
 }
+
+/**
+ * Per-fill MT5 comment (max 31 chars).
+ * Interface 2 (premium scanner): includes "premium" so tickets show the source.
+ * Interface 1: bot tag + trade/TP only — no premium label.
+ */
+export function buildScannerFillComment({
+  botName = "",
+  variant = "default",
+  target = "TP1",
+  tradeNo = 1,
+} = {}) {
+  const base = buildBotTradeComment(botName);
+  const tp = String(target || "TP1")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 4) || "TP1";
+  const isPremium = variant === "v2";
+  const suffix = isPremium
+    ? `|premium|${tp}`
+    : `|T${Math.max(1, Number(tradeNo) || 1)}|${tp}`;
+  const room = Math.max(1, 31 - suffix.length);
+  return `${base.slice(0, room)}${suffix}`.slice(0, 31);
+}
