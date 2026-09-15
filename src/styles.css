@@ -4735,9 +4735,9 @@ html:has(.phone[data-interface="v2"]) body {
   margin: 0;
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 650;
   letter-spacing: 0.01em;
 }
 
@@ -4747,60 +4747,61 @@ html:has(.phone[data-interface="v2"]) body {
 
 .trade-history-side {
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.84rem;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 .trade-history-row.is-buy .trade-history-side {
-  color: #4ade80;
+  color: #22c55e;
 }
 
 .trade-history-row.is-sell .trade-history-side {
-  color: #f87171;
+  color: #ef4444;
 }
 
 .trade-history-levels {
   margin: 3px 0 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.78);
   font-variant-numeric: tabular-nums;
 }
 
 .trade-history-levels .is-tp {
-  color: #4ade80;
+  color: #22c55e;
 }
 
 .trade-history-levels .is-sl {
-  color: #f87171;
+  color: #ef4444;
 }
 
 .trade-history-age {
   margin-top: 2px;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
 }
 
 .trade-history-clear {
   align-self: center;
-  margin: 10px 0 4px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 14px 0 8px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
 }
 
 .trade-history-clear:active {
-  transform: scale(0.97);
-  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
 }
 
 .trade-script-panel.is-welcome .trade-script-kicker,
