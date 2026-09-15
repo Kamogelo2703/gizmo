@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { mediaUrl } from "./apiOrigin.js";
+import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
@@ -10,11 +10,9 @@ import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx"
 import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 
 function resolveHeroPhoto(bot) {
-  const photo = String(bot?.photo || "").trim();
-  // Use the same photo source as the robot list / float orb so Interface 2
-  // never opens with an empty black hero while thumbnails still show the bot.
-  if (photo) return mediaUrl(photo);
-  return "/zeta-fire-portal.jpg";
+  // Prefer full-quality /api/licenses/photo over tiny data-URL embeds so the
+  // full-bleed hero stays sharp on Android WebView (retina upscale).
+  return resolveBotPhotoSrc(bot, "/zeta-fire-portal.jpg");
 }
 
 export default function V2Interface() {
@@ -62,8 +60,10 @@ export default function V2Interface() {
   const activeRobots = bots.filter((b) => b.active);
   const preferredHero = resolveHeroPhoto(activeBot);
   const heroSrc =
-    heroBroken === preferredHero ? "/zeta-fire-portal.jpg" : preferredHero;
-  const floatSrc = mediaUrl(activeBot?.photo || "/logo.png");
+    heroBroken === preferredHero
+      ? mediaUrl(activeBot?.photo || "/zeta-fire-portal.jpg")
+      : preferredHero;
+  const floatSrc = resolveBotPhotoSrc(activeBot, "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     editingSymbol ||

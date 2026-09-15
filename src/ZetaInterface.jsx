@@ -1,4 +1,4 @@
-import { mediaUrl } from "./apiOrigin.js";
+import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
@@ -6,6 +6,7 @@ import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
 import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
+import { useEffect, useState } from "react";
 
 const START_PARTICLE_COUNT = isNativeApp() ? 6 : 18;
 
@@ -30,8 +31,18 @@ export default function ZetaInterface() {
     clearOrbTrade,
   } = useApp();
 
+  const [heroBroken, setHeroBroken] = useState("");
+  useEffect(() => {
+    setHeroBroken("");
+  }, [activeBot?.id, activeBot?.photo]);
+
   const running = v2Running;
-  const floatSrc = mediaUrl(activeBot?.photo || "/logo.png");
+  const preferredHero = resolveBotPhotoSrc(activeBot, "/logo.png");
+  const heroSrc =
+    heroBroken === preferredHero
+      ? mediaUrl(activeBot?.photo || "/logo.png")
+      : preferredHero;
+  const floatSrc = heroSrc;
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =
     (activeBot?.symbols && activeBot.symbols[0]) || catalog?.[0] || "XAUUSD";
@@ -73,10 +84,16 @@ export default function ZetaInterface() {
               <div className="avatar-wrap">
                 <img
                   className="avatar"
-                  src={mediaUrl(activeBot?.photo || "/logo.png")}
+                  key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
+                  src={heroSrc}
                   alt=""
-                  width="160"
-                  height="160"
+                  decoding="async"
+                  fetchPriority="high"
+                  onError={() => {
+                    if (preferredHero && heroBroken !== preferredHero) {
+                      setHeroBroken(preferredHero);
+                    }
+                  }}
                 />
               </div>
               <p className="kicker">You are trading with</p>

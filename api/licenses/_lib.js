@@ -293,14 +293,12 @@ export async function persistBotPhoto(botId, photo) {
     return botPhotoApiPath(id);
   } catch (error) {
     console.warn("ea photo upload failed", error.message);
-    // Embed the bytes so Manage EAs / Home never point at a cold-start 404 API path.
+    // Prefer serving full-quality bytes via the API path when local memory has
+    // them. Do not crush artwork into a ~40KB data URL — that makes Home blurry
+    // on Android retina WebViews when upscaled to the hero.
     const local = readLocalBotPhoto(id);
-    const embedded = shrinkDataUrl(dataUrlFromPhoto(local) || value, 40_000);
-    if (embedded && embedded.startsWith("data:image/")) return embedded;
-    if (value.startsWith("data:image/") && value.length <= 40_000) return value;
-    // Prefer advertising the API path only when local bytes exist for this process;
-    // otherwise clients would get a permanent 404.
     if (local?.buffer?.length) return botPhotoApiPath(id);
+    if (value.startsWith("data:image/") && value.length <= 180_000) return value;
     return "/logo.png";
   }
 }
@@ -405,9 +403,10 @@ function shouldReplacePhoto(prevPhoto, nextPhoto) {
   const nextV = photoVersion(next);
   if (nextV || prevV) return nextV >= prevV;
 
-  // Prefer a working embedded photo over an API path that may 404 after cold start.
-  if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return false;
-  if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return true;
+  // Prefer durable full-quality API path over a tiny embedded data URL.
+  // Crushing heroes into data URLs made Android Home look soft/blurry.
+  if (next.startsWith("/api/licenses/photo") && prev.startsWith("data:")) return true;
+  if (next.startsWith("data:") && prev.startsWith("/api/licenses/photo")) return false;
   // Prefer the larger (sharper) embedded artwork when both are data URLs.
   if (next.startsWith("data:") && prev.startsWith("data:")) {
     return next.length > prev.length + 2048;

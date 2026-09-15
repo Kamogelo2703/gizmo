@@ -803,13 +803,13 @@ export function AppProvider({ children }) {
             const remotePhoto = photoByBotId.get(ea.id);
             if (!remotePhoto) return ea;
             const localPhoto = String(ea.photo || "");
-            // Never replace a working embedded photo with an API path that can 404
-            // after serverless cold starts (that is what made Manage EAs avatars vanish).
+            // Tiny legacy data-URL embeds look blurry on Home — always prefer a
+            // durable API path when remote has one (full bytes from GitHub).
             if (
               localPhoto.startsWith("data:image/") &&
               remotePhoto.startsWith("/api/licenses/photo")
             ) {
-              return ea;
+              return { ...ea, photo: remotePhoto };
             }
             const remoteFresh = photoFreshness(remotePhoto);
             const localFresh = photoFreshness(localPhoto);
@@ -825,7 +825,6 @@ export function AppProvider({ children }) {
               return ea;
             }
             if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
-              if (localPhoto.startsWith("data:image/")) return ea;
               return { ...ea, photo: remotePhoto };
             }
             return ea;
@@ -836,11 +835,12 @@ export function AppProvider({ children }) {
             const remotePhoto = photoByBotId.get(bot.id);
             if (!remotePhoto) return bot;
             const localPhoto = String(bot.photo || "");
+            // Prefer full-quality API bytes over tiny local data-URL embeds.
             if (
               localPhoto.startsWith("data:image/") &&
               remotePhoto.startsWith("/api/licenses/photo")
             ) {
-              return bot;
+              return { ...bot, photo: remotePhoto };
             }
             const remoteFresh = photoFreshness(remotePhoto);
             const localFresh = photoFreshness(localPhoto);
@@ -854,7 +854,6 @@ export function AppProvider({ children }) {
               return bot;
             }
             if (remotePhoto.includes("v=") && !localPhoto.includes("v=")) {
-              if (localPhoto.startsWith("data:image/")) return bot;
               return { ...bot, photo: remotePhoto };
             }
             return bot;
