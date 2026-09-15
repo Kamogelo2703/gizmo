@@ -8,7 +8,7 @@ import {
   detectSymbolFromChart,
   sleep,
 } from "./chartScanner.js";
-import { buildBotTradeComment, placeTrade } from "./metaApi.js";
+import { buildBotTradeComment, buildScannerFillComment, placeTrade } from "./metaApi.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import {
   consumeScan,
@@ -390,6 +390,8 @@ export default function ChartScanner({ variant = "default", active = true }) {
     if (action === "BUY" || action === "SELL") side = action;
 
     const tradeComment = buildBotTradeComment(activeBot?.name);
+    const orbComment =
+      variant === "v2" ? `${tradeComment}|premium`.slice(0, 31) : tradeComment;
     const tpMap = {
       takeProfit1: signal.takeProfit1,
       takeProfit2: signal.takeProfit2,
@@ -405,7 +407,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
     persistTradeSettings(tradeCount, lot, tradeSymbol);
     publishOrbTrade?.({
       botName: activeBot?.name || "Bot",
-      comment: tradeComment,
+      comment: orbComment,
       symbol: tradeSymbol,
       lotSize: lot,
       action: side || action,
@@ -420,6 +422,9 @@ export default function ChartScanner({ variant = "default", active = true }) {
         `Opening ${side} ${tradeSymbol} · SL ${signal.stopLoss} · TP1 ${signal.takeProfit1} · TP2 ${signal.takeProfit2} · TP3 ${signal.takeProfit3}`
       );
       pushEngineLog(`Partial plan · ${managementPlan.summary}`);
+      if (variant === "v2") {
+        pushEngineLog("Premium scanner · MT5 comments tagged premium");
+      }
 
       const nextFills = [];
       let lastError = "";
@@ -429,7 +434,12 @@ export default function ChartScanner({ variant = "default", active = true }) {
       for (let i = 0; i < tradeCount; i += 1) {
         const { target, takeProfitKey, tradeNo } = targetForTradeIndex(i);
         const takeProfit = tpMap[takeProfitKey];
-        const tradeCommentTag = `${tradeComment}|T${tradeNo}|${target}`.slice(0, 31);
+        const tradeCommentTag = buildScannerFillComment({
+          botName: activeBot?.name,
+          variant,
+          target,
+          tradeNo,
+        });
         setEngineStep(0);
         try {
           const fill = await placeTrade({
@@ -441,7 +451,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
             takeProfit,
             region: mt5Session.region || "",
             comment: tradeCommentTag,
-            source: "chart-scanner",
+            source: variant === "v2" ? "premium-scanner" : "chart-scanner",
           });
           nextFills.push({
             ...fill,
