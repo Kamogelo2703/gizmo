@@ -2615,6 +2615,7 @@ export default function AdminPortal() {
               <h2 className="admin-h1 self-host-title">SELF HOSTING</h2>
               <p className="admin-sub">
                 Place a trade and automatically send it to your connected robot clients.
+                Stop loss and take profit are optional.
               </p>
 
               <form
@@ -2623,8 +2624,6 @@ export default function AdminPortal() {
                   e.preventDefault();
                   if (hostBusy) return;
                   const symbol = String(hostSymbol || "").trim().toUpperCase();
-                  const stopLoss = Number(hostSl);
-                  const takeProfit = Number(hostTp);
                   const volume = Number(hostVolume);
                   if (!symbol) {
                     showToast("Enter a symbol");
@@ -2632,14 +2631,6 @@ export default function AdminPortal() {
                   }
                   if (!Number.isFinite(volume) || volume <= 0) {
                     showToast("Enter a valid lot size");
-                    return;
-                  }
-                  if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
-                    showToast("Enter a valid stop loss price");
-                    return;
-                  }
-                  if (!Number.isFinite(takeProfit) || takeProfit <= 0) {
-                    showToast("Enter a valid take profit price");
                     return;
                   }
                   if (!hostAccounts.length) {
@@ -2697,7 +2688,7 @@ export default function AdminPortal() {
                 </label>
 
                 <label className="ea-field">
-                  <span>Stop Loss</span>
+                  <span>Stop Loss (optional)</span>
                   <input
                     className="admin-input"
                     type="number"
@@ -2705,12 +2696,11 @@ export default function AdminPortal() {
                     value={hostSl}
                     onChange={(e) => setHostSl(e.target.value)}
                     placeholder="SL price"
-                    required
                   />
                 </label>
 
                 <label className="ea-field">
-                  <span>Take Profit</span>
+                  <span>Take Profit (optional)</span>
                   <input
                     className="admin-input"
                     type="number"
@@ -2718,7 +2708,6 @@ export default function AdminPortal() {
                     value={hostTp}
                     onChange={(e) => setHostTp(e.target.value)}
                     placeholder="TP price"
-                    required
                   />
                 </label>
 
@@ -2831,8 +2820,12 @@ export default function AdminPortal() {
                     {hostSide} {String(hostSymbol || "").trim().toUpperCase()}
                   </p>
                   <p className="self-host-modal-meta">Lot: {hostVolume}</p>
-                  <p className="self-host-modal-meta">SL: {hostSl}</p>
-                  <p className="self-host-modal-meta">TP: {hostTp}</p>
+                  <p className="self-host-modal-meta">
+                    SL: {String(hostSl || "").trim() || "None"}
+                  </p>
+                  <p className="self-host-modal-meta">
+                    TP: {String(hostTp || "").trim() || "None"}
+                  </p>
                   <p className="self-host-modal-meta">
                     {hostAccounts.length} connected client
                     {hostAccounts.length === 1 ? "" : "s"}
@@ -2853,8 +2846,12 @@ export default function AdminPortal() {
                       onClick={async () => {
                         if (hostBusy) return;
                         const symbol = String(hostSymbol || "").trim().toUpperCase();
-                        const stopLoss = Number(hostSl);
-                        const takeProfit = Number(hostTp);
+                        const rawSl = Number(hostSl);
+                        const rawTp = Number(hostTp);
+                        const stopLoss =
+                          Number.isFinite(rawSl) && rawSl > 0 ? rawSl : null;
+                        const takeProfit =
+                          Number.isFinite(rawTp) && rawTp > 0 ? rawTp : null;
                         const volume = Number(hostVolume);
                         setHostBusy(true);
                         try {

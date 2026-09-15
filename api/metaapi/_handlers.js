@@ -244,8 +244,11 @@ export async function handleMentorTrade(req, res) {
       .trim()
       .toUpperCase();
     const volume = Number(body.volume);
-    const stopLoss = Number(body.stopLoss ?? body.sl);
-    const takeProfit = Number(body.takeProfit ?? body.tp);
+    // SL / TP are optional — market orders can run without protective levels.
+    const rawSl = Number(body.stopLoss ?? body.sl);
+    const rawTp = Number(body.takeProfit ?? body.tp);
+    const stopLoss = Number.isFinite(rawSl) && rawSl > 0 ? rawSl : null;
+    const takeProfit = Number.isFinite(rawTp) && rawTp > 0 ? rawTp : null;
 
     if (!symbol) {
       const err = new Error("Symbol is required");
@@ -254,16 +257,6 @@ export async function handleMentorTrade(req, res) {
     }
     if (side !== "BUY" && side !== "SELL") {
       const err = new Error("Side must be BUY or SELL");
-      err.status = 400;
-      throw err;
-    }
-    if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
-      const err = new Error("Enter a valid stop loss price");
-      err.status = 400;
-      throw err;
-    }
-    if (!Number.isFinite(takeProfit) || takeProfit <= 0) {
-      const err = new Error("Enter a valid take profit price");
       err.status = 400;
       throw err;
     }
