@@ -81,15 +81,19 @@ export function formatTradeHistoryLines(trades = []) {
   if (!trades.length) {
     return "No trades taken today.\nHistory resets tomorrow.";
   }
-  const lines = [`Today · ${trades.length} trade${trades.length === 1 ? "" : "s"}`, ""];
-  for (const row of trades) {
-    const time = new Date(row.at).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    lines.push(`${time}  ${row.action} ${row.symbol}`);
-    lines.push(`  lot ${row.lotSize} · ${row.botName}`);
-  }
-  lines.push("", "Resets tomorrow.");
-  return lines.join("\n");
+  return trades
+    .map((row) => {
+      const symbol = String(row.symbol || "—").trim().toUpperCase() || "—";
+      const raw = String(row.action || "TRADE").trim().toUpperCase();
+      const side =
+        raw === "BUY" || raw === "SELL"
+          ? raw
+          : raw.includes("BUY")
+            ? "BUY"
+            : raw.includes("SELL")
+              ? "SELL"
+              : raw || "TRADE";
+      return `${symbol} was a ${side}`;
+    })
+    .join("\n");
 }
