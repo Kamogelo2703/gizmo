@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatEventDay } from "./economicCalendarApi.js";
 import {
+  formatSignalExecuteHint,
   getMentorSignalForEvent,
   getNextOfficialEvent,
+  isSignalExecuteOpen,
+  parseSignalTrade,
   SA_TIMEZONE,
 } from "./economicCalendarSchedule.js";
+import { buildBotTradeComment, placeTrade } from "./metaApi.js";
 import { useApp } from "./store.jsx";
 
 function todaySaDateKey(now = new Date()) {
@@ -108,11 +112,30 @@ function collectMentorEmails({ activeBot, coverEmail, eas, licenseKeys }) {
   return emails;
 }
 
+function clampLot(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0.01;
+  return Number(Math.min(1000, n).toFixed(4));
+}
+
 export default function EconomicCalendarButton({ variant = "zeta" }) {
-  const { activeBot, coverEmail, eas, licenseKeys } = useApp();
+  const {
+    activeBot,
+    coverEmail,
+    eas,
+    licenseKeys,
+    mt5Session,
+    getSymbolMeta,
+    showToast,
+    setZetaView,
+    setV2View,
+    publishOrbTrade,
+    clearOrbTrade,
+  } = useApp();
   const [open, setOpen] = useState(false);
   const [mentorEvents, setMentorEvents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   const mentorEmails = useMemo(
@@ -120,10 +143,12 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     [activeBot, coverEmail, eas, licenseKeys]
   );
 
+  // Tick often while the panel is open so the Execute window unlocks on time.
   useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 60_000);
+    const ms = open ? 5_000 : 60_000;
+    const timer = setInterval(() => setNowTick(Date.now()), ms);
     return () => clearInterval(timer);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -154,6 +179,68 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
     () => getMentorSignalForEvent(nextEvent, mentorEvents, now),
     [nextEvent, mentorEvents, now]
   );
+  const parsed = useMemo(() => parseSignalTrade(signal), [signal]);
+  const executeOpen = useMemo(
+    () => Boolean(nextEvent && isSignalExecuteOpen(nextEvent, now)),
+    [nextEvent, now]
+  );
+  const executeHint = useMemo(
+    () => (nextEvent ? formatSignalExecuteHint(nextEvent, now) : ""),
+    [nextEvent, now]
+  );
+  const connected = Boolean(mt5Session?.accountId);
+
+  async function onExecute() {
+    if (!parsed?.symbol || !parsed?.side) {
+      showToast("No tradeable signal yet");
+      return;
+    }
+    if (!nextEvent || !isSignalExecuteOpen(nextEvent, new Date())) {
+      showToast(executeHint || "Execute only opens 20 min before the event");
+      return;
+    }
+    if (!connected) {
+      showToast("Connect MT5 first to execute");
+      setZetaView?.("metatrader");
+      setV2View?.("metatrader");
+      setOpen(false);
+      return;
+    }
+
+    const meta = getSymbolMeta?.(parsed.symbol) || {};
+    const lot = clampLot(meta.lotSize);
+    const comment = buildBotTradeComment(activeBot?.name || "news");
+
+    setExecuting(true);
+    publishOrbTrade?.({
+      botName: activeBot?.name || "Bot",
+      comment,
+      symbol: parsed.symbol,
+      lotSize: lot,
+      action: parsed.side,
+      side: parsed.side,
+    });
+    try {
+      const fill = await placeTrade({
+        accountId: mt5Session.accountId,
+        symbol: parsed.symbol,
+        volume: lot,
+        side: parsed.side,
+        region: mt5Session.region || "",
+        comment: `${comment}|NEWS`.slice(0, 31),
+        source: "economic-calendar",
+      });
+      showToast(
+        `Executed ${fill?.side || parsed.side} ${fill?.symbol || parsed.symbol} ${fill?.volume || lot}`
+      );
+      window.setTimeout(() => clearOrbTrade?.(), 8000);
+    } catch (error) {
+      clearOrbTrade?.();
+      showToast(error.message || "Execute failed");
+    } finally {
+      setExecuting(false);
+    }
+  }
 
   return (
     <>
@@ -214,7 +301,18 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
                     <div className="econ-cal-directions">
                       <p className="econ-cal-directions-label">Signal direction</p>
                       {signal ? (
-                        <p className="econ-cal-directions-body">{signal}</p>
+                        <div className="econ-cal-signal-row">
+                          <p className="econ-cal-directions-body">{signal}</p>
+                          <button
+                            className={`econ-cal-execute${executeOpen ? " is-open" : ""}`}
+                            type="button"
+                            disabled={executing || !parsed || !executeOpen}
+                            title={executeHint}
+                            onClick={onExecute}
+                          >
+                            {executing ? "…" : "Execute"}
+                          </button>
+                        </div>
                       ) : (
                         <p className="econ-cal-directions-body is-empty">
                           {isToday
@@ -222,6 +320,16 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
                             : "No signal direction yet — your mentor will add it from their portal."}
                         </p>
                       )}
+                      {signal ? (
+                        <p className="econ-cal-execute-hint">
+                          {parsed
+                            ? executeHint
+                            : "Signal needs a symbol and BUY/SELL to execute"}
+                          {!connected && executeOpen
+                            ? " · Connect MT5 to trade"
+                            : ""}
+                        </p>
+                      ) : null}
                     </div>
                   </>
                 )}
