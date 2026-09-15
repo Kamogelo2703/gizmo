@@ -9,7 +9,7 @@ import {
   sleep,
 } from "./chartScanner.js";
 import { buildBotTradeComment, placeTrade } from "./metaApi.js";
-import { useApp } from "./store.jsx";
+import { isNativeApp, useApp } from "./store.jsx";
 import {
   describeManagementPlan,
   loadTradeManagement,
@@ -21,6 +21,9 @@ import {
 const SCAN_QUOTA_ZETA = 9;
 const SCAN_QUOTA_V2 = 20;
 const SCANS_STORE_KEY = "apexea-daily-scans-v1";
+/** Android WebView: fewer shadowed particles (desktop web keeps the full storm). */
+const SCANNER_PARTICLE_COUNT = isNativeApp() ? 6 : 18;
+const SCANNER_OUTER_PARTICLES = isNativeApp() ? 0 : 18;
 
 function todayKey() {
   const d = new Date();
@@ -656,15 +659,17 @@ export default function ChartScanner({ variant = "default" }) {
                   <>
                     <span className="cs-particle-field" aria-hidden="true">
                       <span className="stop-energy cs-particle-field-energy">
-                        {Array.from({ length: 18 }, (_, i) => (
+                        {Array.from({ length: SCANNER_PARTICLE_COUNT }, (_, i) => (
                           <span key={`in-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
                         ))}
                       </span>
-                      <span className="stop-energy cs-particle-field-energy is-outer">
-                        {Array.from({ length: 18 }, (_, i) => (
-                          <span key={`out-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
-                        ))}
-                      </span>
+                      {SCANNER_OUTER_PARTICLES > 0 ? (
+                        <span className="stop-energy cs-particle-field-energy is-outer">
+                          {Array.from({ length: SCANNER_OUTER_PARTICLES }, (_, i) => (
+                            <span key={`out-${i}`} className={`stop-particle stop-particle-${i + 1}`} />
+                          ))}
+                        </span>
+                      ) : null}
                     </span>
                     <div className="cs-robot-frame">
                       <span className="cs-robot-glow" aria-hidden="true" />
@@ -677,7 +682,7 @@ export default function ChartScanner({ variant = "default" }) {
                           height="160"
                         />
                         <span className="stop-energy cs-robot-orb-energy">
-                          {Array.from({ length: 18 }, (_, i) => (
+                          {Array.from({ length: SCANNER_PARTICLE_COUNT }, (_, i) => (
                             <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
                           ))}
                         </span>

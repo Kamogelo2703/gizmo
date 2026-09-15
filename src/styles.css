@@ -7708,3 +7708,120 @@ html:has(.phone[data-interface="v2"]) body {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.65);
 }
+
+/* —— Android / Capacitor WebView performance profile ——
+   Desktop web keeps full blur, backdrop-filter, and animated shadows.
+   Native APK demotes those to opacity/transform so the UI stays responsive. */
+html.is-native .glow,
+html.is-native .glow-soft,
+html.is-native .app-lock-glow {
+  filter: none;
+  will-change: auto;
+  animation: breathe-glow-native 7s ease-in-out infinite;
+}
+
+html.is-native .glow-soft {
+  opacity: 0.45;
+}
+
+@keyframes breathe-glow-native {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, 0) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate(-50%, 0) scale(1.04);
+  }
+}
+
+html.is-native .avatar-wrap,
+html.is-native .app-lock-logo-wrap {
+  animation: avatar-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+html.is-native .glass-btn,
+html.is-native .stop-btn,
+html.is-native .tabbar button,
+html.is-native .econ-cal-btn,
+html.is-native .cs-chip,
+html.is-native .cs-engine-chip,
+html.is-native .trade-float,
+html.is-native .pairs-sheet,
+html.is-native .toast {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.is-native .glass-btn {
+  background: linear-gradient(
+    180deg,
+    rgba(40, 28, 36, 0.92) 0%,
+    rgba(18, 14, 18, 0.96) 100%
+  );
+}
+
+html.is-native .stop-btn {
+  animation: breathe-stop-native 6s ease-in-out infinite;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.28), transparent 36%),
+    radial-gradient(circle at 50% 42%, rgba(var(--pink-rgb), 0.38), transparent 58%),
+    rgba(14, 10, 14, 0.94);
+}
+
+@keyframes breathe-stop-native {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.96;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+html.is-native .stop-btn:active {
+  transform: scale(0.95);
+}
+
+html.is-native .stop-particle {
+  will-change: auto;
+  box-shadow: 0 0 8px rgba(var(--pink-rgb), 0.65);
+}
+
+html.is-native .cs-robot-glow {
+  filter: none;
+  animation: none;
+  opacity: 0.55;
+}
+
+html.is-native .view-scanner:not(.cs-v2) .cs-particle-field-energy.is-outer {
+  display: none;
+}
+
+html.is-native .econ-cal-btn-ring,
+html.is-native .econ-cal-btn-ring--outer {
+  animation: none;
+  opacity: 0.55;
+}
+
+html.is-native .phone:has(#view-scanner:not([hidden])) > .glow,
+html.is-native .phone:has(#view-scanner:not([hidden])) > .glow-soft {
+  opacity: 0.2;
+  animation: none;
+}
+
+/* Pause continuous motion when the app is backgrounded (class from MainActivity). */
+html.is-native.is-paused .glow,
+html.is-native.is-paused .glow-soft,
+html.is-native.is-paused .stop-btn,
+html.is-native.is-paused .stop-particle,
+html.is-native.is-paused .cs-robot-glow,
+html.is-native.is-paused .econ-cal-btn-ring,
+html.is-native.is-paused .econ-cal-btn-ring--outer {
+  animation-play-state: paused !important;
+}

@@ -1,8 +1,18 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
-import { AppProvider } from "./store.jsx";
+import { AppProvider, isNativeApp } from "./store.jsx";
 import "./styles.css";
+
+// Tag the document early so CSS can demote expensive WebView effects on Android.
+try {
+  if (isNativeApp()) {
+    document.documentElement.classList.add("is-native");
+    document.documentElement.dataset.platform = "android";
+  }
+} catch {
+  // ignore
+}
 
 // Block horizontal page pans on phones. Vertical scrolling still works.
 (() => {
