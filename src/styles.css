@@ -7704,6 +7704,10 @@ html:has(.phone[data-interface="v2"]) body {
   transform: translateY(-50%) scale(0.97);
 }
 
+.econ-cal-btn:active {
+  transform: scale(0.97);
+}
+
 .econ-cal-backdrop {
   position: fixed;
   inset: 0;
