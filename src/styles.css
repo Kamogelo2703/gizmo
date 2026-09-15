@@ -490,7 +490,8 @@ html:has(.phone[data-interface="v2"]) body {
   border-radius: 50%;
   object-fit: cover;
   object-position: center;
-  background: transparent;
+  /* Opaque fill while remote photo loads (avoids pink-disc empty state). */
+  background: #0a0610;
 }
 
 .kicker {

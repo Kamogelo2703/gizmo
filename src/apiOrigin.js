@@ -48,18 +48,24 @@ export function mediaUrl(src) {
 
 /**
  * Home / hero / orb display source for a bot.
- * Tiny legacy data-URL embeds (~40–48KB) look soft when upscaled on Android
- * retina WebViews — prefer the durable full-quality photo API when we have an id.
+ * Prefer instant local bytes (data URL / packaged asset) so Android cold start
+ * is not blank while /api/licenses/photo loads from apex-ea.com.
+ * Durable API paths are used when that is all we have.
  */
 export function resolveBotPhotoSrc(bot, fallback = "/logo.png") {
   const id = String(bot?.id || "").trim();
   const photo = String(bot?.photo || "").trim();
-  // Durable API path when we already have one.
-  if (photo.startsWith("/api/licenses/photo")) return mediaUrl(photo);
+
+  // Instant local / absolute sources — never block first paint on a network hop.
+  if (photo.startsWith("data:image/") || photo.startsWith("blob:")) return photo;
   if (/^https?:\/\//i.test(photo)) return photo;
-  // Tiny legacy data-URL embeds look soft when upscaled on Android retina
-  // WebViews — prefer the durable full-quality photo API when we have an id.
-  if (id && photo.startsWith("data:image/")) {
+  if (photo && photo !== "/logo.png" && !photo.startsWith("/api/")) {
+    return mediaUrl(photo);
+  }
+
+  // Durable remote photo when local bytes were slimmed away.
+  if (photo.startsWith("/api/licenses/photo")) return mediaUrl(photo);
+  if (id && (!photo || photo === "/logo.png")) {
     return mediaUrl(
       `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`
     );

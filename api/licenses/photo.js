@@ -39,8 +39,14 @@ export default async function handler(req, res) {
       }
       res.statusCode = 200;
       res.setHeader("Content-Type", photo.mime || "image/jpeg");
-      // v= cache-busts; keep TTL short so profile changes show quickly.
-      res.setHeader("Cache-Control", "public, max-age=5, must-revalidate");
+      // Versioned URLs (?v=...) are safe to cache longer — Android WebView reuses them.
+      const versioned = Boolean(String(q.v || "").trim());
+      res.setHeader(
+        "Cache-Control",
+        versioned
+          ? "public, max-age=86400, stale-while-revalidate=604800"
+          : "public, max-age=120, must-revalidate"
+      );
       res.end(photo.buffer);
       return;
     }

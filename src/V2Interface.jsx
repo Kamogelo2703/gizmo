@@ -115,7 +115,7 @@ export default function V2Interface() {
                 <div className="v2-home-hero-media" aria-hidden="true">
                   <img
                     className="v2-home-hero-img"
-                    key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
+                    key={activeBot?.id || "bot"}
                     src={heroSrc}
                     alt=""
                     decoding="async"

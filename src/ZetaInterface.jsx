@@ -87,7 +87,7 @@ export default function ZetaInterface() {
               <div className="avatar-wrap">
                 <img
                   className="avatar"
-                  key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
+                  key={activeBot?.id || "bot"}
                   src={heroSrc}
                   alt=""
                   decoding="async"

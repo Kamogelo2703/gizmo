@@ -206,14 +206,21 @@ function isRealProfilePhoto(value) {
 /** Photos kept in localStorage must stay tiny — mobile Safari quota is ~5MB total. */
 const MAX_STORED_DATA_URL = 48_000;
 
-function slimPhotoForStorage(value) {
+function slimPhotoForStorage(value, botId = "") {
   const photo = String(value || "").trim();
-  if (!photo) return "/logo.png";
-  if (photo === "/logo.png") return photo;
+  const id = String(botId || "").trim();
+  if (!photo) return id ? `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full` : "/logo.png";
+  if (photo === "/logo.png") {
+    return id ? `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full` : photo;
+  }
   if (photo.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(photo)) return photo;
   if (photo.startsWith("data:image/")) {
-    // Large embeds blow quota (and multiply across every license row).
-    if (photo.length > MAX_STORED_DATA_URL) return "/logo.png";
+    // Large embeds blow quota — keep a durable API path so Home can still load.
+    if (photo.length > MAX_STORED_DATA_URL) {
+      return id
+        ? `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`
+        : "/logo.png";
+    }
     return photo;
   }
   return photo;
@@ -240,18 +247,18 @@ function slimPayloadForStorage(payload) {
         .trim()
         .toLowerCase(),
       ownerId: String(ea.ownerId || ea.mentorId || "").trim(),
-      photo: slimPhotoForStorage(ea.photo),
+      photo: slimPhotoForStorage(ea.photo, ea.id),
     })),
     bots: (payload.bots || []).map((bot) => ({
       ...bot,
-      photo: slimPhotoForStorage(bot.photo),
+      photo: slimPhotoForStorage(bot.photo, bot.id),
     })),
     licenseKeys: (payload.licenseKeys || []).map((row) => ({
       ...row,
       bot: row.bot
         ? {
             ...row.bot,
-            photo: slimPhotoForStorage(row.bot.photo),
+            photo: slimPhotoForStorage(row.bot.photo, row.bot.id || row.botId),
           }
         : row.bot,
     })),
@@ -259,18 +266,21 @@ function slimPayloadForStorage(payload) {
 }
 
 function stripAllEmbeddedPhotos(payload) {
-  const wipe = (photo) => {
+  const wipe = (photo, botId = "") => {
     const value = String(photo || "").trim();
+    const id = String(botId || "").trim();
     if (value.startsWith("/api/licenses/photo") || /^https?:\/\//i.test(value)) return value;
-    return "/logo.png";
+    return id ? `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full` : "/logo.png";
   };
   return {
     ...payload,
-    eas: (payload.eas || []).map((ea) => ({ ...ea, photo: wipe(ea.photo) })),
-    bots: (payload.bots || []).map((bot) => ({ ...bot, photo: wipe(bot.photo) })),
+    eas: (payload.eas || []).map((ea) => ({ ...ea, photo: wipe(ea.photo, ea.id) })),
+    bots: (payload.bots || []).map((bot) => ({ ...bot, photo: wipe(bot.photo, bot.id) })),
     licenseKeys: (payload.licenseKeys || []).map((row) => ({
       ...row,
-      bot: row.bot ? { ...row.bot, photo: wipe(row.bot.photo) } : row.bot,
+      bot: row.bot
+        ? { ...row.bot, photo: wipe(row.bot.photo, row.bot.id || row.botId) }
+        : row.bot,
     })),
   };
 }
@@ -564,17 +574,23 @@ export function AppProvider({ children }) {
             saveState(stripped);
             // Slim in-memory state so we stop rewriting oversized embeds.
             setEas((prev) =>
-              prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
+              prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo, ea.id) }))
             );
             setBots((prev) =>
-              prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
+              prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo, bot.id) }))
             );
             setLicenseKeys((prev) =>
               prev.map((row) =>
                 row.bot
                   ? {
                       ...row,
-                      bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
+                      bot: {
+                        ...row.bot,
+                        photo: slimPhotoForStorage(
+                          row.bot.photo,
+                          row.bot.id || row.botId
+                        ),
+                      },
                     }
                   : row
               )
@@ -586,17 +602,23 @@ export function AppProvider({ children }) {
               const minimal = stripAllEmbeddedPhotos(payload);
               localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
               setEas((prev) =>
-                prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
+                prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo, ea.id) }))
               );
               setBots((prev) =>
-                prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
+                prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo, bot.id) }))
               );
               setLicenseKeys((prev) =>
                 prev.map((row) =>
                   row.bot
                     ? {
                         ...row,
-                        bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
+                        bot: {
+                          ...row.bot,
+                          photo: slimPhotoForStorage(
+                            row.bot.photo,
+                            row.bot.id || row.botId
+                          ),
+                        },
                       }
                     : row
                 )
@@ -738,9 +760,14 @@ export function AppProvider({ children }) {
       if (typeof document !== "undefined" && document.hidden) return;
       refreshSignups();
     };
-    tick();
+    // Android: paint Home first, then sync signups (was competing with hero photos).
+    const bootDelay = isNativeApp() ? 900 : 0;
+    const bootTimer = setTimeout(tick, bootDelay);
     const timer = setInterval(tick, pollMs);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(bootTimer);
+      clearInterval(timer);
+    };
   }, [refreshSignups]);
 
   const refreshMentorDirectory = useCallback(async () => {
@@ -760,14 +787,22 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Android APK: fetch once at boot. Continuous mentor polls were burning main-thread time.
-    refreshMentorDirectory();
-    if (isNativeApp()) return undefined;
+    // Android APK: one delayed fetch so first paint is not blocked.
+    const bootDelay = isNativeApp() ? 1200 : 0;
+    const bootTimer = setTimeout(() => {
+      refreshMentorDirectory();
+    }, bootDelay);
+    if (isNativeApp()) {
+      return () => clearTimeout(bootTimer);
+    }
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       refreshMentorDirectory();
     }, 20000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(bootTimer);
+      clearInterval(timer);
+    };
   }, [refreshMentorDirectory]);
 
   // Stamp mentor portal usernames onto license rows (fill empty / replace brand stamp).
@@ -893,30 +928,51 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (licenseMigrateRef.current) return;
     licenseMigrateRef.current = true;
-    (async () => {
+    const run = async () => {
       const local = Array.isArray(licenseKeys) ? licenseKeys : [];
-      for (const entry of local) {
-        if (!entry?.key) continue;
-        if (!entry.clientEmail || !String(entry.clientEmail).includes("@")) continue;
-        if (!entry.clientName) continue;
-        try {
-          const photo = String(entry.bot?.photo || "");
-          await createLicenseRemote({
-            ...entry,
-            bot: entry.bot
-              ? {
-                  ...entry.bot,
-                  // Prefer API photo paths; data URLs only when no synced path exists.
-                  photo: photo || "/logo.png",
-                }
-              : undefined,
-          });
-        } catch {
-          // keep going — remote may already have the key
+      const queue = local.filter(
+        (entry) =>
+          entry?.key &&
+          entry.clientEmail &&
+          String(entry.clientEmail).includes("@") &&
+          entry.clientName
+      );
+      const concurrency = isNativeApp() ? 2 : 3;
+      let idx = 0;
+      async function worker() {
+        while (idx < queue.length) {
+          const entry = queue[idx];
+          idx += 1;
+          try {
+            const photo = String(entry.bot?.photo || "");
+            await createLicenseRemote({
+              ...entry,
+              bot: entry.bot
+                ? {
+                    ...entry.bot,
+                    photo: photo || "/logo.png",
+                  }
+                : undefined,
+            });
+          } catch {
+            // keep going — remote may already have the key / deleted
+          }
         }
       }
+      await Promise.all(
+        Array.from(
+          { length: Math.min(concurrency, Math.max(queue.length, 1)) },
+          () => worker()
+        )
+      );
       await refreshLicenses();
-    })();
+    };
+    // Let Home paint before migrate hits the network.
+    const delay = isNativeApp() ? 1500 : 400;
+    const timer = setTimeout(() => {
+      run().catch(() => {});
+    }, delay);
+    return () => clearTimeout(timer);
   }, [licenseKeys, refreshLicenses]);
 
   useEffect(() => {
@@ -926,12 +982,15 @@ export function AppProvider({ children }) {
       if (typeof document !== "undefined" && document.hidden) return;
       refreshLicenses();
     };
+    const bootDelay = isNativeApp() ? 700 : 0;
+    const bootTimer = setTimeout(tick, bootDelay);
     const timer = setInterval(tick, pollMs);
     const onVis = () => {
       if (!document.hidden) refreshLicenses();
     };
     document.addEventListener("visibilitychange", onVis);
     return () => {
+      clearTimeout(bootTimer);
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVis);
     };
@@ -2267,9 +2326,14 @@ export function AppProvider({ children }) {
       }
     };
 
-    pull();
-    const timer = setInterval(pull, 4000);
-    return () => clearInterval(timer);
+    const bootDelay = isNativeApp() ? 2000 : 0;
+    const pollMs = isNativeApp() ? 12000 : 4000;
+    const bootTimer = setTimeout(pull, bootDelay);
+    const timer = setInterval(pull, pollMs);
+    return () => {
+      clearTimeout(bootTimer);
+      clearInterval(timer);
+    };
   }, [
     adminOpen,
     hasActiveBot,
