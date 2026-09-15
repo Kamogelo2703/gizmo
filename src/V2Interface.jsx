@@ -12,7 +12,7 @@ import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 function resolveHeroPhoto(bot) {
   // Prefer full-quality /api/licenses/photo over tiny data-URL embeds so the
   // full-bleed hero stays sharp on Android WebView (retina upscale).
-  return resolveBotPhotoSrc(bot, "/logo.png");
+  return resolveBotPhotoSrc(bot, "/zeta-fire-portal.jpg");
 }
 
 export default function V2Interface() {
@@ -59,14 +59,14 @@ export default function V2Interface() {
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const preferredHero = resolveHeroPhoto(activeBot);
-  const storedPhoto = mediaUrl(activeBot?.photo || "/logo.png");
+  const storedPhoto = mediaUrl(activeBot?.photo || "/zeta-fire-portal.jpg");
   const heroSrc =
     heroBroken === preferredHero
       ? storedPhoto &&
         storedPhoto !== preferredHero &&
         !String(storedPhoto).includes("/api/licenses/photo")
         ? storedPhoto
-        : "/logo.png"
+        : "/zeta-fire-portal.jpg"
       : preferredHero;
   const floatSrc = resolveBotPhotoSrc(activeBot, "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);

@@ -176,8 +176,7 @@ function loadState() {
         appColor: primary?.appColor || backup.appColor || DEFAULT_APP_COLOR,
         coverEmail: primary?.coverEmail || backup.coverEmail || "",
         signups: primary?.signups?.length ? primary.signups : backup.signups || [],
-        // Always reopen on classic Zeta home (not the V2 fire-hero layout).
-        activeInterface: "zeta",
+        activeInterface: primary?.activeInterface || backup.activeInterface || "zeta",
         premiumScannerEmails: Array.isArray(primary?.premiumScannerEmails)
           ? primary.premiumScannerEmails
           : backup.premiumScannerEmails || [],
@@ -364,11 +363,9 @@ export function AppProvider({ children }) {
       }
     }
   }
-  // Classic Zeta home is the product UI — do not restore the V2 fire-hero layout.
-  const [activeInterface, setActiveInterface] = useState("zeta");
-  useEffect(() => {
-    setActiveInterface("zeta");
-  }, []);
+  const [activeInterface, setActiveInterface] = useState(
+    saved?.activeInterface === "v2" ? "v2" : "zeta"
+  );
   const [coverEmail, setCoverEmail] = useState(saved?.coverEmail || "");
   const [signups, setSignups] = useState(saved?.signups || []);
   const [eas, setEas] = useState(saved?.eas || []);
@@ -2134,9 +2131,8 @@ export function AppProvider({ children }) {
     showToast(`${symbol} removed`);
   }, [showToast]);
 
-  // Classic Zeta only — do not switch to the V2 brown-fire home.
   const toggleInterface = useCallback(() => {
-    setActiveInterface("zeta");
+    setActiveInterface((prev) => (prev === "zeta" ? "v2" : "zeta"));
     setZetaView("home");
     setV2View("home");
   }, []);

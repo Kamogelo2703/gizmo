@@ -2,11 +2,13 @@ import { useRef } from "react";
 import AdminPortal from "./AdminPortal.jsx";
 import CoverLock from "./CoverLock.jsx";
 import PairsSheet from "./PairsSheet.jsx";
+import V2Interface from "./V2Interface.jsx";
 import ZetaInterface from "./ZetaInterface.jsx";
 import { useApp } from "./store.jsx";
 
 export default function App() {
   const {
+    activeInterface,
     hasActiveBot,
     adminOpen,
     openAdmin,
@@ -36,13 +38,13 @@ export default function App() {
   return (
     <div
       className={`phone${hasActiveBot ? "" : " is-locked"}${adminOpen ? " is-admin-open" : ""}`}
-      data-interface="zeta"
+      data-interface={activeInterface}
       onClick={onBrandHotspot}
     >
       <div className="glow" aria-hidden="true" />
       <div className="glow glow-soft" aria-hidden="true" />
 
-      <ZetaInterface />
+      {activeInterface === "zeta" ? <ZetaInterface /> : <V2Interface />}
 
       <CoverLock />
       <PairsSheet />

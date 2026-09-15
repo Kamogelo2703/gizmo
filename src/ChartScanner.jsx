@@ -86,6 +86,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
     engineMode,
     engineStep,
     engineLogs,
+    toggleInterface,
     publishOrbTrade,
     clearOrbTrade,
     activeInterface,
@@ -594,6 +595,25 @@ export default function ChartScanner({ variant = "default", active = true }) {
           <p className="cs-tagline">Scan · Analyze · Trade Smarter</p>
         </div>
         <div className="cs-head-meta">
+          <button
+            className="cs-settings-btn"
+            type="button"
+            aria-label="Switch interface"
+            title="Switch interface"
+            onClick={toggleInterface}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 7h10M4 12h16M4 17h12"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+              />
+              <circle cx="16" cy="7" r="2.2" fill="currentColor" />
+              <circle cx="8" cy="12" r="2.2" fill="currentColor" />
+              <circle cx="14" cy="17" r="2.2" fill="currentColor" />
+            </svg>
+          </button>
           <span className="cs-scans-left">
             <span className="cs-scans-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
