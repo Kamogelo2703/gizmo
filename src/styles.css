@@ -4003,6 +4003,60 @@ html:has(.phone[data-interface="v2"]) body {
   background: rgba(8, 12, 22, 0.72);
 }
 
+.admin-portal .ea-meta strong {
+  color: var(--ap-text);
+}
+
+.admin-portal .ea-meta span {
+  color: var(--ap-muted);
+}
+
+.admin-portal .ea-sym-chip {
+  background: rgba(0, 229, 255, 0.08);
+  border-color: rgba(0, 229, 255, 0.28);
+  color: var(--ap-cyan);
+}
+
+.admin-portal .ea-edit-btn {
+  color: var(--ap-cyan);
+  border-color: rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.admin-portal .ea-delete-btn {
+  color: #ff6b8a;
+}
+
+.admin-portal .ea-pick-chip {
+  background: rgba(8, 12, 22, 0.85);
+  border-color: rgba(140, 160, 200, 0.28);
+  color: var(--ap-text);
+}
+
+.admin-portal .ea-pick-chip.is-on {
+  background: rgba(0, 229, 255, 0.14);
+  border-color: rgba(0, 229, 255, 0.45);
+  color: var(--ap-cyan);
+}
+
+.admin-portal .ea-photo-btn {
+  background: rgba(8, 12, 22, 0.85);
+  border-color: rgba(0, 229, 255, 0.35);
+  color: var(--ap-text);
+}
+
+.admin-portal .ea-photo-field.needs-photo .ea-photo-btn {
+  border-color: rgba(255, 77, 141, 0.45);
+  background: rgba(255, 77, 141, 0.08);
+  color: #ff8fb3;
+}
+
+.admin-portal .ea-photo-field.has-photo .ea-photo-btn {
+  border-color: rgba(61, 255, 176, 0.4);
+  background: rgba(61, 255, 176, 0.08);
+  color: #3dffb0;
+}
+
 .admin-portal .self-host-side-btn {
   background: rgba(8, 12, 22, 0.72);
   border-color: var(--ap-line);
