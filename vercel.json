@@ -9,7 +9,7 @@
         },
         {
           "key": "Content-Disposition",
-          "value": "attachment; filename=\"apex-ea-v1.89.apk\""
+          "value": "attachment; filename=\"apex-ea-v1.90.apk\""
         },
         {
           "key": "Cache-Control",
@@ -18,7 +18,7 @@
       ]
     },
     {
-      "source": "/apex-ea-v1.89.apk",
+      "source": "/apex-ea-v1.90.apk",
       "headers": [
         {
           "key": "Content-Type",
@@ -26,7 +26,7 @@
         },
         {
           "key": "Content-Disposition",
-          "value": "attachment; filename=\"apex-ea-v1.89.apk\""
+          "value": "attachment; filename=\"apex-ea-v1.90.apk\""
         },
         {
           "key": "Cache-Control",
@@ -43,7 +43,7 @@
         },
         {
           "key": "Content-Disposition",
-          "value": "attachment; filename=\"apex-ea-v1.89.apk\""
+          "value": "attachment; filename=\"apex-ea-v1.90.apk\""
         },
         {
           "key": "Cache-Control",
@@ -55,17 +55,17 @@
   "redirects": [
     {
       "source": "/download",
-      "destination": "/apex-ea-v1.89.apk",
+      "destination": "/apex-ea-v1.90.apk",
       "permanent": false
     },
     {
       "source": "/download/",
-      "destination": "/apex-ea-v1.89.apk",
+      "destination": "/apex-ea-v1.90.apk",
       "permanent": false
     },
     {
       "source": "/download.html",
-      "destination": "/apex-ea-v1.89.apk",
+      "destination": "/apex-ea-v1.90.apk",
       "permanent": false
     }
   ],
