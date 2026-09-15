@@ -14,13 +14,20 @@ import {
   fetchLicensesByEmail,
   isLicenseExpired,
 } from "./licensesApi.js";
-import { updateSignupAccessPaid } from "./signupsApi.js";
+import { fetchSignups, updateSignupAccessPaid } from "./signupsApi.js";
 import { useApp } from "./store.jsx";
 
 function normalizeEmail(email) {
   return String(email || "")
     .trim()
     .toLowerCase();
+}
+
+function licenseStillValid(row) {
+  // Lifetime keys must never be treated as expired (stale expiresAt happens).
+  const duration = String(row?.duration || "").toLowerCase();
+  if (duration === "lifetime") return true;
+  return !isLicenseExpired(row);
 }
 
 async function emailOwnsLicense(email) {
@@ -31,7 +38,7 @@ async function emailOwnsLicense(email) {
     return (rows || []).filter(
       (row) =>
         normalizeEmail(row.clientEmail) === key &&
-        !isLicenseExpired(row) &&
+        licenseStillValid(row) &&
         String(row.key || "").trim()
     );
   } catch {
@@ -51,6 +58,7 @@ export default function CoverLock() {
     showToast,
     openAdmin,
     refreshSignups,
+    licenseKeys,
   } = useApp();
 
   const [email, setEmail] = useState(coverEmail || "");
@@ -205,19 +213,51 @@ export default function CoverLock() {
     };
   }
 
+  function localLicensesForEmail(key) {
+    return (Array.isArray(licenseKeys) ? licenseKeys : []).filter(
+      (row) =>
+        normalizeEmail(row?.clientEmail) === key &&
+        licenseStillValid(row) &&
+        String(row?.key || "").trim()
+    );
+  }
+
+  async function loadSignupsFast() {
+    try {
+      const merged = await refreshSignups?.();
+      if (Array.isArray(merged)) return merged;
+    } catch {
+      // fall through
+    }
+    try {
+      return await fetchSignups();
+    } catch {
+      return null;
+    }
+  }
+
   /** Returning clients: paid, bypassed, approved, or already issued a license. */
   async function resolveReturningAccess(key) {
-    // Instant path: local cache / this device already unlocked — do not wait on network.
+    // Instant path: local cache / this device / locally stored license — no network wait.
     let current = getSignup(key);
-    if (isSignupEntitled(current, key) || hasDeviceAccess(key)) {
+    const localOwned = localLicensesForEmail(key);
+    if (
+      isSignupEntitled(current, key) ||
+      hasDeviceAccess(key) ||
+      localOwned.length
+    ) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
       void refreshSignups?.().catch(() => {});
-      return { entitled: true, current: current || persistPaidLocally(key, null) };
+      return {
+        entitled: true,
+        current: current || persistPaidLocally(key, null),
+        owned: localOwned,
+      };
     }
 
-    // Parallel network checks (signup sync + license ownership) — whichever confirms first wins.
+    // Parallel network checks (signup sync + license ownership).
     const [merged, owned] = await Promise.all([
-      refreshSignups?.().catch(() => null),
+      loadSignupsFast(),
       emailOwnsLicense(key),
     ]);
 
