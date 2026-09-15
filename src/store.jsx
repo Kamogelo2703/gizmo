@@ -33,6 +33,9 @@ import {
   photoFreshness,
   pickFresherPhoto,
   uploadBotPhotoRemote,
+  rememberDeletedLicenseKey,
+  isRememberedDeletedLicenseKey,
+  filterOutDeletedLicenses,
 } from "./licensesApi.js";
 import { getOrCreateDeviceId } from "./deviceId.js";
 import {
@@ -390,7 +393,9 @@ export function AppProvider({ children }) {
   const [signups, setSignups] = useState(saved?.signups || []);
   const [eas, setEas] = useState(saved?.eas || []);
   const [bots, setBots] = useState(saved?.bots || []);
-  const [licenseKeys, setLicenseKeys] = useState(saved?.licenseKeys || []);
+  const [licenseKeys, setLicenseKeys] = useState(() =>
+    filterOutDeletedLicenses(saved?.licenseKeys || [])
+  );
   const [catalog, setCatalog] = useState(
     saved?.catalog?.length ? saved.catalog : [...DEFAULT_SYMBOLS]
   );
@@ -847,14 +852,17 @@ export function AppProvider({ children }) {
     try {
       const remote = await fetchLicenses();
       // Remote list is authoritative: keys missing there were permanently deleted.
+      // Also drop anything on the local deleted-key deny list (resurrect block).
       const remoteKeys = new Set(
         remote.map((row) => normalizeLicenseKey(row.key)).filter(Boolean)
       );
       setLicenseKeys((prev) => {
-        const keptLocal = (Array.isArray(prev) ? prev : []).filter((row) =>
-          remoteKeys.has(normalizeLicenseKey(row.key))
+        const keptLocal = (Array.isArray(prev) ? prev : []).filter(
+          (row) =>
+            remoteKeys.has(normalizeLicenseKey(row.key)) &&
+            !isRememberedDeletedLicenseKey(row.key)
         );
-        return mergeLicenses(keptLocal, remote);
+        return filterOutDeletedLicenses(mergeLicenses(keptLocal, remote));
       });
 
       // Mentor photo updates sync live onto local EAs/bots.
@@ -946,6 +954,7 @@ export function AppProvider({ children }) {
       const queue = local.filter(
         (entry) =>
           entry?.key &&
+          !isRememberedDeletedLicenseKey(entry.key) &&
           entry.clientEmail &&
           String(entry.clientEmail).includes("@") &&
           entry.clientName
@@ -2199,6 +2208,7 @@ export function AppProvider({ children }) {
         return false;
       }
       const variants = licenseKeyVariants(key);
+      rememberDeletedLicenseKey(key);
       setLicenseKeys((prev) =>
         prev.filter((item) => !variants.includes(normalizeLicenseKey(item.key)))
       );
@@ -2206,11 +2216,15 @@ export function AppProvider({ children }) {
         await deleteLicenseRemote(key);
         showToast("License deleted");
         await refreshLicenses?.();
+        // Keep deny list even if remote list briefly still has the key.
+        setLicenseKeys((prev) => filterOutDeletedLicenses(prev));
         return true;
       } catch (error) {
-        showToast(error.message || "Could not delete license");
-        await refreshLicenses?.();
-        return false;
+        // Still keep it deleted locally — do not let refresh resurrect it.
+        rememberDeletedLicenseKey(key);
+        showToast(error.message || "Could not delete license on server — removed locally");
+        setLicenseKeys((prev) => filterOutDeletedLicenses(prev));
+        return true;
       }
     },
     [refreshLicenses, showToast]

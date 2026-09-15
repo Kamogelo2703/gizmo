@@ -862,15 +862,22 @@ async function writeStore(licenses, sha, message, deletedKeys = memoryDeletedKey
     });
     memoryLicenses = normalized.map((row) => ({ ...row }));
     memoryDeletedKeys = nextDeleted;
-    return result;
+    return { ...(result || {}), durable: true };
   } catch (error) {
-    // Local copy already written above.
-    return { local: true, error: error.message || "github write failed" };
+    // Local/memory copy already written — mark non-durable so callers can keep
+    // a client-side deny list until GitHub credentials work again.
+    console.warn("licenses github write failed", error.message || error);
+    return {
+      local: true,
+      durable: false,
+      error: error.message || "github write failed",
+    };
   }
 }
 
 async function mutateStore(mutator, message) {
   let lastError;
+  let lastWrite = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const store = await readStore();
@@ -890,8 +897,13 @@ async function mutateStore(mutator, message) {
         store.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })),
         api
       );
-      await writeStore(next, store.sha, message, deletedKeys);
-      return withoutDeletedLicenses(mergeLicenseLists(next), deletedKeys);
+      lastWrite = await writeStore(next, store.sha, message, deletedKeys);
+      const licenses = withoutDeletedLicenses(mergeLicenseLists(next), deletedKeys);
+      return {
+        licenses,
+        deletedKeys: normalizeDeletedKeys(deletedKeys),
+        durable: lastWrite?.durable !== false,
+      };
     } catch (error) {
       lastError = error;
       if (error.status === 409 || error.status === 422) continue;
@@ -914,7 +926,12 @@ async function mutateStore(mutator, message) {
           local.licenses.map((row) => ({ ...row, bot: row.bot ? { ...row.bot } : null })),
           api
         );
-        return writeLocalStore(next, deletedKeys);
+        const licenses = writeLocalStore(next, deletedKeys);
+        return {
+          licenses,
+          deletedKeys: normalizeDeletedKeys(deletedKeys),
+          durable: false,
+        };
       } catch {
         throw error;
       }
@@ -952,6 +969,12 @@ export async function listLicenses() {
   }
 
   return licenses;
+}
+
+/** Tombstoned keys — clients keep these out of Available / migrate forever. */
+export async function listDeletedKeys() {
+  const store = await readStore();
+  return normalizeDeletedKeys(store.deletedKeys);
 }
 
 export async function createLicense(payload = {}) {
@@ -1304,7 +1327,7 @@ export async function deleteLicense(rawKey) {
   }
 
   let result = null;
-  await mutateStore((licenses, api) => {
+  const write = await mutateStore((licenses, api) => {
     const idx = licenses.findIndex((row) => variants.includes(row.key));
     // Always stamp a tombstone so bundled /tmp / migrate cannot resurrect the key.
     api.tombstone(variants[0]);
@@ -1317,7 +1340,11 @@ export async function deleteLicense(rawKey) {
     return licenses.filter((_, i) => i !== idx);
   }, `license deleted: ${variants[0]}`);
 
-  return result;
+  return {
+    ...(result || { key: variants[0], deleted: true }),
+    deleted: true,
+    durable: write?.durable !== false,
+  };
 }
 
 export async function findLicense(rawKey) {

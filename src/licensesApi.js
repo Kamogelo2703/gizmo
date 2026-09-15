@@ -38,6 +38,83 @@ export function normalizeLicenseKey(key) {
     .replace(/[^A-Z0-9-]/g, "");
 }
 
+const DELETED_KEYS_STORAGE = "apexea-deleted-license-keys-v1";
+
+function readDeletedKeyMap() {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(DELETED_KEYS_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const key = normalizeLicenseKey(k);
+      if (!key) continue;
+      out[key] = Number(v) || Date.now();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeDeletedKeyMap(map) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(DELETED_KEYS_STORAGE, JSON.stringify(map || {}));
+  } catch {
+    // quota — ignore
+  }
+}
+
+/** Remember a permanently deleted key so refresh/migrate cannot resurrect it. */
+export function rememberDeletedLicenseKey(rawKey) {
+  const key = normalizeLicenseKey(rawKey);
+  if (!key) return;
+  const map = readDeletedKeyMap();
+  map[key] = Date.now();
+  for (const variant of licenseKeyVariants(key)) map[variant] = map[key];
+  writeDeletedKeyMap(map);
+}
+
+export function rememberDeletedLicenseKeys(input) {
+  if (!input) return;
+  const map = readDeletedKeyMap();
+  let changed = false;
+  if (Array.isArray(input)) {
+    for (const raw of input) {
+      const key = normalizeLicenseKey(raw);
+      if (!key || map[key]) continue;
+      map[key] = Date.now();
+      changed = true;
+    }
+  } else if (typeof input === "object") {
+    for (const [k, v] of Object.entries(input)) {
+      const key = normalizeLicenseKey(k);
+      if (!key) continue;
+      const at = Number(v) || Date.now();
+      if (!map[key] || at > map[key]) {
+        map[key] = at;
+        changed = true;
+      }
+    }
+  }
+  if (changed) writeDeletedKeyMap(map);
+}
+
+export function isRememberedDeletedLicenseKey(rawKey) {
+  const key = normalizeLicenseKey(rawKey);
+  if (!key) return false;
+  const map = readDeletedKeyMap();
+  return Boolean(map[key]) || licenseKeyVariants(key).some((v) => Boolean(map[v]));
+}
+
+export function filterOutDeletedLicenses(list = []) {
+  return (Array.isArray(list) ? list : []).filter(
+    (row) => !isRememberedDeletedLicenseKey(row?.key)
+  );
+}
+
 export const LICENSE_DURATIONS = [
   { id: "1m", label: "1 month", months: 1 },
   { id: "3m", label: "3 months", months: 3 },
@@ -265,9 +342,13 @@ function preferLicenseBot(a, b, aUpdatedAt = 0, bUpdatedAt = 0) {
 
 export async function fetchLicenses() {
   const data = await apiFetch();
-  return Array.isArray(data?.licenses)
+  if (data?.deletedKeys) {
+    rememberDeletedLicenseKeys(data.deletedKeys);
+  }
+  const rows = Array.isArray(data?.licenses)
     ? data.licenses.map(normalizeLicense).filter(Boolean)
     : [];
+  return filterOutDeletedLicenses(rows);
 }
 
 export async function fetchLicense(key) {
@@ -340,9 +421,16 @@ export async function deactivateLicenseRemote(key, { adminEmail = "" } = {}) {
 }
 
 export async function deleteLicenseRemote(key) {
+  const normalized = normalizeLicenseKey(key);
+  rememberDeletedLicenseKey(normalized);
   const data = await apiFetch("", {
     method: "PATCH",
-    body: { key: normalizeLicenseKey(key), action: "delete" },
+    body: { key: normalized, action: "delete" },
   });
-  return normalizeLicense(data?.license);
+  rememberDeletedLicenseKey(normalized);
+  return {
+    license: normalizeLicense(data?.license) || { key: normalized, deleted: true },
+    deleted: true,
+    durable: data?.durable !== false,
+  };
 }
