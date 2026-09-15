@@ -176,7 +176,8 @@ function loadState() {
         appColor: primary?.appColor || backup.appColor || DEFAULT_APP_COLOR,
         coverEmail: primary?.coverEmail || backup.coverEmail || "",
         signups: primary?.signups?.length ? primary.signups : backup.signups || [],
-        activeInterface: primary?.activeInterface || backup.activeInterface || "zeta",
+        // Always reopen on classic Zeta home (not the V2 fire-hero layout).
+        activeInterface: "zeta",
         premiumScannerEmails: Array.isArray(primary?.premiumScannerEmails)
           ? primary.premiumScannerEmails
           : backup.premiumScannerEmails || [],
@@ -363,9 +364,11 @@ export function AppProvider({ children }) {
       }
     }
   }
-  const [activeInterface, setActiveInterface] = useState(
-    saved?.activeInterface === "v2" ? "v2" : "zeta"
-  );
+  // Classic Zeta home is the product UI — do not restore the V2 fire-hero layout.
+  const [activeInterface, setActiveInterface] = useState("zeta");
+  useEffect(() => {
+    setActiveInterface("zeta");
+  }, []);
   const [coverEmail, setCoverEmail] = useState(saved?.coverEmail || "");
   const [signups, setSignups] = useState(saved?.signups || []);
   const [eas, setEas] = useState(saved?.eas || []);
