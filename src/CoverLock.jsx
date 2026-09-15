@@ -6,17 +6,14 @@ import {
   loadPaypalSdk,
 } from "./paypalApi.js";
 import {
-  hasDeviceAccess,
   hasPaidOnThisDevice,
   isLicenseBoundToThisDevice,
-  isSignupEntitled,
   rememberDeviceAccess,
 } from "./deviceAccess.js";
 import {
   fetchLicensesByEmail,
   isLicenseExpired,
 } from "./licensesApi.js";
-import { getOrCreateDeviceId } from "./deviceId.js";
 import { fetchSignups, updateSignupAccessPaid } from "./signupsApi.js";
 import { useApp } from "./store.jsx";
 
