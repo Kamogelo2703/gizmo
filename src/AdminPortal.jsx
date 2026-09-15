@@ -1768,14 +1768,29 @@ export default function AdminPortal() {
                 className="license-form"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  const ea = myEas.find((b) => b.id === licenseBotId);
+                  const ownerEmail =
+                    String(ea?.ownerEmail || "").trim().toLowerCase() ||
+                    String(adminSession.email || "").trim().toLowerCase();
+                  const ownerMentor = mentors.find(
+                    (m) =>
+                      String(m.email || "")
+                        .trim()
+                        .toLowerCase() === ownerEmail
+                  );
+                  const mentorName =
+                    String(ownerMentor?.username || "").trim() ||
+                    String(adminSession.username || "").trim();
+                  const mentorId =
+                    String(ownerMentor?.id || ea?.ownerId || adminSession.id || "").trim();
                   const key = await generateLicense(licenseBotId, {
                     clientName: licenseClientName,
                     mainText: licenseClientName,
                     clientEmail: licenseClientEmail,
                     duration: licenseDuration,
-                    mentorEmail: adminSession.email,
-                    mentorId: adminSession.id,
-                    mentorName: adminSession.username || "",
+                    mentorEmail: ownerEmail,
+                    mentorId,
+                    mentorName,
                   });
                   if (key) {
                     const timing = resolveLicenseExpiry(licenseDuration);
@@ -1785,14 +1800,13 @@ export default function AdminPortal() {
                       clientEmail: String(licenseClientEmail || "")
                         .trim()
                         .toLowerCase(),
-                      botName:
-                        myEas.find((b) => b.id === licenseBotId)?.name || "",
+                      botName: ea?.name || "",
                       used: false,
                       duration: timing.duration,
                       expiresAt: timing.expiresAt,
                       createdAt: Date.now(),
-                      mentorName: adminSession.username || "",
-                      mentorEmail: adminSession.email || "",
+                      mentorName,
+                      mentorEmail: ownerEmail,
                     });
                   }
                   await refreshLicenses?.();

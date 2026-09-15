@@ -43,6 +43,7 @@ import {
   DEFAULT_MENTOR_LICENSE_KEYS,
   fetchMentors,
   SUPER_ADMIN_EMAIL,
+  SUPER_ADMIN_USERNAME,
 } from "./mentorsApi.js";
 import {
   DEFAULT_APP_COLOR,
@@ -400,7 +401,7 @@ export function AppProvider({ children }) {
   const [pairsOpen, setPairsOpen] = useState(false);
   const [zetaView, setZetaView] = useState("home");
   const [v2View, setV2View] = useState("home");
-  const [v2Running, setV2Running] = useState(true);
+  const [v2Running, setV2Running] = useState(false);
   const [v2SymTab, setV2SymTab] = useState("allowed");
   const [editingSymbol, setEditingSymbol] = useState(null);
   const [editingEaId, setEditingEaId] = useState(null);
@@ -764,16 +765,23 @@ export function AppProvider({ children }) {
     return () => clearInterval(timer);
   }, [refreshMentorDirectory]);
 
-  // Stamp mentor portal usernames onto license rows that only have mentorEmail.
+  // Stamp mentor portal usernames onto license rows (fill empty / replace brand stamp).
   useEffect(() => {
     if (!Object.keys(mentorDirectory).length) return undefined;
+    const brand = String(SUPER_ADMIN_USERNAME || "APEX EA").trim().toLowerCase();
     setLicenseKeys((prev) => {
       let changed = false;
       const next = prev.map((row) => {
-        if (String(row.mentorName || "").trim()) return row;
         const email = normalizeEmail(row.mentorEmail);
-        const username = email ? mentorDirectory[email] : "";
+        const username = email ? String(mentorDirectory[email] || "").trim() : "";
         if (!username) return row;
+        const current = String(row.mentorName || "").trim();
+        const currentIsBrand = !current || current.toLowerCase() === brand;
+        const usernameIsBrand = username.toLowerCase() === brand;
+        // Keep a real mentor name; fill empties; replace APEX EA brand with a real username.
+        if (current && !currentIsBrand) return row;
+        if (currentIsBrand && usernameIsBrand && current === username) return row;
+        if (current === username) return row;
         changed = true;
         return { ...row, mentorName: username };
       });
@@ -914,6 +922,40 @@ export function AppProvider({ children }) {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [refreshLicenses]);
+
+  // If mentor uploaded a photo after the license was issued (still /logo.png on
+  // the key), upgrade local bots/EAs when the photo API starts serving bytes.
+  useEffect(() => {
+    const botId = String(activeBot?.id || "").trim();
+    const photo = String(activeBot?.photo || "").trim();
+    if (!botId) return undefined;
+    if (isRealProfilePhoto(photo)) return undefined;
+    let cancelled = false;
+    const apiPath = `/api/licenses/photo?botId=${encodeURIComponent(botId)}&v=${Date.now()}`;
+    void fetch(mediaUrl(apiPath), { method: "GET", cache: "no-store" })
+      .then((response) => {
+        if (cancelled || !response.ok) return;
+        const nextPhoto = `/api/licenses/photo?botId=${encodeURIComponent(botId)}&v=full`;
+        setBots((prev) =>
+          prev.map((bot) =>
+            bot.id === botId && !isRealProfilePhoto(bot.photo)
+              ? { ...bot, photo: nextPhoto }
+              : bot
+          )
+        );
+        setEas((prev) =>
+          prev.map((ea) =>
+            ea.id === botId && !isRealProfilePhoto(ea.photo)
+              ? { ...ea, photo: nextPhoto }
+              : ea
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBot?.id, activeBot?.photo]);
 
   const requestSignup = useCallback(
     async (email) => {
@@ -1146,14 +1188,44 @@ export function AppProvider({ children }) {
     const keys = Array.isArray(licenseKeys) ? licenseKeys : [];
     const eaList = Array.isArray(eas) ? eas : [];
     const botId = String(activeBot?.id || "").trim();
+    const brandName = String(SUPER_ADMIN_USERNAME || "APEX EA").trim();
+
+    const isBrandStamp = (name) => {
+      const value = String(name || "").trim();
+      if (!value) return true;
+      return value.toLowerCase() === brandName.toLowerCase();
+    };
 
     const resolveMentorUsername = (row) => {
       if (!row) return "";
-      const named = String(row.mentorName || "").trim();
-      if (named) return named;
       const mentorEmail = normalizeEmail(row.mentorEmail);
-      if (mentorEmail && mentorDirectory[mentorEmail]) {
-        return mentorDirectory[mentorEmail];
+      const fromDir = mentorEmail ? String(mentorDirectory[mentorEmail] || "").trim() : "";
+      const named = String(row.mentorName || "").trim();
+      // Prefer the live mentor portal username over a stale license stamp.
+      if (fromDir && !isBrandStamp(fromDir)) return fromDir;
+      if (named && !isBrandStamp(named)) return named;
+      if (fromDir) return fromDir;
+      if (named) return named;
+      return "";
+    };
+
+    const resolveEaOwnerUsername = (id) => {
+      if (!id) return "";
+      const ea = eaList.find((item) => item.id === id);
+      const ownerEmail = normalizeEmail(ea?.ownerEmail);
+      if (ownerEmail && mentorDirectory[ownerEmail]) {
+        const name = String(mentorDirectory[ownerEmail] || "").trim();
+        if (name && !isBrandStamp(name)) return name;
+      }
+      // Any non-brand mentor who already issued a key for this bot.
+      const forBot = keys.filter(
+        (row) =>
+          String(row.botId || "").trim() === id ||
+          String(row.bot?.id || "").trim() === id
+      );
+      for (const row of forBot) {
+        const name = resolveMentorUsername(row);
+        if (name && !isBrandStamp(name)) return name;
       }
       return "";
     };
@@ -1169,13 +1241,11 @@ export function AppProvider({ children }) {
           Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
       );
       const fromBot = resolveMentorUsername(forBot.find((row) => row?.used) || forBot[0]);
-      if (fromBot) return fromBot;
+      if (fromBot && !isBrandStamp(fromBot)) return fromBot;
 
-      const ea =
-        eaList.find((item) => item.id === botId) ||
-        eaList.find((item) => String(item.ownerEmail || "").includes("@"));
-      const ownerEmail = normalizeEmail(ea?.ownerEmail);
-      if (ownerEmail && mentorDirectory[ownerEmail]) return mentorDirectory[ownerEmail];
+      const fromOwner = resolveEaOwnerUsername(botId);
+      if (fromOwner) return fromOwner;
+      if (fromBot) return fromBot;
     }
 
     if (account) {
@@ -1187,7 +1257,7 @@ export function AppProvider({ children }) {
           Number(b.usedAt || b.updatedAt || 0) - Number(a.usedAt || a.updatedAt || 0)
       );
       const fromUsed = resolveMentorUsername(used[0]);
-      if (fromUsed) return fromUsed;
+      if (fromUsed && !isBrandStamp(fromUsed)) return fromUsed;
 
       const bound = keys.filter((row) => normalizeEmail(row.clientEmail) === account);
       bound.sort(
@@ -1195,10 +1265,24 @@ export function AppProvider({ children }) {
           Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)
       );
       const fromBound = resolveMentorUsername(bound[0]);
+      if (fromBound && !isBrandStamp(fromBound)) return fromBound;
+
+      if (botId) {
+        const fromOwner = resolveEaOwnerUsername(botId);
+        if (fromOwner) return fromOwner;
+      }
+      if (fromUsed) return fromUsed;
       if (fromBound) return fromBound;
     }
 
-    // Last resort: any EA owner that maps to a mentor username.
+    // Last resort: any EA owner that maps to a real mentor username.
+    for (const ea of eaList) {
+      const ownerEmail = normalizeEmail(ea?.ownerEmail);
+      if (ownerEmail && mentorDirectory[ownerEmail]) {
+        const name = String(mentorDirectory[ownerEmail] || "").trim();
+        if (name && !isBrandStamp(name)) return name;
+      }
+    }
     for (const ea of eaList) {
       const ownerEmail = normalizeEmail(ea?.ownerEmail);
       if (ownerEmail && mentorDirectory[ownerEmail]) return mentorDirectory[ownerEmail];
@@ -1714,6 +1798,38 @@ export function AppProvider({ children }) {
         strategy: "scalper",
         symbols: [],
       };
+
+      // Prefer a durable photo from this bot's other licenses / photo API over /logo.png.
+      let activationPhoto = pickProfilePhoto(
+        snapshot.photo,
+        ...(Array.isArray(licenseKeys) ? licenseKeys : [])
+          .filter(
+            (row) =>
+              String(row.botId || row.bot?.id || "").trim() ===
+              String(snapshot.id || entry.botId || "").trim()
+          )
+          .map((row) => row.bot?.photo)
+      );
+      const botIdForPhoto = String(snapshot.id || entry.botId || "").trim();
+      if (botIdForPhoto && !isRealProfilePhoto(activationPhoto)) {
+        const apiPath = `/api/licenses/photo?botId=${encodeURIComponent(botIdForPhoto)}&v=full`;
+        try {
+          const check = await fetch(mediaUrl(apiPath), {
+            method: "GET",
+            cache: "no-store",
+          });
+          if (check.ok) activationPhoto = apiPath;
+        } catch {
+          // keep logo / existing
+        }
+      }
+      snapshot.photo = activationPhoto;
+
+      // New activations always start stopped — user taps START.
+      setV2Running(false);
+      setEngineMode("idle");
+      setEngineStep(0);
+      setOrbTradeLive(null);
 
       setEas((prev) => {
         if (prev.some((ea) => ea.id === snapshot.id)) {

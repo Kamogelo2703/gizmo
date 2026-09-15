@@ -293,12 +293,15 @@ export async function persistBotPhoto(botId, photo) {
     return botPhotoApiPath(id);
   } catch (error) {
     console.warn("ea photo upload failed", error.message);
-    // Prefer serving full-quality bytes via the API path when local memory has
-    // them. Do not crush artwork into a ~40KB data URL — that makes Home blurry
-    // on Android retina WebViews when upscaled to the hero.
+    // Prefer serving full-quality bytes via a durable store. Never return an API
+    // path that only exists in this serverless instance's memory — that 404s on
+    // the next cold start and breaks client Home heroes.
     const local = readLocalBotPhoto(id);
-    if (local?.buffer?.length) return botPhotoApiPath(id);
-    if (value.startsWith("data:image/") && value.length <= 180_000) return value;
+    if (value.startsWith("data:image/") && value.length <= 900_000) return value;
+    if (local?.buffer?.length) {
+      const embedded = dataUrlFromPhoto(local);
+      if (embedded && embedded.length <= 900_000) return embedded;
+    }
     return "/logo.png";
   }
 }

@@ -32,15 +32,18 @@ export default function ZetaInterface() {
   } = useApp();
 
   const [heroBroken, setHeroBroken] = useState("");
+  const [heroFallback, setHeroFallback] = useState("/logo.png");
   useEffect(() => {
     setHeroBroken("");
+    setHeroFallback("/logo.png");
   }, [activeBot?.id, activeBot?.photo]);
 
   const running = v2Running;
   const preferredHero = resolveBotPhotoSrc(activeBot, "/logo.png");
+  const storedPhoto = mediaUrl(activeBot?.photo || "/logo.png");
   const heroSrc =
     heroBroken === preferredHero
-      ? mediaUrl(activeBot?.photo || "/logo.png")
+      ? heroFallback || storedPhoto || "/logo.png"
       : preferredHero;
   const floatSrc = heroSrc;
   const tradeComment = buildBotTradeComment(activeBot?.name);
@@ -91,6 +94,14 @@ export default function ZetaInterface() {
                   fetchPriority="high"
                   onError={() => {
                     if (preferredHero && heroBroken !== preferredHero) {
+                      // Prefer a working local/logo asset over a 404 API path.
+                      const next =
+                        storedPhoto &&
+                        storedPhoto !== preferredHero &&
+                        !String(storedPhoto).includes("/api/licenses/photo")
+                          ? storedPhoto
+                          : "/logo.png";
+                      setHeroFallback(next);
                       setHeroBroken(preferredHero);
                     }
                   }}
@@ -141,7 +152,16 @@ export default function ZetaInterface() {
                     type="button"
                     onClick={() => selectBot(bot.id)}
                   >
-                    <img src={mediaUrl(bot.photo || "/logo.png")} alt="" width="36" height="36" />
+                    <img
+                      src={resolveBotPhotoSrc(bot, "/logo.png")}
+                      alt=""
+                      width="36"
+                      height="36"
+                      onError={(event) => {
+                        event.currentTarget.onerror = null;
+                        event.currentTarget.src = "/logo.png";
+                      }}
+                    />
                     <span>{bot.name}</span>
                   </button>
                 ))}

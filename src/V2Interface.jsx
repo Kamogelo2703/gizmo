@@ -59,9 +59,14 @@ export default function V2Interface() {
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const preferredHero = resolveHeroPhoto(activeBot);
+  const storedPhoto = mediaUrl(activeBot?.photo || "/zeta-fire-portal.jpg");
   const heroSrc =
     heroBroken === preferredHero
-      ? mediaUrl(activeBot?.photo || "/zeta-fire-portal.jpg")
+      ? storedPhoto &&
+        storedPhoto !== preferredHero &&
+        !String(storedPhoto).includes("/api/licenses/photo")
+        ? storedPhoto
+        : "/zeta-fire-portal.jpg"
       : preferredHero;
   const floatSrc = resolveBotPhotoSrc(activeBot, "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
@@ -206,7 +211,16 @@ export default function V2Interface() {
                         setFloatCycle(true);
                       }}
                     >
-                      <img src={mediaUrl(bot.photo || "/logo.png")} alt="" width="40" height="40" />
+                      <img
+                        src={resolveBotPhotoSrc(bot, "/logo.png")}
+                        alt=""
+                        width="40"
+                        height="40"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = "/logo.png";
+                        }}
+                      />
                       <span>{bot.name}</span>
                     </button>
                   ))

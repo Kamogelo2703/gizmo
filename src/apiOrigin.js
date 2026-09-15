@@ -54,6 +54,11 @@ export function mediaUrl(src) {
 export function resolveBotPhotoSrc(bot, fallback = "/logo.png") {
   const id = String(bot?.id || "").trim();
   const photo = String(bot?.photo || "").trim();
+  // Durable API path when we already have one.
+  if (photo.startsWith("/api/licenses/photo")) return mediaUrl(photo);
+  if (/^https?:\/\//i.test(photo)) return photo;
+  // Tiny legacy data-URL embeds look soft when upscaled on Android retina
+  // WebViews — prefer the durable full-quality photo API when we have an id.
   if (id && photo.startsWith("data:image/")) {
     return mediaUrl(
       `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`
