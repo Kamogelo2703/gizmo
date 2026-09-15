@@ -1750,12 +1750,24 @@ html:has(.phone[data-interface="v2"]) body {
 }
 
 .mt-broker-logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   object-fit: contain;
   background: #fff;
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mt-broker-logo.is-fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(var(--pink-rgb), 0.35), rgba(255, 255, 255, 0.08));
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-color: rgba(var(--pink-rgb), 0.45);
 }
 
 .mt-broker-text {

@@ -14,7 +14,12 @@
       "https://*.agiliumtrade.ai/*",
       "https://*.agiliumtrade.agiliumtrade.ai/*",
       "https://fonts.googleapis.com/*",
-      "https://fonts.gstatic.com/*"
+      "https://fonts.gstatic.com/*",
+      "https://www.google.com/*",
+      "https://*.gstatic.com/*",
+      "https://*.googleusercontent.com/*",
+      "https://icons.duckduckgo.com/*",
+      "https://*.duckduckgo.com/*"
     ]
   },
   "android": {

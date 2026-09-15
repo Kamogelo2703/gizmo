@@ -1,11 +1,46 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EnginePanel from "./EnginePanel.jsx";
 import { CONNECT_ENGINE_STEPS, sleep } from "./chartScanner.js";
+import { brokerInitials, resolveBrokerLogoCandidates } from "./brokerLogos.js";
 import { connectAccount, disconnectAccount, getAccountStatus, searchBrokers } from "./metaApi.js";
 import { removeMt5Account, upsertMt5Account } from "./mt5AccountsApi.js";
 import { useApp } from "./store.jsx";
 
 const emptyLogin = { login: "", password: "", server: "" };
+
+function BrokerLogo({ broker }) {
+  const candidates = useMemo(() => resolveBrokerLogoCandidates(broker), [broker]);
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    setIndex(0);
+  }, [candidates]);
+  const src = candidates[index] || "";
+  const initials = brokerInitials(broker?.company || broker?.name || "?");
+
+  if (!src) {
+    return (
+      <span className="mt-broker-logo is-fallback" aria-hidden="true">
+        {initials}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      className="mt-broker-logo"
+      src={src}
+      alt=""
+      width="32"
+      height="32"
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => {
+        setIndex((v) => v + 1);
+      }}
+    />
+  );
+}
 
 function normalizeEmail(email) {
   return String(email || "")
@@ -498,6 +533,7 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
                     onClick={() => pickBroker(broker)}
                   >
                     <span className="mt-broker-main">
+                      <BrokerLogo broker={broker} />
                       <span className="mt-broker-text">
                         <span className="mt-broker-name">{broker.company}</span>
                         <span className="mt-broker-server">{broker.name}</span>
@@ -514,7 +550,12 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
                     className="mt-broker-item"
                     onClick={() => pickBroker(customBroker)}
                   >
-                    <span className="mt-broker-name">Use “{customBroker.name}”</span>
+                    <span className="mt-broker-main">
+                      <BrokerLogo broker={customBroker} />
+                      <span className="mt-broker-text">
+                        <span className="mt-broker-name">Use “{customBroker.name}”</span>
+                      </span>
+                    </span>
                     <span className="mt-broker-meta">{platform}</span>
                   </button>
                 </li>
