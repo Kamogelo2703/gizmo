@@ -10,10 +10,8 @@ import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx"
 import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 
 function resolveHeroPhoto(bot) {
-  // Prefer full-quality /api/licenses/photo over tiny data-URL embeds so the
-  // full-bleed hero stays sharp on Android WebView (retina upscale).
-  // Fallback is the rectangular Zeta artwork (not the circular fire-ring portal).
-  return resolveBotPhotoSrc(bot, "/zeta-scalper-hero.jpg");
+  // Classic Interface 2 uses the circular logo avatar (not fire-portal art).
+  return resolveBotPhotoSrc(bot, "/logo.png");
 }
 
 export default function V2Interface() {
@@ -60,14 +58,14 @@ export default function V2Interface() {
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const preferredHero = resolveHeroPhoto(activeBot);
-  const storedPhoto = mediaUrl(activeBot?.photo || "/zeta-scalper-hero.jpg");
+  const storedPhoto = mediaUrl(activeBot?.photo || "/logo.png");
   const heroSrc =
     heroBroken === preferredHero
       ? storedPhoto &&
         storedPhoto !== preferredHero &&
         !String(storedPhoto).includes("/api/licenses/photo")
         ? storedPhoto
-        : "/zeta-scalper-hero.jpg"
+        : "/logo.png"
       : preferredHero;
   const floatSrc = resolveBotPhotoSrc(activeBot, "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
@@ -111,30 +109,28 @@ export default function V2Interface() {
         {v2View !== "scanner" ? <TopBar /> : null}
         {v2View === "home" && (
           <section className="v2-view is-active v2-view-home">
-            <div className="v2-home-header">
-              <div className="v2-home-hero">
-                <EconomicCalendarButton variant="v2" />
-                <div className="v2-home-hero-media" aria-hidden="true">
-                  <img
-                    className="v2-home-hero-img"
-                    key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
-                    src={heroSrc}
-                    alt=""
-                    decoding="async"
-                    fetchPriority="high"
-                    onError={() => {
-                      if (preferredHero && heroBroken !== preferredHero) {
-                        setHeroBroken(preferredHero);
-                      }
-                    }}
-                  />
-                </div>
-                <div className="v2-home-hero-copy">
-                  <p className="v2-home-hero-kicker">You are trading with</p>
-                  <h1 className="v2-home-hero-name">{activeBot?.name || "No active bot"}</h1>
-                </div>
+            <div className="v2-hero">
+              <EconomicCalendarButton variant="v2" />
+              <div className="v2-avatar-wrap">
+                <img
+                  className="v2-avatar"
+                  key={`${activeBot?.id || "bot"}-${heroSrc.slice(0, 48)}`}
+                  src={heroSrc}
+                  alt=""
+                  decoding="async"
+                  fetchPriority="high"
+                  onError={() => {
+                    if (preferredHero && heroBroken !== preferredHero) {
+                      setHeroBroken(preferredHero);
+                    }
+                  }}
+                />
               </div>
-              <div className="v2-pill-bar">
+              <p className="v2-hero-kicker">You are trading with</p>
+              <h1 className="v2-bot-name">{activeBot?.name || "No active bot"}</h1>
+            </div>
+
+            <div className="v2-pill-bar">
               <button
                 className={`v2-pill-btn${v2Running ? " is-running" : ""}`}
                 type="button"
@@ -142,7 +138,6 @@ export default function V2Interface() {
                 onClick={() => {
                   const next = !v2Running;
                   setV2Running(next);
-                  // Floating cycle profile pops in immediately with TRADE.
                   setFloatCycle(next);
                   if (!next) clearOrbTrade?.();
                   showToast(next ? `${activeBot?.name || "Bot"} started` : "Bot stopped");
@@ -188,7 +183,6 @@ export default function V2Interface() {
                 </span>
                 <span className="v2-pill-label">REMOVE</span>
               </button>
-              </div>
             </div>
 
             <p className="v2-powered-by" aria-label="Powered by apexEA">
@@ -208,7 +202,6 @@ export default function V2Interface() {
                       type="button"
                       onClick={() => {
                         selectBot(bot.id);
-                        // Floating cycle with this profile appears immediately.
                         setFloatCycle(true);
                       }}
                     >
@@ -232,12 +225,11 @@ export default function V2Interface() {
                   </span>
                   <span className="v2-robot-add-copy">
                     <strong>Add a new Robot</strong>
-                    <small>Be having a new license Keys</small>
+                    <small>NEED A NEW LICENSE KEY</small>
                   </span>
                 </button>
               </div>
             </section>
-
           </section>
         )}
 
