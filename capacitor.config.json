@@ -19,7 +19,8 @@
       "https://*.gstatic.com/*",
       "https://*.googleusercontent.com/*",
       "https://icons.duckduckgo.com/*",
-      "https://*.duckduckgo.com/*"
+      "https://*.duckduckgo.com/*",
+      "https://icon.horse/*"
     ]
   },
   "android": {
