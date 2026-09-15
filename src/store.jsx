@@ -1207,15 +1207,19 @@ export function AppProvider({ children }) {
 
   const resolveLockStep = useCallback(() => {
     const signup = getSignup(coverEmail);
-    if (!signup && !hasDeviceAccess(coverEmail)) {
+    if (!coverEmail) {
       setLockStep("cover");
       return;
     }
-    if (isSignupEntitled(signup, coverEmail)) {
+    // Payment is per phone + email. Another phone (or new email) must pay again.
+    if (hasDeviceAccess(coverEmail)) {
       setLockStep("license");
       return;
     }
-    // Pending / declined clients wait on the pending screen for super admin.
+    if (!signup) {
+      setLockStep("cover");
+      return;
+    }
     setLockStep("pending");
   }, [coverEmail, getSignup]);
 
