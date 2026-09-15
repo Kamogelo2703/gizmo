@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { mediaUrl, resolveBotPhotoSrc } from "./apiOrigin.js";
+import { resolveBotPhotoSrc } from "./apiOrigin.js";
 import {
   CHART_DETECTION_STATUS,
   EXECUTE_ENGINE_STEPS,
