@@ -2134,8 +2134,9 @@ export function AppProvider({ children }) {
     showToast(`${symbol} removed`);
   }, [showToast]);
 
+  // Classic Zeta only — do not switch to the V2 brown-fire home.
   const toggleInterface = useCallback(() => {
-    setActiveInterface((prev) => (prev === "zeta" ? "v2" : "zeta"));
+    setActiveInterface("zeta");
     setZetaView("home");
     setV2View("home");
   }, []);
