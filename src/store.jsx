@@ -1794,16 +1794,6 @@ export function AppProvider({ children }) {
         showToast("Enter the email linked to your license");
         return false;
       }
-      const signup = getSignup(accountEmail);
-      if (!isSignupEntitled(signup, accountEmail)) {
-        showToast("Pay or get approved before restoring access");
-        return false;
-      }
-
-      rememberDeviceAccess(accountEmail, {
-        paid: Boolean(signup?.accessPaid) || hasDeviceAccess(accountEmail),
-        bypassed: hasDeviceAccess(accountEmail),
-      });
 
       let remote = [];
       try {
@@ -1819,6 +1809,38 @@ export function AppProvider({ children }) {
           !isLicenseExpired(row) &&
           String(row.key || "").trim()
       );
+
+      const signup = getSignup(accountEmail);
+      const entitled =
+        isSignupEntitled(signup, accountEmail) || mine.length > 0;
+      if (!entitled) {
+        showToast("Pay or get approved before restoring access");
+        return false;
+      }
+
+      if (mine.length && !isSignupEntitled(signup, accountEmail)) {
+        try {
+          const remoteSignup = await updateSignupAccessPaid(accountEmail);
+          if (remoteSignup) setSignups((prev) => mergeSignups(prev, [remoteSignup]));
+        } catch {
+          setSignups((prev) =>
+            mergeSignups(prev, [
+              {
+                email: accountEmail,
+                status: "approved",
+                accessPaid: true,
+                accessPaidAt: Date.now(),
+                createdAt: Date.now(),
+              },
+            ])
+          );
+        }
+      }
+
+      rememberDeviceAccess(accountEmail, {
+        paid: true,
+        bypassed: true,
+      });
 
       if (!mine.length) {
         return false;

@@ -10,7 +10,34 @@ import {
   isSignupEntitled,
   rememberDeviceAccess,
 } from "./deviceAccess.js";
+import {
+  fetchLicensesByEmail,
+  isLicenseExpired,
+} from "./licensesApi.js";
+import { updateSignupAccessPaid } from "./signupsApi.js";
 import { useApp } from "./store.jsx";
+
+function normalizeEmail(email) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
+async function emailOwnsLicense(email) {
+  const key = normalizeEmail(email);
+  if (!key.includes("@")) return [];
+  try {
+    const rows = await fetchLicensesByEmail(key);
+    return (rows || []).filter(
+      (row) =>
+        normalizeEmail(row.clientEmail) === key &&
+        !isLicenseExpired(row) &&
+        String(row.key || "").trim()
+    );
+  } catch {
+    return [];
+  }
+}
 
 export default function CoverLock() {
   const {
@@ -161,6 +188,7 @@ export default function CoverLock() {
     const restored = await restoreLicensesByEmail?.(key);
     if (restored) {
       setLockStep("cover");
+      showToast("Access restored");
       return true;
     }
     setLockStep("license");
@@ -172,6 +200,51 @@ export default function CoverLock() {
     return true;
   }
 
+  /** Returning clients: paid, bypassed, approved, or already issued a license. */
+  async function resolveReturningAccess(key) {
+    const merged = await refreshSignups?.();
+    let current =
+      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
+      getSignup(key);
+
+    if (isSignupEntitled(current, key)) {
+      return { entitled: true, current };
+    }
+
+    const owned = await emailOwnsLicense(key);
+    if (!owned.length) {
+      return { entitled: false, current };
+    }
+
+    // License already issued for this email = they had access before.
+    // Persist paid/approved so the next reinstall works without guessing.
+    try {
+      const remote = await updateSignupAccessPaid(key);
+      if (remote) {
+        current = remote;
+        await refreshSignups?.();
+      } else {
+        current = {
+          ...(current || { email: key }),
+          email: key,
+          status: "approved",
+          accessPaid: true,
+          accessPaidAt: Date.now(),
+        };
+      }
+    } catch {
+      current = {
+        ...(current || { email: key }),
+        email: key,
+        status: "approved",
+        accessPaid: true,
+        accessPaidAt: Date.now(),
+      };
+    }
+    rememberDeviceAccess(key, { paid: true, bypassed: true });
+    return { entitled: true, current, owned };
+  }
+
   async function submitEmail(event) {
     event.preventDefault();
     if (!email.trim() || !event.currentTarget.checkValidity()) {
@@ -180,8 +253,8 @@ export default function CoverLock() {
     }
     const key = await requestSignup(email);
     if (!key) return;
-    const current = getSignup(key) || { email: key, status: "pending" };
-    if (isSignupEntitled(current, key)) {
+    const { entitled, current } = await resolveReturningAccess(key);
+    if (entitled) {
       await grantAccessForEmail(key, current);
       return;
     }
@@ -194,21 +267,14 @@ export default function CoverLock() {
   }
 
   async function checkPaidStatus() {
-    const key = String(coverEmail || email || "")
-      .trim()
-      .toLowerCase();
+    const key = normalizeEmail(coverEmail || email);
     if (!key.includes("@")) {
       setLockStep("cover");
       showToast("Submit your email first");
       return;
     }
-    const merged = await refreshSignups?.();
-    const current =
-      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
-      getSignup(key);
-
-    // Same phone that previously paid or was bypassed gets access back immediately.
-    if (isSignupEntitled(current, key)) {
+    const { entitled, current } = await resolveReturningAccess(key);
+    if (entitled) {
       await grantAccessForEmail(key, current);
       return;
     }
