@@ -3,6 +3,7 @@ import {
   findSignup,
   setSignupAppAccessUnlocked,
 } from "../signups/_lib.js";
+import { SUPER_ADMIN_EMAIL } from "../mentors/_lib.js";
 import { FALLBACK_GITHUB_TOKEN } from "../signups/_githubToken.js";
 import fs from "fs";
 import path from "path";
@@ -885,8 +886,8 @@ export async function createLicense(payload = {}) {
 
 /**
  * Bind a license to the activating phone.
- * Same phone can re-open. A different phone is rejected — unless the CoverLock
- * email matches the license clientEmail (owner reclaim after reinstall / new device).
+ * Same phone can re-open automatically. A different phone is always rejected —
+ * only super admin can deactivate/reset a used key for a new phone.
  */
 export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}) {
   const variants = licenseKeyVariants(rawKey);
@@ -916,38 +917,12 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
   }
 
   const boundDevice = String(current.deviceId || "").trim();
-  const licenseEmail = normalizeEmail(current.clientEmail);
-  const emailOwnsLicense = Boolean(
-    claimEmail && licenseEmail && claimEmail === licenseEmail
-  );
 
-  // Used on another phone — allow reclaim only when email matches the key owner.
+  // Used on another phone — hard lock. Super admin must deactivate first.
   if (current.used && boundDevice && boundDevice !== claimDevice) {
-    if (!emailOwnsLicense) {
-      const err = new Error("This license is locked to another phone");
-      err.status = 403;
-      throw err;
-    }
-    let reclaimed = current;
-    const now = Date.now();
-    await mutateStore((licenses) => {
-      const idx = licenses.findIndex((row) => variants.includes(row.key));
-      if (idx < 0) return licenses;
-      const row = licenses[idx];
-      const next = {
-        ...row,
-        used: true,
-        usedAt: row.usedAt || now,
-        deviceId: claimDevice,
-        boundAt: now,
-        updatedAt: now,
-        clientEmail: row.clientEmail || claimEmail,
-      };
-      licenses[idx] = next;
-      reclaimed = next;
-      return licenses;
-    }, `license email reclaim: ${variants[0]}`);
-    return reclaimed;
+    const err = new Error("This license is locked to another phone");
+    err.status = 403;
+    throw err;
   }
 
   // Same phone re-open, or legacy used key with no device yet → claim/keep.
@@ -1006,28 +981,10 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
     }
     const row = licenses[idx];
     const alreadyBound = String(row.deviceId || "").trim();
-    const rowEmail = normalizeEmail(row.clientEmail);
-    const ownsByEmail = Boolean(
-      claimEmail && rowEmail && claimEmail === rowEmail
-    );
     if (row.used && alreadyBound && alreadyBound !== claimDevice) {
-      if (!ownsByEmail) {
-        const err = new Error("This license is locked to another phone");
-        err.status = 403;
-        throw err;
-      }
-      const next = {
-        ...row,
-        used: true,
-        usedAt: row.usedAt || now,
-        deviceId: claimDevice,
-        boundAt: now,
-        updatedAt: now,
-        clientEmail: row.clientEmail || claimEmail,
-      };
-      licenses[idx] = next;
-      result = next;
-      return licenses;
+      const err = new Error("This license is locked to another phone");
+      err.status = 403;
+      throw err;
     }
     if (row.used && (!alreadyBound || alreadyBound === claimDevice)) {
       const next = {
@@ -1070,11 +1027,19 @@ export async function markLicenseUsed(rawKey, { deviceId = "", email = "" } = {}
   return result;
 }
 
-export async function deactivateLicense(rawKey) {
+/** Only super admin may clear a used key so it can bind to a new phone. */
+export async function deactivateLicense(rawKey, { adminEmail = "" } = {}) {
   const variants = licenseKeyVariants(rawKey);
   if (!variants.length) {
     const err = new Error("License key is required");
     err.status = 400;
+    throw err;
+  }
+
+  const admin = normalizeEmail(adminEmail);
+  if (!admin || admin !== normalizeEmail(SUPER_ADMIN_EMAIL)) {
+    const err = new Error("Only super admin can activate used license keys");
+    err.status = 403;
     throw err;
   }
 

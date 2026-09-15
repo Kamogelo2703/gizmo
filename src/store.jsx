@@ -1680,12 +1680,12 @@ export function AppProvider({ children }) {
 
       const deviceId = getOrCreateDeviceId();
       const boundDevice = String(entry.deviceId || "").trim();
-      if (entry.used && boundDevice && boundDevice !== deviceId && !emailOwnsLicense) {
+      if (entry.used && boundDevice && boundDevice !== deviceId) {
         showToast("This license is locked to another phone");
         return false;
       }
 
-      // Bind to this phone (or reclaim by matching email after reinstall / new device).
+      // Bind to this phone (same phone re-opens automatically).
       let remote = null;
       try {
         remote = await markLicenseUsedRemote(entry.key || key, {
@@ -1856,12 +1856,18 @@ export function AppProvider({ children }) {
         remote = [];
       }
 
+      const deviceId = getOrCreateDeviceId();
       const mine = (remote.length ? remote : licenseKeys).filter(
         (row) =>
           normalizeEmail(row.clientEmail) === accountEmail &&
           !isLicenseExpired(row) &&
           String(row.key || "").trim()
       );
+      // Same phone only — never pull a key locked to a different device.
+      const onThisPhone = mine.filter((row) => {
+        const bound = String(row.deviceId || "").trim();
+        return !bound || bound === deviceId;
+      });
 
       const signup = getSignup(accountEmail);
       const entitled =
@@ -1895,12 +1901,12 @@ export function AppProvider({ children }) {
         bypassed: true,
       });
 
-      if (!mine.length) {
+      if (!onThisPhone.length) {
         return false;
       }
 
       let restored = 0;
-      for (const row of mine) {
+      for (const row of onThisPhone) {
         const ok = await activateLicense(row.key);
         if (ok) restored += 1;
       }
@@ -1913,10 +1919,15 @@ export function AppProvider({ children }) {
   );
 
   const deactivateLicense = useCallback(
-    async (rawKey) => {
+    async (rawKey, { adminEmail = "" } = {}) => {
       const key = normalizeLicenseKey(rawKey);
       if (!key) {
         showToast("Missing license key");
+        return null;
+      }
+      const actor = normalizeEmail(adminEmail);
+      if (!actor || actor !== normalizeEmail(SUPER_ADMIN_EMAIL)) {
+        showToast("Only super admin can activate used license keys");
         return null;
       }
       const variants = licenseKeyVariants(key);
@@ -1934,7 +1945,7 @@ export function AppProvider({ children }) {
       };
       setLicenseKeys((prev) => mergeLicenses(prev, [cleared]));
       try {
-        const remote = await deactivateLicenseRemote(key);
+        const remote = await deactivateLicenseRemote(key, { adminEmail: actor });
         if (remote) setLicenseKeys((prev) => mergeLicenses(prev, [remote]));
         showToast("License deactivated — available again");
         return remote || cleared;
