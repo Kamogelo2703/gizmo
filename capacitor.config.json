@@ -7,6 +7,7 @@
     "allowNavigation": [
       "https://www.apex-ea.com/*",
       "https://apex-ea.com/*",
+      "https://raw.githubusercontent.com/*",
       "https://*.paypal.com/*",
       "https://*.paypalobjects.com/*",
       "https://*.sandbox.paypal.com/*",

@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { mediaUrl } from "./apiOrigin.js";
+import { prefetchBotPhotos } from "./botPhotoCache.js";
 import {
   fetchSignups,
   mergeSignups,
@@ -703,6 +704,14 @@ export function AppProvider({ children }) {
   const activeBot = useMemo(() => {
     const active = bots.find((b) => b.active && b.selected) || bots.find((b) => b.active);
     return active || null;
+  }, [bots]);
+
+  // Prefetch robot photos into IndexedDB so Home avatars paint from disk next open.
+  useEffect(() => {
+    const active = bots.filter((b) => b?.active && b?.id);
+    if (!active.length) return undefined;
+    const timer = setTimeout(() => prefetchBotPhotos(active), 0);
+    return () => clearTimeout(timer);
   }, [bots]);
 
   const appSymbols = useMemo(() => {
