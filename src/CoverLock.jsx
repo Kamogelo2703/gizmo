@@ -75,6 +75,23 @@ export default function CoverLock() {
     setEmail(coverEmail || "");
   }, [coverEmail]);
 
+  // Warm license lookup while the paywall is visible so "I have paid" stays under 1s.
+  useEffect(() => {
+    const key = normalizeEmail(coverEmail || email);
+    if (!key.includes("@")) return undefined;
+    if (lockStep !== "pending" && lockStep !== "pay" && lockStep !== "cover") {
+      return undefined;
+    }
+    let cancelled = false;
+    void emailOwnsLicense(key).then((owned) => {
+      if (cancelled || !owned?.length) return;
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockStep, coverEmail, email]);
+
   useEffect(() => {
     if (lockStep !== "pay") {
       paypalRenderedRef.current = false;
@@ -222,22 +239,37 @@ export default function CoverLock() {
     );
   }
 
-  async function loadSignupsFast() {
-    try {
-      const merged = await refreshSignups?.();
-      if (Array.isArray(merged)) return merged;
-    } catch {
-      // fall through
-    }
-    try {
-      return await fetchSignups();
-    } catch {
-      return null;
-    }
+  function withDeadline(promise, ms, fallback) {
+    return Promise.race([
+      promise,
+      new Promise((resolve) => {
+        window.setTimeout(() => resolve(fallback), Math.max(0, ms));
+      }),
+    ]);
   }
 
-  /** Returning clients: paid, bypassed, approved, or already issued a license. */
+  async function loadSignupsFast(ms = 900) {
+    const fetchRemote = async () => {
+      try {
+        const merged = await refreshSignups?.();
+        if (Array.isArray(merged)) return merged;
+      } catch {
+        // fall through
+      }
+      try {
+        return await fetchSignups();
+      } catch {
+        return null;
+      }
+    };
+    return withDeadline(fetchRemote(), ms, null);
+  }
+
+  /** Returning clients: paid, bypassed, approved, or already issued a license. Max ~1s. */
   async function resolveReturningAccess(key) {
+    const started = Date.now();
+    const BUDGET_MS = 900;
+
     // Instant path: local cache / this device / locally stored license — no network wait.
     let current = getSignup(key);
     const localOwned = localLicensesForEmail(key);
@@ -255,10 +287,48 @@ export default function CoverLock() {
       };
     }
 
-    // Parallel network checks (signup sync + license ownership).
+    // License ownership is the fastest proof for reinstalls — race it against signup sync.
+    const ownedPromise = emailOwnsLicense(key);
+    const signupsPromise = loadSignupsFast(BUDGET_MS);
+
+    const first = await Promise.race([
+      ownedPromise.then((owned) => ({ kind: "license", owned })),
+      signupsPromise.then((merged) => ({ kind: "signups", merged })),
+    ]);
+
+    if (first.kind === "license" && first.owned?.length) {
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
+      void signupsPromise;
+      return {
+        entitled: true,
+        current: persistPaidLocally(key, getSignup(key)),
+        owned: first.owned,
+      };
+    }
+
+    if (first.kind === "signups") {
+      current =
+        (Array.isArray(first.merged)
+          ? first.merged.find((s) => normalizeEmail(s.email) === key)
+          : null) ||
+        getSignup(key) ||
+        current;
+      if (isSignupEntitled(current, key)) {
+        rememberDeviceAccess(key, { paid: true, bypassed: true });
+        void ownedPromise;
+        return { entitled: true, current };
+      }
+    }
+
+    // Wait for whichever check is still pending, within the 1s budget.
+    const remaining = Math.max(0, BUDGET_MS - (Date.now() - started));
     const [merged, owned] = await Promise.all([
-      loadSignupsFast(),
-      emailOwnsLicense(key),
+      first.kind === "signups"
+        ? Promise.resolve(first.merged)
+        : withDeadline(signupsPromise, remaining, null),
+      first.kind === "license"
+        ? Promise.resolve(first.owned)
+        : withDeadline(ownedPromise, remaining, []),
     ]);
 
     current =
@@ -273,14 +343,13 @@ export default function CoverLock() {
       return { entitled: true, current };
     }
 
-    if (!owned.length) {
-      return { entitled: false, current };
+    if (Array.isArray(owned) && owned.length) {
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
+      current = persistPaidLocally(key, current);
+      return { entitled: true, current, owned };
     }
 
-    // License already issued for this email = they had access before.
-    rememberDeviceAccess(key, { paid: true, bypassed: true });
-    current = persistPaidLocally(key, current);
-    return { entitled: true, current, owned };
+    return { entitled: false, current };
   }
 
   async function submitEmail(event) {
