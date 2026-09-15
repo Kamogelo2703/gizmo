@@ -15,7 +15,11 @@ import {
   fetchLicensesByEmail,
   isLicenseExpired,
 } from "./licensesApi.js";
-import { fetchSignups, updateSignupAccessPaid } from "./signupsApi.js";
+import {
+  fetchSignups,
+  submitSignup,
+  updateSignupAccessPaid,
+} from "./signupsApi.js";
 import { useApp } from "./store.jsx";
 
 function normalizeEmail(email) {
@@ -59,6 +63,7 @@ export default function CoverLock() {
     showToast,
     openAdmin,
     refreshSignups,
+    ingestSignup,
     licenseKeys,
   } = useApp();
 
@@ -94,6 +99,23 @@ export default function CoverLock() {
       cancelled = true;
     };
   }, [lockStep, coverEmail, email]);
+
+  // Auto-restore paid/bypassed emails on the paywall without waiting for a second tap.
+  useEffect(() => {
+    if (lockStep !== "pending") return undefined;
+    const key = normalizeEmail(coverEmail || email);
+    if (!key.includes("@")) return undefined;
+    let cancelled = false;
+    void (async () => {
+      const { entitled, current } = await resolveReturningAccess(key, { waitMs: 8000 });
+      if (cancelled || !entitled) return;
+      await grantAccessForEmail(key, current);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when paywall email changes
+  }, [lockStep, coverEmail]);
 
   useEffect(() => {
     if (lockStep !== "pay") {
@@ -213,13 +235,19 @@ export default function CoverLock() {
       paid: true,
       bypassed: true,
     });
+    // Stamp local signup immediately so resolveLockStep cannot bounce back to paywall.
+    const paidRow = persistPaidLocally(key, current);
+    ingestSignup?.(paidRow);
     // Returning clients skip payment, but must type their license key again.
     // Same phone: key works. Different phone: key stays locked.
     setLockStep("license");
-    showToast("Enter your license key to unlock");
+    showToast("Access restored — enter your license key");
     // Persist paid flag in the background — never block the unlock UI on it.
     void updateSignupAccessPaid(key)
-      .then(() => refreshSignups?.())
+      .then((remote) => {
+        if (remote) ingestSignup?.(remote);
+        else refreshSignups?.();
+      })
       .catch(() => {});
     return true;
   }
@@ -309,27 +337,39 @@ export default function CoverLock() {
       };
     }
 
-    // Network: honor server paid/bypass and any licenses already issued to this email.
-    const ownedPromise = emailOwnsLicense(key);
-    const signupsPromise = loadSignupsFast(BUDGET_MS);
-    const remaining = Math.max(0, BUDGET_MS - (Date.now() - started));
-    const [merged, owned] = await Promise.all([
-      withDeadline(signupsPromise, remaining, null),
-      withDeadline(ownedPromise, remaining, []),
+    // Network (authoritative): POST upsert returns THIS email's paid/bypass flags
+    // without depending on a full signups list sync (which can lag on Android).
+    // Also pull any licenses already issued to this email.
+    const remaining = () => Math.max(0, BUDGET_MS - (Date.now() - started));
+    const [remoteSignup, owned, merged] = await Promise.all([
+      withDeadline(
+        submitSignup(key).catch(() => null),
+        remaining(),
+        null
+      ),
+      withDeadline(emailOwnsLicense(key), remaining(), []),
+      withDeadline(loadSignupsFast(remaining()), remaining(), null),
     ]);
 
-    current =
-      (Array.isArray(merged)
-        ? merged.find((s) => normalizeEmail(s.email) === key)
-        : null) ||
-      getSignup(key) ||
-      current;
+    if (remoteSignup) {
+      ingestSignup?.(remoteSignup);
+      current = remoteSignup;
+    } else {
+      current =
+        (Array.isArray(merged)
+          ? merged.find((s) => normalizeEmail(s.email) === key)
+          : null) ||
+        getSignup(key) ||
+        current;
+    }
 
     if (isAccountPaidOrBypassed(current)) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
+      const paid = persistPaidLocally(key, current);
+      ingestSignup?.(paid);
       return {
         entitled: true,
-        current: persistPaidLocally(key, current),
+        current: paid,
         owned: Array.isArray(owned) ? owned : [],
       };
     }
@@ -338,9 +378,11 @@ export default function CoverLock() {
     const remoteBound = remoteOwned.filter((row) => isLicenseBoundToThisDevice(row));
     if (remoteBound.length) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
+      const paid = persistPaidLocally(key, current);
+      ingestSignup?.(paid);
       return {
         entitled: true,
-        current: current || persistPaidLocally(key, null),
+        current: paid,
         owned: remoteBound,
       };
     }
@@ -348,9 +390,11 @@ export default function CoverLock() {
     // Already issued a license for this email (paid/bypass before) → restore access.
     if (remoteOwned.length) {
       rememberDeviceAccess(key, { paid: true, bypassed: true });
+      const paid = persistPaidLocally(key, current);
+      ingestSignup?.(paid);
       return {
         entitled: true,
-        current: persistPaidLocally(key, current),
+        current: paid,
         owned: remoteOwned,
       };
     }
@@ -366,7 +410,7 @@ export default function CoverLock() {
     }
     const key = await requestSignup(email);
     if (!key) return;
-    const { entitled, current } = await resolveReturningAccess(key, { waitMs: 2500 });
+    const { entitled, current } = await resolveReturningAccess(key, { waitMs: 6000 });
     if (entitled) {
       await grantAccessForEmail(key, current);
       return;
@@ -389,8 +433,8 @@ export default function CoverLock() {
     if (checkingPaid) return;
     setCheckingPaid(true);
     try {
-      // Explicit tap — wait longer for signup sync so bypassed/paid emails restore.
-      const { entitled, current } = await resolveReturningAccess(key, { waitMs: 4500 });
+      // Explicit tap — wait for POST upsert + license lookup so bypassed/paid restore.
+      const { entitled, current } = await resolveReturningAccess(key, { waitMs: 8000 });
       if (entitled) {
         await grantAccessForEmail(key, current);
         return;

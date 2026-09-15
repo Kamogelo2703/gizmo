@@ -934,23 +934,26 @@ export function AppProvider({ children }) {
         return [...prev, { email: key, status: "pending", createdAt: Date.now() }];
       });
 
-      // Sync in the background so returning users are not blocked by GitHub signup writes.
-      void (async () => {
-        try {
-          const remote = await submitSignup(key);
-          if (remote) {
-            setSignups((prev) => mergeSignups(prev, [remote]));
-          } else {
-            await refreshSignups();
-          }
-        } catch (error) {
-          showToast(error.message || "Could not sync signup to server");
+      // Await server upsert so paid/bypassed flags are present before paywall checks.
+      try {
+        const remote = await submitSignup(key);
+        if (remote) {
+          setSignups((prev) => mergeSignups(prev, [remote]));
+        } else {
+          await refreshSignups();
         }
-      })();
+      } catch (error) {
+        showToast(error.message || "Could not sync signup to server");
+      }
       return key;
     },
     [refreshSignups, showToast]
   );
+
+  const ingestSignup = useCallback((row) => {
+    if (!row?.email) return;
+    setSignups((prev) => mergeSignups(prev, [row]));
+  }, []);
 
   const setSignupStatus = useCallback(
     async (email, status) => {
@@ -2047,6 +2050,7 @@ export function AppProvider({ children }) {
     mainTextDisplay,
     signups,
     requestSignup,
+    ingestSignup,
     setSignupStatus,
     bypassAppAccess,
     bypassPremiumScanner,
