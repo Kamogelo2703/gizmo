@@ -7684,6 +7684,54 @@ html:has(.phone[data-interface="v2"]) body {
   line-height: 1.45;
 }
 
+.econ-cal-signal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.econ-cal-signal-row .econ-cal-directions-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.econ-cal-execute {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.econ-cal-execute.is-open:not(:disabled) {
+  cursor: pointer;
+  opacity: 1;
+  color: #fff;
+  border-color: color-mix(in srgb, var(--pink, #ff2d7a) 70%, #fff 10%);
+  background: color-mix(in srgb, var(--pink, #ff2d7a) 78%, #111 22%);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--pink, #ff2d7a) 35%, transparent);
+}
+
+.econ-cal-execute:disabled {
+  cursor: not-allowed;
+}
+
+.econ-cal-execute-hint {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .econ-cal-list ul {
   list-style: none;
   margin: 0;

@@ -194,6 +194,61 @@ export function getOfficialEventStartMs(event) {
   return getZonedStartMs(event.date, timeSa, SA_TIMEZONE);
 }
 
+/** Client can press Execute from 20 minutes before the event … */
+export const SIGNAL_EXECUTE_BEFORE_MS = 20 * 60 * 1000;
+/** … until 2 minutes after the event start. */
+export const SIGNAL_EXECUTE_AFTER_MS = 2 * 60 * 1000;
+
+export function getSignalExecuteWindow(event) {
+  const start = getOfficialEventStartMs(event);
+  if (start == null) return null;
+  return {
+    startAt: start,
+    openAt: start - SIGNAL_EXECUTE_BEFORE_MS,
+    closeAt: start + SIGNAL_EXECUTE_AFTER_MS,
+  };
+}
+
+/** True only inside the 20m-before → 2m-after window. */
+export function isSignalExecuteOpen(event, now = new Date()) {
+  const window = getSignalExecuteWindow(event);
+  if (!window) return false;
+  const t = now.getTime();
+  return t >= window.openAt && t <= window.closeAt;
+}
+
+/**
+ * Parse mentor signal text like "XAUUSD BUY 19:59" → { symbol, side }.
+ */
+export function parseSignalTrade(text) {
+  const raw = String(text || "").trim().toUpperCase();
+  if (!raw) return null;
+  const match = raw.match(
+    /\b([A-Z][A-Z0-9]{2,11})\s+(BUY|SELL)\b/
+  );
+  if (!match) return null;
+  return {
+    symbol: match[1],
+    side: match[2],
+  };
+}
+
+export function formatSignalExecuteHint(event, now = new Date()) {
+  const window = getSignalExecuteWindow(event);
+  if (!window) return "";
+  const t = now.getTime();
+  const timeSa = getEventTimeSa(event);
+  if (t < window.openAt) {
+    const mins = Math.max(1, Math.ceil((window.openAt - t) / 60000));
+    return `Execute opens in ${mins} min · only from 20 min before ${timeSa} SAST`;
+  }
+  if (t > window.closeAt) {
+    return `Execute closed · window ended 2 min after ${timeSa} SAST`;
+  }
+  const left = Math.max(0, Math.ceil((window.closeAt - t) / 60000));
+  return `Execute open · ${left} min left`;
+}
+
 export function getSignalEditLockMs(event) {
   const start = getOfficialEventStartMs(event);
   if (start == null) return null;
