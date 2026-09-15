@@ -4563,7 +4563,7 @@ html:has(.phone[data-interface="v2"]) body {
   min-width: calc(100% + 36px);
   margin: -8px -18px 0;
   padding: 0;
-  background: #fff;
+  background: #000;
   min-height: 100%;
   box-sizing: border-box;
   align-self: flex-start;
