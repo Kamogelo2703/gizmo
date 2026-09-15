@@ -537,4 +537,8 @@ export async function updateMentorLicenseKeys(email, { set, add } = {}) {
 
 export const COMMISSION_USD = 3.08;
 export const COMMISSION_ZAR = 50;
+/** Mentor commission as % of the lifetime subscription price ($35.60). */
+export const COMMISSION_PERCENT = Number(
+  ((COMMISSION_USD / 35.6) * 100).toFixed(2)
+);
 export const WITHDRAW_MIN_KEYS = 5;
