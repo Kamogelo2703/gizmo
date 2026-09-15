@@ -1,6 +1,7 @@
 import { mediaUrl } from "./apiOrigin.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
+import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
