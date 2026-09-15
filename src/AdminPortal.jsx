@@ -784,9 +784,10 @@ export default function AdminPortal() {
       const dataUrl = String(reader.result || "");
       const img = new Image();
       img.onload = () => {
-        // Keep uploads small enough for phone localStorage + GitHub photo sync.
-        // Oversized gallery photos were filling Safari quota and blocking Save.
-        const maxEdge = 900;
+        // Cap longest edge high enough for full-bleed / retina heroes.
+        // App state stores short /api/licenses/photo paths (not this data URL),
+        // so localStorage quota stays safe while Home stays sharp on Android.
+        const maxEdge = 1600;
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height, 1));
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -808,26 +809,11 @@ export default function AdminPortal() {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
-        let quality = 0.72;
+        let quality = 0.88;
         let nextPhoto = canvas.toDataURL("image/jpeg", quality);
-        while (nextPhoto.length > 180_000 && quality > 0.45) {
-          quality -= 0.08;
+        while (nextPhoto.length > 900_000 && quality > 0.72) {
+          quality -= 0.06;
           nextPhoto = canvas.toDataURL("image/jpeg", quality);
-        }
-        if (nextPhoto.length > 280_000) {
-          // Final shrink pass at smaller canvas.
-          const small = document.createElement("canvas");
-          const sw = Math.max(1, Math.round(width * 0.7));
-          const sh = Math.max(1, Math.round(height * 0.7));
-          small.width = sw;
-          small.height = sh;
-          const sctx = small.getContext("2d");
-          if (sctx) {
-            sctx.imageSmoothingEnabled = true;
-            sctx.imageSmoothingQuality = "high";
-            sctx.drawImage(canvas, 0, 0, sw, sh);
-            nextPhoto = small.toDataURL("image/jpeg", 0.65);
-          }
         }
         setPhoto(nextPhoto);
         setPhotoUploaded(true);

@@ -45,3 +45,20 @@ export function mediaUrl(src) {
   if (value.startsWith("/api/")) return apiUrl(value);
   return value;
 }
+
+/**
+ * Home / hero / orb display source for a bot.
+ * Tiny legacy data-URL embeds (~40–48KB) look soft when upscaled on Android
+ * retina WebViews — prefer the durable full-quality photo API when we have an id.
+ */
+export function resolveBotPhotoSrc(bot, fallback = "/logo.png") {
+  const id = String(bot?.id || "").trim();
+  const photo = String(bot?.photo || "").trim();
+  if (id && photo.startsWith("data:image/")) {
+    return mediaUrl(
+      `/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`
+    );
+  }
+  if (photo) return mediaUrl(photo);
+  return fallback;
+}
