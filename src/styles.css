@@ -6338,10 +6338,13 @@ html:has(.phone[data-interface="v2"]) body {
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
-    radial-gradient(circle at 50% 42%, rgba(var(--pink-rgb), 0.12), transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(var(--pink-rgb), 0.12), transparent 55%),
     #05060a;
   /* Empty-state robot glow must not get squared off at the bottom. */
   overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .view-scanner:not(.cs-v2) .cs-stage.has-chart .cs-viewport,
@@ -6357,8 +6360,10 @@ html:has(.phone[data-interface="v2"]) body {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 18px 8px;
-  position: relative;
+  padding: 0;
+  /* Keep absolute fill so the orb is truly centered in the stage (not top-biased). */
+  position: absolute;
+  inset: 0;
   overflow: visible;
 }
 
