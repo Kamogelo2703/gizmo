@@ -356,7 +356,7 @@ function sessionPayload(account, {
     pending: Boolean(pending),
     balance: Number.isFinite(Number(balance)) ? Number(balance) : null,
     equity: Number.isFinite(Number(equity)) ? Number(equity) : null,
-    // MetaAPI "profit" is unrealized / floating P/L on open positions.
+    // Floating / unrealized P/L (equity − balance), matching MT5 Trade tab.
     profit: Number.isFinite(Number(profit)) ? Number(profit) : null,
     currency: String(currency || "").trim().toUpperCase() || null,
   };
@@ -373,6 +373,42 @@ export async function getAccountInformation(accountId, { region, token } = {}) {
   const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(id)}/account-information`;
   const { data } = await metaFetch(url, { token });
   return { region: resolvedRegion, info: data || null };
+}
+
+/** Sum open-position P/L when account-information has no profit field. */
+export async function getOpenPositionsProfit(accountId, { region, token } = {}) {
+  const id = String(accountId || "").trim();
+  if (!id) return null;
+  const resolvedRegion = await resolveAccountRegion(id, region);
+  const url = `${clientApiBase(resolvedRegion)}/users/current/accounts/${encodeURIComponent(id)}/positions`;
+  const { data } = await metaFetch(url, { token });
+  const positions = Array.isArray(data) ? data : [];
+  if (!positions.length) return 0;
+  let total = 0;
+  let saw = false;
+  for (const row of positions) {
+    const value = Number(
+      row?.profit ?? row?.unrealizedProfit ?? row?.floatingProfit ?? NaN
+    );
+    if (!Number.isFinite(value)) continue;
+    total += value;
+    saw = true;
+  }
+  return saw ? total : 0;
+}
+
+/**
+ * MetaAPI account-information returns balance + equity, not floating P/L.
+ * MT5 floating profit = equity − balance (matches the Trade tab total).
+ */
+export function deriveFloatingProfit({ balance, equity, profit } = {}) {
+  const bal = Number(balance);
+  const eq = Number(equity);
+  if (Number.isFinite(bal) && Number.isFinite(eq)) {
+    return Number((eq - bal).toFixed(8));
+  }
+  const direct = Number(profit);
+  return Number.isFinite(direct) ? direct : null;
 }
 
 export async function connectTradingAccount({
@@ -528,8 +564,23 @@ export async function getConnectionStatus(accountId, {
       });
       balance = info?.balance;
       equity = info?.equity;
-      profit = info?.profit;
       currency = info?.currency;
+      // Prefer equity − balance (same as MT5). MetaAPI often omits / zeroes `profit`.
+      profit = deriveFloatingProfit({
+        balance,
+        equity,
+        profit: info?.profit,
+      });
+      if (profit == null || (profit === 0 && Number(equity) !== Number(balance))) {
+        try {
+          const fromPositions = await getOpenPositionsProfit(id, {
+            region: accountRegion(account),
+          });
+          if (fromPositions != null) profit = fromPositions;
+        } catch {
+          // keep equity−balance / null
+        }
+      }
     } catch {
       // Metrics are best-effort — connection status still returns.
     }

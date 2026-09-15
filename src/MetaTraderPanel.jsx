@@ -126,10 +126,19 @@ export default function MetaTraderPanel({ variant = "zeta" }) {
           status &&
           (status.balance != null || status.profit != null || status.equity != null)
         ) {
+          const balance = status.balance;
+          const equity = status.equity;
+          let profit = status.profit;
+          const balN = Number(balance);
+          const eqN = Number(equity);
+          // Client-side safety: floating P/L = equity − balance (matches MT5).
+          if (Number.isFinite(balN) && Number.isFinite(eqN)) {
+            profit = Number((eqN - balN).toFixed(8));
+          }
           setAccountMetrics({
-            balance: status.balance,
-            equity: status.equity,
-            profit: status.profit,
+            balance,
+            equity,
+            profit,
             currency: status.currency || "USD",
           });
         }
