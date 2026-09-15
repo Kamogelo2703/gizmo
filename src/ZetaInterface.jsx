@@ -1,11 +1,13 @@
 import { mediaUrl } from "./apiOrigin.js";
-import { useApp } from "./store.jsx";
+import { isNativeApp, useApp } from "./store.jsx";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
 import MetaTraderPanel from "./MetaTraderPanel.jsx";
 import TopBar from "./TopBar.jsx";
 import { buildBotTradeComment } from "./metaApi.js";
 import TradeScriptOrb, { buildShortOpenTradeScript } from "./TradeScriptOrb.jsx";
+
+const START_PARTICLE_COUNT = isNativeApp() ? 6 : 18;
 
 export default function ZetaInterface() {
   const {
@@ -95,7 +97,7 @@ export default function ZetaInterface() {
                   onClick={toggleRun}
                 >
                   <span className="stop-energy" aria-hidden="true">
-                    {Array.from({ length: 18 }, (_, i) => (
+                    {Array.from({ length: START_PARTICLE_COUNT }, (_, i) => (
                       <span key={i} className={`stop-particle stop-particle-${i + 1}`} />
                     ))}
                   </span>

@@ -508,12 +508,15 @@ export function AppProvider({ children }) {
     [showToast]
   );
 
+  const lastPersistRawRef = useRef("");
+  const persistTimerRef = useRef(0);
+
   useEffect(() => {
     // Skip the first run so Strict Mode remounts cannot blank a prior save
     // before React state finishes hydrating from localStorage.
     if (!persistReady.current) {
       persistReady.current = true;
-      return;
+      return undefined;
     }
 
     const payload = {
@@ -529,40 +532,31 @@ export function AppProvider({ children }) {
       premiumScannerEmails,
     };
 
-    try {
-      saveState(payload);
-    } catch {
+    const flush = () => {
       try {
-        clearAppStoragePressure();
-        saveState(payload);
+        const slim = slimPayloadForStorage(payload);
+        const raw = JSON.stringify(slim);
+        // Skip identical writes — 5s license polls used to thrash localStorage on Android.
+        if (raw === lastPersistRawRef.current) return;
+        lastPersistRawRef.current = raw;
+        localStorage.setItem(STORAGE_KEY, raw);
+        if (eaCount(slim) > 0) {
+          try {
+            localStorage.setItem(BACKUP_KEY, raw);
+          } catch {
+            // Backup is optional — primary save already succeeded.
+          }
+        }
       } catch {
         try {
           clearAppStoragePressure();
-          const stripped = stripAllEmbeddedPhotos(payload);
-          saveState(stripped);
-          // Slim in-memory state so we stop rewriting oversized embeds.
-          setEas((prev) =>
-            prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
-          );
-          setBots((prev) =>
-            prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
-          );
-          setLicenseKeys((prev) =>
-            prev.map((row) =>
-              row.bot
-                ? {
-                    ...row,
-                    bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
-                  }
-                : row
-            )
-          );
-          showToast("Storage was full — cleared local image cache so saves can continue");
+          saveState(payload);
         } catch {
           try {
-            clearEaBackup();
-            const minimal = stripAllEmbeddedPhotos(payload);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+            clearAppStoragePressure();
+            const stripped = stripAllEmbeddedPhotos(payload);
+            saveState(stripped);
+            // Slim in-memory state so we stop rewriting oversized embeds.
             setEas((prev) =>
               prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
             );
@@ -579,15 +573,50 @@ export function AppProvider({ children }) {
                   : row
               )
             );
-            showToast("Storage was full — EA saved; re-upload the picture if needed");
+            showToast("Storage was full — cleared local image cache so saves can continue");
           } catch {
-            showToast(
-              "Could not save — storage is full. Clear site data for apex-ea.com and retry."
-            );
+            try {
+              clearEaBackup();
+              const minimal = stripAllEmbeddedPhotos(payload);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+              setEas((prev) =>
+                prev.map((ea) => ({ ...ea, photo: slimPhotoForStorage(ea.photo) }))
+              );
+              setBots((prev) =>
+                prev.map((bot) => ({ ...bot, photo: slimPhotoForStorage(bot.photo) }))
+              );
+              setLicenseKeys((prev) =>
+                prev.map((row) =>
+                  row.bot
+                    ? {
+                        ...row,
+                        bot: { ...row.bot, photo: slimPhotoForStorage(row.bot.photo) },
+                      }
+                    : row
+                )
+              );
+              showToast("Storage was full — EA saved; re-upload the picture if needed");
+            } catch {
+              showToast(
+                "Could not save — storage is full. Clear site data for apex-ea.com and retry."
+              );
+            }
           }
         }
       }
+    };
+
+    // Debounce on native WebView so rapid setState from polls does not block the UI thread.
+    const delay = isNativeApp() ? 600 : 0;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    if (!delay) {
+      flush();
+      return undefined;
     }
+    persistTimerRef.current = window.setTimeout(flush, delay);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
   }, [
     activeInterface,
     coverEmail,
@@ -697,10 +726,13 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refreshSignups();
-    const timer = setInterval(() => {
+    const pollMs = isNativeApp() ? 30000 : 15000;
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       refreshSignups();
-    }, 15000);
+    };
+    tick();
+    const timer = setInterval(tick, pollMs);
     return () => clearInterval(timer);
   }, [refreshSignups]);
 
@@ -721,8 +753,11 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Android APK: fetch once at boot. Continuous mentor polls were burning main-thread time.
     refreshMentorDirectory();
+    if (isNativeApp()) return undefined;
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       refreshMentorDirectory();
     }, 20000);
     return () => clearInterval(timer);
@@ -863,10 +898,21 @@ export function AppProvider({ children }) {
   }, [licenseKeys, refreshLicenses]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    // Web can poll often; Android WebView freezes when HTTPS + localStorage hit every 5s.
+    const pollMs = isNativeApp() ? 45000 : 5000;
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       refreshLicenses();
-    }, 5000);
-    return () => clearInterval(timer);
+    };
+    const timer = setInterval(tick, pollMs);
+    const onVis = () => {
+      if (!document.hidden) refreshLicenses();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [refreshLicenses]);
 
   const requestSignup = useCallback(

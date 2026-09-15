@@ -1,7 +1,9 @@
 package com.apexea.zetascalper;
 
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -20,6 +22,14 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
     if (webView == null) return;
+
+    // Prefer GPU compositing; pause timers when backgrounded (see onPause/onResume).
+    webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+    WebSettings settings = webView.getSettings();
+    if (settings != null) {
+      settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+      settings.setDomStorageEnabled(true);
+    }
 
     webView.setWebViewClient(
       new BridgeWebViewClient(bridge) {
@@ -57,5 +67,35 @@ public class MainActivity extends BridgeActivity {
         }
       }
     );
+  }
+
+  @Override
+  public void onPause() {
+    Bridge bridge = this.getBridge();
+    WebView webView = bridge != null ? bridge.getWebView() : null;
+    if (webView != null) {
+      webView.onPause();
+      webView.pauseTimers();
+      webView.evaluateJavascript(
+        "document.documentElement.classList.add('is-paused');",
+        null
+      );
+    }
+    super.onPause();
+  }
+
+  @Override
+  public void onResume() {
+    super.onResume();
+    Bridge bridge = this.getBridge();
+    WebView webView = bridge != null ? bridge.getWebView() : null;
+    if (webView != null) {
+      webView.resumeTimers();
+      webView.onResume();
+      webView.evaluateJavascript(
+        "document.documentElement.classList.remove('is-paused');",
+        null
+      );
+    }
   }
 }
