@@ -84,7 +84,11 @@ export default function ChartScanner({ variant = "default", active = true }) {
     toggleInterface,
     publishOrbTrade,
     clearOrbTrade,
+    activeInterface,
   } = useApp();
+
+  /** Interface 2 Chart Scanner = premium — tag MT5 comments with "premium". */
+  const isPremiumScanner = variant === "v2" || activeInterface === "v2";
 
   const uploadRef = useRef(null);
   const cameraRef = useRef(null);
@@ -390,8 +394,9 @@ export default function ChartScanner({ variant = "default", active = true }) {
     if (action === "BUY" || action === "SELL") side = action;
 
     const tradeComment = buildBotTradeComment(activeBot?.name);
-    const orbComment =
-      variant === "v2" ? `${tradeComment}|premium`.slice(0, 31) : tradeComment;
+    const orbComment = isPremiumScanner
+      ? `${tradeComment}|premium`.slice(0, 31)
+      : tradeComment;
     const tpMap = {
       takeProfit1: signal.takeProfit1,
       takeProfit2: signal.takeProfit2,
@@ -414,7 +419,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
       side,
     });
     // Show the floating script on Home while trades are opening.
-    if (variant === "v2") setV2View("home");
+    if (variant === "v2" || activeInterface === "v2") setV2View("home");
     else setZetaView("home");
 
     try {
@@ -422,7 +427,7 @@ export default function ChartScanner({ variant = "default", active = true }) {
         `Opening ${side} ${tradeSymbol} · SL ${signal.stopLoss} · TP1 ${signal.takeProfit1} · TP2 ${signal.takeProfit2} · TP3 ${signal.takeProfit3}`
       );
       pushEngineLog(`Partial plan · ${managementPlan.summary}`);
-      if (variant === "v2") {
+      if (isPremiumScanner) {
         pushEngineLog("Premium scanner · MT5 comments tagged premium");
       }
 
@@ -436,7 +441,8 @@ export default function ChartScanner({ variant = "default", active = true }) {
         const takeProfit = tpMap[takeProfitKey];
         const tradeCommentTag = buildScannerFillComment({
           botName: activeBot?.name,
-          variant,
+          variant: isPremiumScanner ? "v2" : "default",
+          premium: isPremiumScanner,
           target,
           tradeNo,
         });
@@ -451,16 +457,18 @@ export default function ChartScanner({ variant = "default", active = true }) {
             takeProfit,
             region: mt5Session.region || "",
             comment: tradeCommentTag,
-            source: variant === "v2" ? "premium-scanner" : "chart-scanner",
+            // Always chart-scanner for API gate; premium is carried in the comment.
+            source: "chart-scanner",
           });
           nextFills.push({
             ...fill,
             target,
             tradeNo,
             takeProfit,
+            comment: tradeCommentTag,
           });
           pushEngineLog(
-            `Trade ${tradeNo} · ${target} · ${fill.side} ${fill.symbol} ${fill.volume} → TP ${takeProfit}`
+            `Trade ${tradeNo} · ${target}${isPremiumScanner ? " · premium" : ""} · comment ${tradeCommentTag}`
           );
         } catch (error) {
           lastError = error.message || "Trade failed";

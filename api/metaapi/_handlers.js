@@ -144,7 +144,8 @@ export async function handleTrade(req, res) {
     const body = await readJsonBody(req);
     const token = tokenFromRequest(req);
     const source = String(body.source || "").trim().toLowerCase();
-    if (source !== "chart-scanner") {
+    // Chart Scanner only — Interface 1 (chart-scanner) and Interface 2 premium scanner.
+    if (source !== "chart-scanner" && source !== "premium-scanner") {
       const err = new Error("Trades can only be opened from Chart Scanner after a scan");
       err.status = 403;
       throw err;
