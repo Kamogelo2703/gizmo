@@ -140,7 +140,7 @@ export default function ZetaInterface() {
           </section>
         )}
 
-        {zetaView === "scanner" && <ChartScanner />}
+        <ChartScanner active={zetaView === "scanner"} />
 
         {zetaView === "metatrader" && (
           <section className="view is-active view-metatrader">

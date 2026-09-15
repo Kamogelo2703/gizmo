@@ -11,93 +11,29 @@ import {
 import { buildBotTradeComment, placeTrade } from "./metaApi.js";
 import { isNativeApp, useApp } from "./store.jsx";
 import {
+  consumeScan,
+  loadScansLeft,
+  scanQuota,
+} from "./scanQuota.js";
+import {
   describeManagementPlan,
   loadTradeManagement,
   saveTradeManagement,
-  splitVolumeAcrossTargets,
 } from "./tradeManagement.js";
 
-/** Daily scan quotas — Interface 1 (Zeta) vs Interface 2 (V2). */
-const SCAN_QUOTA_ZETA = 9;
-const SCAN_QUOTA_V2 = 20;
-const SCANS_STORE_KEY = "apexea-daily-scans-v1";
 /** Android WebView: fewer shadowed particles (desktop web keeps the full storm). */
 const SCANNER_PARTICLE_COUNT = isNativeApp() ? 6 : 18;
 const SCANNER_OUTER_PARTICLES = isNativeApp() ? 0 : 18;
 
-function todayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function scanBucket(variant) {
-  return variant === "v2" ? "v2" : "zeta";
-}
-
-function scanQuota(variant) {
-  return scanBucket(variant) === "v2" ? SCAN_QUOTA_V2 : SCAN_QUOTA_ZETA;
-}
-
-function readScanStore() {
-  try {
-    const raw = localStorage.getItem(SCANS_STORE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data || typeof data !== "object") return null;
-    return data;
-  } catch {
-    return null;
+/** Trade index → TP target: trade 1 → TP1, trade 2 → TP2, rest → TP3. */
+function targetForTradeIndex(index) {
+  if (index === 0) {
+    return { target: "TP1", takeProfitKey: "takeProfit1", tradeNo: 1 };
   }
-}
-
-function writeScanStore(data) {
-  try {
-    localStorage.setItem(SCANS_STORE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore
+  if (index === 1) {
+    return { target: "TP2", takeProfitKey: "takeProfit2", tradeNo: 2 };
   }
-}
-
-/** Remaining scans for this interface today (resets each local calendar day). */
-function loadScansLeft(variant) {
-  const bucket = scanBucket(variant);
-  const quota = scanQuota(variant);
-  const day = todayKey();
-  const prev = readScanStore();
-  if (!prev || prev.day !== day) {
-    const fresh = { day, zeta: SCAN_QUOTA_ZETA, v2: SCAN_QUOTA_V2 };
-    writeScanStore(fresh);
-    return fresh[bucket];
-  }
-  const value = Number(prev[bucket]);
-  if (!Number.isFinite(value)) {
-    const next = { ...prev, day, [bucket]: quota };
-    writeScanStore(next);
-    return quota;
-  }
-  return Math.max(0, Math.floor(value));
-}
-
-function saveScansLeft(variant, value) {
-  const bucket = scanBucket(variant);
-  const day = todayKey();
-  const prev = readScanStore();
-  const next = {
-    day,
-    zeta:
-      prev?.day === day && Number.isFinite(Number(prev.zeta))
-        ? Math.max(0, Math.floor(Number(prev.zeta)))
-        : SCAN_QUOTA_ZETA,
-    v2:
-      prev?.day === day && Number.isFinite(Number(prev.v2))
-        ? Math.max(0, Math.floor(Number(prev.v2)))
-        : SCAN_QUOTA_V2,
-  };
-  next[bucket] = Math.max(0, Math.floor(Number(value) || 0));
-  writeScanStore(next);
+  return { target: "TP3", takeProfitKey: "takeProfit3", tradeNo: index + 1 };
 }
 
 function clampTrades(value) {
@@ -126,7 +62,7 @@ function formatSetupPrice(value) {
   return String(n);
 }
 
-export default function ChartScanner({ variant = "default" }) {
+export default function ChartScanner({ variant = "default", active = true }) {
   const {
     activeBot,
     eas,
@@ -177,8 +113,8 @@ export default function ChartScanner({ variant = "default" }) {
   const [tradeManagement, setTradeManagement] = useState(() => loadTradeManagement());
 
   useEffect(() => {
-    setScansLeft(loadScansLeft(variant));
-  }, [variant]);
+    if (active) setScansLeft(loadScansLeft(variant));
+  }, [variant, active]);
 
   useEffect(() => {
     if (!symbol) return;
@@ -336,10 +272,6 @@ export default function ChartScanner({ variant = "default" }) {
     setEngineStep(0);
     setEngineProgress(8);
 
-    const nextScans = Math.max(0, scansLeft - 1);
-    setScansLeft(nextScans);
-    saveScansLeft(variant, nextScans);
-
     try {
       for (let i = 0; i < TRADE_ENGINE_STEPS.length; i += 1) {
         setEngineStep(i);
@@ -383,12 +315,14 @@ export default function ChartScanner({ variant = "default" }) {
       persistTradeSettings(trades, lotSize, tradeSymbol);
 
       setSignal(result);
+      const nextScans = consumeScan(variant, loadScansLeft(variant));
+      setScansLeft(nextScans);
       setEngineStep(TRADE_ENGINE_STEPS.length - 1);
       setEngineProgress(100);
       pushEngineLog(
         `Setup ready · ${result.side} ${tradeSymbol} · Entry ${result.entry} · TP1 ${result.takeProfit1} · TP2 ${result.takeProfit2} · TP3 ${result.takeProfit3}`
       );
-      showToast(`${result.side} ${tradeSymbol} setup ready`);
+      showToast(`${result.side} ${tradeSymbol} setup ready · ${nextScans} scans left`);
       await sleep(500);
       setEngineMode("idle");
     } catch (error) {
@@ -490,53 +424,52 @@ export default function ChartScanner({ variant = "default" }) {
       const nextFills = [];
       let lastError = "";
       let completed = 0;
-      const totalLegs = tradeCount * 3;
+      const totalTrades = tradeCount;
 
       for (let i = 0; i < tradeCount; i += 1) {
-        const legs = splitVolumeAcrossTargets(lot, tradeManagement);
-        for (const leg of legs) {
-          setEngineStep(0);
-          const takeProfit = tpMap[leg.takeProfitKey];
-          const legComment = `${tradeComment}|${leg.target}`.slice(0, 31);
-          try {
-            const fill = await placeTrade({
-              accountId: mt5Session.accountId,
-              symbol: tradeSymbol,
-              volume: leg.volume,
-              side,
-              stopLoss: signal.stopLoss,
-              takeProfit,
-              region: mt5Session.region || "",
-              comment: legComment,
-              source: "chart-scanner",
-            });
-            nextFills.push({
-              ...fill,
-              target: leg.target,
-              takeProfit,
-              closePercent: leg.closePercent,
-            });
-            pushEngineLog(
-              `${leg.target} fill · ${fill.side} ${fill.symbol} ${fill.volume} → TP ${takeProfit}`
-            );
-          } catch (error) {
-            lastError = error.message || "Trade failed";
-            nextFills.push({
-              ok: false,
-              symbol: tradeSymbol,
-              side,
-              volume: leg.volume,
-              target: leg.target,
-              takeProfit,
-              error: lastError,
-            });
-            pushEngineLog(`${leg.target} failed · ${lastError}`);
-          }
-          completed += 1;
-          setEngineStep(1);
-          setEngineProgress(20 + Math.round((completed / Math.max(1, totalLegs)) * 75));
-          await sleep(220);
+        const { target, takeProfitKey, tradeNo } = targetForTradeIndex(i);
+        const takeProfit = tpMap[takeProfitKey];
+        const tradeCommentTag = `${tradeComment}|T${tradeNo}|${target}`.slice(0, 31);
+        setEngineStep(0);
+        try {
+          const fill = await placeTrade({
+            accountId: mt5Session.accountId,
+            symbol: tradeSymbol,
+            volume: lot,
+            side,
+            stopLoss: signal.stopLoss,
+            takeProfit,
+            region: mt5Session.region || "",
+            comment: tradeCommentTag,
+            source: "chart-scanner",
+          });
+          nextFills.push({
+            ...fill,
+            target,
+            tradeNo,
+            takeProfit,
+          });
+          pushEngineLog(
+            `Trade ${tradeNo} · ${target} · ${fill.side} ${fill.symbol} ${fill.volume} → TP ${takeProfit}`
+          );
+        } catch (error) {
+          lastError = error.message || "Trade failed";
+          nextFills.push({
+            ok: false,
+            symbol: tradeSymbol,
+            side,
+            volume: lot,
+            target,
+            tradeNo,
+            takeProfit,
+            error: lastError,
+          });
+          pushEngineLog(`Trade ${tradeNo} · ${target} failed · ${lastError}`);
         }
+        completed += 1;
+        setEngineStep(1);
+        setEngineProgress(20 + Math.round((completed / Math.max(1, totalTrades)) * 75));
+        await sleep(220);
       }
 
       if (managementPlan.moveSlToBreakevenAfterTp1) {
@@ -551,7 +484,7 @@ export default function ChartScanner({ variant = "default" }) {
       const okCount = nextFills.filter((f) => f.ok !== false).length;
       if (okCount) {
         showToast(
-          `Executed ${okCount}/${nextFills.length} legs · ${side} ${tradeSymbol} with TP1/TP2/TP3`
+          `Executed ${okCount}/${nextFills.length} trades · T1→TP1 · T2→TP2 · rest→TP3`
         );
       } else {
         showToast(lastError || nextFills[0]?.error || "No trades filled");
@@ -578,7 +511,11 @@ export default function ChartScanner({ variant = "default" }) {
     scansLeft > 0;
 
   return (
-    <section className={`view is-active view-scanner${variant === "v2" ? " cs-v2" : ""}`}>
+    <section
+      className={`view is-active view-scanner${variant === "v2" ? " cs-v2" : ""}`}
+      hidden={!active ? true : undefined}
+      aria-hidden={!active ? true : undefined}
+    >
       <header className="cs-head">
         <div className="cs-head-main">
           <p className="cs-kicker">{activeBot?.name || "ApexEA"}</p>
@@ -1060,10 +997,10 @@ export default function ChartScanner({ variant = "default" }) {
 
           {fills.length ? (
             <span>
-              {fills.filter((f) => f.ok !== false).length}/{fills.length} legs filled
+              {fills.filter((f) => f.ok !== false).length}/{fills.length} trades filled
               {fills
                 .filter((f) => f.ok !== false && f.target)
-                .map((f) => ` · ${f.target}`)
+                .map((f) => ` · T${f.tradeNo || "?"} ${f.target}`)
                 .join("") ||
                 (fills.some((f) => f.ok === false)
                   ? ` · ${fills.find((f) => f.ok === false)?.error || "failed"}`
