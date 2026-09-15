@@ -5,6 +5,11 @@ import {
   fetchPaypalConfig,
   loadPaypalSdk,
 } from "./paypalApi.js";
+import {
+  hasDeviceAccess,
+  isSignupEntitled,
+  rememberDeviceAccess,
+} from "./deviceAccess.js";
 import { useApp } from "./store.jsx";
 
 export default function CoverLock() {
@@ -79,10 +84,14 @@ export default function CoverLock() {
             onApprove: async (data) => {
               setPaying(true);
               try {
+                const paidEmail = String(coverEmail || email || "")
+                  .trim()
+                  .toLowerCase();
                 const result = await capturePaypalOrder(
                   data.orderID,
-                  coverEmail || email
+                  paidEmail
                 );
+                rememberDeviceAccess(paidEmail, { paid: true });
                 await refreshSignups?.();
                 setLockStep("license");
                 showToast(
@@ -144,6 +153,25 @@ export default function CoverLock() {
     }
   }
 
+  async function grantAccessForEmail(key, current) {
+    rememberDeviceAccess(key, {
+      paid: true,
+      bypassed: true,
+    });
+    const restored = await restoreLicensesByEmail?.(key);
+    if (restored) {
+      setLockStep("cover");
+      return true;
+    }
+    setLockStep("license");
+    showToast(
+      current?.accessPaid || hasDeviceAccess(key)
+        ? "Access restored — enter your license key"
+        : "Approved — enter your license key"
+    );
+    return true;
+  }
+
   async function submitEmail(event) {
     event.preventDefault();
     if (!email.trim() || !event.currentTarget.checkValidity()) {
@@ -153,14 +181,8 @@ export default function CoverLock() {
     const key = await requestSignup(email);
     if (!key) return;
     const current = getSignup(key) || { email: key, status: "pending" };
-    if (current?.status === "approved") {
-      const restored = await restoreLicensesByEmail?.(key);
-      if (restored) {
-        setLockStep("cover");
-        return;
-      }
-      setLockStep("license");
-      showToast("Already approved — enter your license key");
+    if (isSignupEntitled(current, key)) {
+      await grantAccessForEmail(key, current);
       return;
     }
     setLockStep("pending");
@@ -175,27 +197,25 @@ export default function CoverLock() {
     const key = String(coverEmail || email || "")
       .trim()
       .toLowerCase();
-    const merged = await refreshSignups?.();
-    const current =
-      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
-      getSignup(key);
-    if (!current) {
+    if (!key.includes("@")) {
       setLockStep("cover");
       showToast("Submit your email first");
       return;
     }
-    if (current.status === "approved" || current.accessPaid) {
-      const restored = await restoreLicensesByEmail?.(key);
-      if (restored) {
-        setLockStep("cover");
-        return;
-      }
-      setLockStep("license");
-      showToast(
-        current.accessPaid
-          ? "Payment found — enter your license key"
-          : "Approved — enter your license key"
-      );
+    const merged = await refreshSignups?.();
+    const current =
+      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
+      getSignup(key);
+
+    // Same phone that previously paid or was bypassed gets access back immediately.
+    if (isSignupEntitled(current, key)) {
+      await grantAccessForEmail(key, current);
+      return;
+    }
+
+    if (!current) {
+      setLockStep("cover");
+      showToast("Submit your email first");
       return;
     }
     if (current.status === "declined") {
@@ -282,6 +302,10 @@ export default function CoverLock() {
             >
               I have paid
             </button>
+            <p className="ea-hint" style={{ marginTop: 10, textAlign: "center" }}>
+              Paid or bypassed on this phone before? Tap <strong>I have paid</strong>{" "}
+              to get access back.
+            </p>
             <button
               className="cover-back"
               type="button"
@@ -327,8 +351,8 @@ export default function CoverLock() {
               I have paid
             </button>
             <p className="ea-hint" style={{ marginTop: 12, textAlign: "center" }}>
-              Already paid and reinstalled the app? Tap <strong>I have paid</strong> to
-              restore access with this email.
+              Already paid or previously bypassed on this phone? Tap{" "}
+              <strong>I have paid</strong> to restore access with this email.
             </p>
             <button
               className="cover-back"

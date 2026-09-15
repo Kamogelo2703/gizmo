@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { mediaUrl } from "./apiOrigin.js";
 import ChartScanner from "./ChartScanner.jsx";
 import EconomicCalendarButton from "./EconomicCalendar.jsx";
@@ -11,11 +11,8 @@ import V2ScannerPaywall from "./V2ScannerPaywall.jsx";
 
 function resolveHeroPhoto(bot) {
   const photo = String(bot?.photo || "").trim();
-  const id = String(bot?.id || "").trim();
-  // Prefer the full-quality API file over tiny legacy data-URL embeds.
-  if (id && photo.startsWith("data:image/")) {
-    return mediaUrl(`/api/licenses/photo?botId=${encodeURIComponent(id)}&v=full`);
-  }
+  // Use the same photo source as the robot list / float orb so Interface 2
+  // never opens with an empty black hero while thumbnails still show the bot.
   if (photo) return mediaUrl(photo);
   return "/zeta-fire-portal.jpg";
 }
@@ -55,14 +52,17 @@ export default function V2Interface() {
   const [floatCycle, setFloatCycle] = useState(false);
   const [heroBroken, setHeroBroken] = useState("");
 
+  // Fresh hero attempt every time this interface mounts or the active bot changes.
+  useEffect(() => {
+    setHeroBroken("");
+  }, [activeBot?.id, activeBot?.photo]);
+
   const allowed = catalog.filter((s) => appSymbols.has(s));
   const list = v2SymTab === "allowed" ? allowed : catalog;
   const activeRobots = bots.filter((b) => b.active);
   const preferredHero = resolveHeroPhoto(activeBot);
   const heroSrc =
-    heroBroken === preferredHero
-      ? activeBot?.photo || "/zeta-fire-portal.jpg"
-      : preferredHero;
+    heroBroken === preferredHero ? "/zeta-fire-portal.jpg" : preferredHero;
   const floatSrc = mediaUrl(activeBot?.photo || "/logo.png");
   const tradeComment = buildBotTradeComment(activeBot?.name);
   const scriptSymbol =

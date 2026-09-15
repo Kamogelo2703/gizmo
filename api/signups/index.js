@@ -3,11 +3,11 @@ import {
   listSignups,
   readJsonBody,
   sendJson,
+  setSignupAccessPaid,
   setSignupPremiumScanner,
   setSignupStatus,
   upsertSignup,
 } from "./_lib.js";
-
 export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
@@ -38,6 +38,15 @@ export default async function handler(req, res) {
         // Single write — setSignupPremiumScanner also approves the account.
         const signup = await setSignupPremiumScanner(body.email, true);
         sendJson(res, 200, { signup, premiumScanner: true });
+        return;
+      }
+      if (
+        body.accessPaid === true ||
+        body.action === "accessPaid" ||
+        body.action === "markPaid"
+      ) {
+        const signup = await setSignupAccessPaid(body.email, true);
+        sendJson(res, 200, { signup, accessPaid: true });
         return;
       }
       const signup = await setSignupStatus(body.email, body.status);
