@@ -233,7 +233,8 @@ export default function EconomicCalendarButton({ variant = "zeta" }) {
       });
       recordTrade({
         botName: activeBot?.name || "Bot",
-        symbol: parsed.symbol,
+        // Prefer broker-resolved symbol from MetaAPI fill.
+        symbol: fill?.symbol || parsed.symbol,
         lotSize: lot,
         action: parsed.side,
         side: parsed.side,

@@ -474,7 +474,8 @@ export default function ChartScanner({ variant = "default", active = true }) {
           });
           recordTrade({
             botName: activeBot?.name || "Bot",
-            symbol: tradeSymbol,
+            // Prefer broker-resolved symbol from MetaAPI fill (e.g. XAUUSD.m).
+            symbol: fill?.symbol || tradeSymbol,
             lotSize: lot,
             action: side,
             side,

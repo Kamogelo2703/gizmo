@@ -56,6 +56,7 @@ export default function CoverLock() {
   const [email, setEmail] = useState(coverEmail || "");
   const [licenseKey, setLicenseKey] = useState("");
   const [paying, setPaying] = useState(false);
+  const [checkingPaid, setCheckingPaid] = useState(false);
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalError, setPaypalError] = useState("");
   const hotspotRef = useRef({ count: 0, first: 0 });
@@ -187,51 +188,58 @@ export default function CoverLock() {
     // Returning clients skip payment, but must type their license key again.
     setLockStep("license");
     showToast("Enter your license key to unlock");
+    // Persist paid flag in the background — never block the unlock UI on it.
+    void updateSignupAccessPaid(key)
+      .then(() => refreshSignups?.())
+      .catch(() => {});
     return true;
+  }
+
+  function persistPaidLocally(key, current) {
+    return {
+      ...(current || { email: key }),
+      email: key,
+      status: "approved",
+      accessPaid: true,
+      accessPaidAt: Date.now(),
+    };
   }
 
   /** Returning clients: paid, bypassed, approved, or already issued a license. */
   async function resolveReturningAccess(key) {
-    const merged = await refreshSignups?.();
-    let current =
-      (Array.isArray(merged) ? merged.find((s) => s.email === key) : null) ||
-      getSignup(key);
+    // Instant path: local cache / this device already unlocked — do not wait on network.
+    let current = getSignup(key);
+    if (isSignupEntitled(current, key) || hasDeviceAccess(key)) {
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
+      void refreshSignups?.().catch(() => {});
+      return { entitled: true, current: current || persistPaidLocally(key, null) };
+    }
+
+    // Parallel network checks (signup sync + license ownership) — whichever confirms first wins.
+    const [merged, owned] = await Promise.all([
+      refreshSignups?.().catch(() => null),
+      emailOwnsLicense(key),
+    ]);
+
+    current =
+      (Array.isArray(merged)
+        ? merged.find((s) => normalizeEmail(s.email) === key)
+        : null) ||
+      getSignup(key) ||
+      current;
 
     if (isSignupEntitled(current, key)) {
+      rememberDeviceAccess(key, { paid: true, bypassed: true });
       return { entitled: true, current };
     }
 
-    const owned = await emailOwnsLicense(key);
     if (!owned.length) {
       return { entitled: false, current };
     }
 
     // License already issued for this email = they had access before.
-    // Persist paid/approved so the next reinstall works without guessing.
-    try {
-      const remote = await updateSignupAccessPaid(key);
-      if (remote) {
-        current = remote;
-        await refreshSignups?.();
-      } else {
-        current = {
-          ...(current || { email: key }),
-          email: key,
-          status: "approved",
-          accessPaid: true,
-          accessPaidAt: Date.now(),
-        };
-      }
-    } catch {
-      current = {
-        ...(current || { email: key }),
-        email: key,
-        status: "approved",
-        accessPaid: true,
-        accessPaidAt: Date.now(),
-      };
-    }
     rememberDeviceAccess(key, { paid: true, bypassed: true });
+    current = persistPaidLocally(key, current);
     return { entitled: true, current, owned };
   }
 
@@ -263,24 +271,30 @@ export default function CoverLock() {
       showToast("Submit your email first");
       return;
     }
-    const { entitled, current } = await resolveReturningAccess(key);
-    if (entitled) {
-      await grantAccessForEmail(key, current);
-      return;
-    }
+    if (checkingPaid) return;
+    setCheckingPaid(true);
+    try {
+      const { entitled, current } = await resolveReturningAccess(key);
+      if (entitled) {
+        await grantAccessForEmail(key, current);
+        return;
+      }
 
-    if (!current) {
-      setLockStep("cover");
-      showToast("Submit your email first");
-      return;
-    }
-    if (current.status === "declined") {
+      if (!current) {
+        setLockStep("cover");
+        showToast("Submit your email first");
+        return;
+      }
+      if (current.status === "declined") {
+        setLockStep("pending");
+        showToast("Still declined — change email or complete lifetime payment");
+        return;
+      }
       setLockStep("pending");
-      showToast("Still declined — change email or complete lifetime payment");
-      return;
+      showToast("No payment found yet — pay lifetime access of $35.60 to continue");
+    } finally {
+      setCheckingPaid(false);
     }
-    setLockStep("pending");
-    showToast("No payment found yet — pay lifetime access of $35.60 to continue");
   }
 
   async function submitLicense(event) {
@@ -354,9 +368,10 @@ export default function CoverLock() {
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
               onClick={checkPaidStatus}
+              disabled={checkingPaid}
               style={{ marginTop: 12 }}
             >
-              I have paid
+              {checkingPaid ? "Checking…" : "I have paid"}
             </button>
             <p className="ea-hint" style={{ marginTop: 10, textAlign: "center" }}>
               Already paid before? Tap <strong>I have paid</strong>, then enter your
@@ -402,9 +417,10 @@ export default function CoverLock() {
               className="admin-btn admin-btn-outline admin-btn-block"
               type="button"
               onClick={checkPaidStatus}
+              disabled={checkingPaid}
               style={{ marginTop: 10 }}
             >
-              I have paid
+              {checkingPaid ? "Checking…" : "I have paid"}
             </button>
             <p className="ea-hint" style={{ marginTop: 12, textAlign: "center" }}>
               Already paid or had access before? Tap <strong>I have paid</strong>, then

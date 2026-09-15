@@ -57,11 +57,13 @@ export function hasDeviceAccess(email) {
 }
 
 export function isSignupEntitled(signup, email = "") {
-  if (signup) {
-    const status = String(signup.status || "").toLowerCase();
-    if (status === "approved") return true;
-    if (signup.accessPaid) return true;
-    if (signup.appAccessUnlockedAt) return true;
-  }
-  return hasDeviceAccess(email || signup?.email);
+  const key = email || signup?.email;
+  // Device unlock wins even when local signup is still "pending" after a stale sync.
+  if (hasDeviceAccess(key)) return true;
+  if (!signup) return false;
+  const status = String(signup.status || "").toLowerCase();
+  if (status === "approved") return true;
+  if (signup.accessPaid) return true;
+  if (signup.appAccessUnlockedAt) return true;
+  return false;
 }
